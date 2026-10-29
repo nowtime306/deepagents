@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/langchain-ai/deepagents/compare/deepagents-talon==0.1.0...deepagents-talon==0.1.1) (2026-10-29)
+
+
+### Features
+
+* **talon:** support skill-scoped MCP tools ([#7280](https://github.com/langchain-ai/deepagents/issues/7280)) ([2a5b748](https://github.com/langchain-ai/deepagents/commit/2a5b748dcc1e76c3eb5cd1735351e230788f00d7))
+
 ## [0.1.0](https://github.com/langchain-ai/deepagents/compare/deepagents-talon==0.0.9...deepagents-talon==0.1.0) (2026-10-22)
 
 ### ⚠ BREAKING CHANGES
