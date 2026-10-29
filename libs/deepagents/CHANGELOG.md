@@ -2,6 +2,13 @@
 
 # Deep Agents Changelog
 
+## [0.7.33](https://github.com/langchain-ai/deepagents/compare/deepagents==0.7.32...deepagents==0.7.33) (2026-10-29)
+
+
+### Bug Fixes
+
+* **sdk:** promote rubric middleware out of beta ([#7368](https://github.com/langchain-ai/deepagents/issues/7368)) ([98773a7](https://github.com/langchain-ai/deepagents/commit/98773a73843421f85a2113e6c3b0262f53d9bcd6))
+
 ## [0.7.32](https://github.com/langchain-ai/deepagents/compare/deepagents==0.7.31...deepagents==0.7.32) (2026-10-23)
 
 ### Performance Improvements
