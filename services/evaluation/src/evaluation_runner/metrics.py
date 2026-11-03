@@ -1,6 +1,7 @@
 """Locked DeepEval public metric integration, without a supplier fallback."""
 
 from .contracts import Check, Result
+from .network import phase
 
 
 def tool_correctness(spec: Check, evidence: dict) -> Result:
@@ -8,9 +9,10 @@ def tool_correctness(spec: Check, evidence: dict) -> Result:
         return Result(registered_id=spec.registered_id, required=spec.required, status="NOT_SCORED",
                       reason="Complete actual tool evidence is unavailable")
     # The CLI installs network/privacy controls before this first DeepEval import.
-    from deepeval.metrics import ToolCorrectnessMetric
-    from deepeval.models import DeepEvalBaseLLM
-    from deepeval.test_case import LLMTestCase, ToolCall, ToolCallParams
+    with phase("import"):
+        from deepeval.metrics import ToolCorrectnessMetric
+        from deepeval.models import DeepEvalBaseLLM
+        from deepeval.test_case import LLMTestCase, ToolCall, ToolCallParams
 
     class ControlledJudge(DeepEvalBaseLLM):
         calls = 0
@@ -45,7 +47,8 @@ def tool_correctness(spec: Check, evidence: dict) -> Result:
     test_case = LLMTestCase(input=evidence.get("input", "Evaluation"), actual_output="Controlled tool evidence",
                             tools_called=[ToolCall(**tool) for tool in evidence.get("tools", [])],
                             expected_tools=[ToolCall(**tool) for tool in parameters.get("expected_tools", [])])
-    score = float(metric.measure(test_case, _show_indicator=False))
+    with phase("metric"):
+        score = float(metric.measure(test_case, _show_indicator=False))
     if judge.calls:
         raise RuntimeError("Unexpected judge invocation")
     return Result(registered_id=spec.registered_id, required=spec.required,

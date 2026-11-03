@@ -232,6 +232,26 @@ def pending_resources(database):
             raise RuntimeError('Unresolved test resources; database retained')
 
 
+def business_history(database):
+    return any(database.execute(sql.SQL('SELECT 1 FROM {} LIMIT 1').format(sql.Identifier(table))).fetchone()
+               for table in ('task_runs','work_queue_runs','workflow_runs'))
+
+
+def confirm_cleanup_evidence(directory):
+    allowed={'PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','HOME','USERPROFILE','APPDATA','LOCALAPPDATA'}
+    environment={key:value for key,value in os.environ.items() if key.upper() in allowed}
+    environment.update(PYTHON_DOTENV_DISABLED='1',DEEPEVAL_DISABLE_DOTENV='1',DEEPEVAL_TELEMETRY_OPT_OUT='1')
+    for key in ('HOME','USERPROFILE','APPDATA','LOCALAPPDATA',
+                'DEEPEVAL_HOME','ENV_DIR_PATH','DEEPEVAL_RESULTS_FOLDER','DEEPEVAL_CACHE_FOLDER'):
+        environment[key]=str(directory)
+    python=ROOT/'services/evaluation/.venv/Scripts/python.exe'
+    result=subprocess.run([str(python),'-I',str(ROOT/'scripts/evaluation-ready.py'),'--state',str(directory)],
+                          cwd=directory,env=environment,capture_output=True,timeout=20,check=False,
+                          **({'creationflags':subprocess.CREATE_NO_WINDOW} if sys.platform=='win32' else {}))
+    if result.returncode!=0:
+        raise RuntimeError('Business execution evidence is incomplete; database retained')
+
+
 def cleanup(directory, admin_file):
     state,stopped=cleanup_identity(directory)
     params = admin_params(admin_file)
@@ -241,6 +261,9 @@ def cleanup(directory, admin_file):
         if namespace != state['sandbox_namespace']:
             raise RuntimeError('Test namespace changed; manual review required')
         pending_resources(database)
+        has_history=business_history(database)
+    if has_history:
+        confirm_cleanup_evidence(directory)
     with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop if sys.platform == 'win32' else asyncio.new_event_loop) as runner:
         runner.run(confirm_namespace_empty(directory, state['sandbox_namespace']))
     with psycopg.connect(**params, autocommit=True) as admin:

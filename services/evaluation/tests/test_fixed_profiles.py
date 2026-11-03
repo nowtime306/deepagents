@@ -1,3 +1,4 @@
+import hashlib
 import json
 from uuid import uuid4
 
@@ -5,13 +6,14 @@ import httpx
 import pytest
 from test_core import attestation, target
 
+from evaluation_runner import fixed_audit, network
 from evaluation_runner.client import Platform
 from evaluation_runner.fixed_fixtures import FixedFixtures
 from evaluation_runner.fixed_run import catalog, cleanup, execute, initialize, readiness, suite_context
 from evaluation_runner.journal import Journal, UnknownSubmission
 
 
-def test_a02_formal_initialization_two_turn_observation_metric_and_retained_history(tmp_path):
+def test_a02_formal_initialization_two_turn_observation_metric_and_retained_history(tmp_path, monkeypatch):
     value = target()
     identifiers = {key: str(uuid4()) for key in ("model", "agent", "version", "conversation")}
     runs, calls = [], []
@@ -61,20 +63,39 @@ def test_a02_formal_initialization_two_turn_observation_metric_and_retained_hist
                                                        "unknown_calls": 0, "pending_calls": 0,
                                                        "input_tokens": 10 * len(runs), "output_tokens": 5 * len(runs)}})
         if path.endswith("/observations"):
-            return httpx.Response(200, json={"controlled_model": {"complete": True}, "context_assertions": [
-                {"human_turns": 2, "has_project_context": True, "has_update_to_three": True}]})
-        return httpx.Response(200, json={"status": "SUCCEEDED"})
+            return httpx.Response(200, json={"mode": "ask", "run_id": runs[-1][0], "status": "SUCCEEDED",
+                "controlled_model": {"recorded": True, "complete": True, "case_id": "AET-A02", "provider_calls": 1, "tokens": 15},
+                "context_assertions": [{"mode": "ask", "run_id": runs[-1][0], "case_id": "AET-A02", "role": "lead",
+                    "provider_calls": 1, "human_turns": 2,
+                    "human_context_digest": hashlib.sha256(json.dumps([text for _, text in runs], ensure_ascii=False).encode()).hexdigest(),
+                    "has_project_context": True, "has_update_to_three": True}]})
+        return httpx.Response(200, json={"id": path.rsplit("/", 1)[-1], "status": "SUCCEEDED"})
 
     platform = Platform(value, transport=httpx.MockTransport(server))
     specimen = next(row for row in catalog().cases if row.case_id == "AET-A02")
     journal = Journal(tmp_path)
     attempt = {"attempt_id": str(uuid4()), "case_id": specimen.case_id, "fact_results": [], "metric_results": []}
+    context = suite_context(None, specimen, catalog(), value)
+    from evaluation_runner.journal import digest
+    journal.data.update(suite_context=context, environment_id=value.environment_id, owner_id=value.owner_id,
+                        target_digest=digest(value.model_dump()), dataset_digest=context["catalog_digest"],
+                        case_definition_digest=context["case_definition_digest"])
+    attempt["repeat_index"] = 1
+    session = network.Session("run", {**context, "environment_id": value.environment_id, "owner_id": value.owner_id,
+                                       "target_digest": journal.data["target_digest"]}, value.api_base_url)
+    monkeypatch.setattr(network, "ACTIVE", session)
+    fixed_audit.begin(tmp_path, session)
+    attempt["run_audit_session_id"] = session.data["session_id"]
     journal.data["attempts"].append(attempt)
     try:
         initialize(platform, journal, attempt, specimen)
         initialize(platform, journal, attempt, specimen)
-        execute(platform, journal, attempt, specimen, tmp_path)
-        execute(platform, journal, attempt, specimen, tmp_path)
+        with network.phase("execution"):
+            execute(platform, journal, attempt, specimen, tmp_path)
+            execute(platform, journal, attempt, specimen, tmp_path)
+        with network.phase("export"):
+            pass
+        fixed_audit.seal(tmp_path, session, "COMPLETE")
         assert len(runs) == 2
         assert attempt["task_outcome"] == "PASS"
         assert attempt["metric_results"][0]["status"] == "PASS"

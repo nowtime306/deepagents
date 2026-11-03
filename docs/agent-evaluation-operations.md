@@ -128,3 +128,5 @@ root独立读审关闭O1–O7后，非作者执行suite工程组首轮10 failed/
 profile扩展PF1/PF2由本角色非作者独审发现并关闭：精确4冻结工程测试文件18项加原2独立反例，20 passed/0 skipped，1.95秒；详情见[profile审查报告](agent-evaluation-profile-review.md)。首轮目录收集多含2个未审WIP测试，额外结果保留而不计正式范围，已按精确文件重跑。没有启动真实API/PG/manager/容器或付费调用。
 
 最小suite-capabilities.json已生成，只登记A02及fixed_run d51f529...，保守sandbox上界2与A02无沙箱创建步骤分开记录；SHA3abdab11f794347dcd2efccba54d9077b084a141c35cf588f18bcd6d9ef4f8b4。等待root核对并提交所有已审source形成固定HEAD，再全局短暂停更源、生成新目标，才进行正式A02单例。原两个旧自有目标尚未回收，依root后续授权按身份/namespace/unknown用量/真实进程条件处理；未触及其他用户服务。
+
+旧预检目标回收补记：root核读父MD及29项独立工程测试后授权，已回收f7d21a9c、693ecbe1两个精确自有测试库。先核每库真实namespace、0业务任务/用量/沙箱会话、PENDING/UNKNOWN0及该namespace Docker清单为空；F7实际无PID/匹配serve进程且数据库连接0，用有CIM/SQL/原WinError日志摘要来源的startup_failed收据，明确graceful=false；693只发本目标合作停止请求，真实shutdown留下graceful=true。随后原cleanup两次退出0，无FORCE；后核两库不存在/会话0、scope进程及namespace容器空。数据目录、私有密钥文件和原失败日志保留，不回补旧A02业务事实。总收据`.local/team-workspace/agent-evaluation/old-target-cleanup-summary.json`引用各final-cleanup-receipt.json；未接管用户8100/3131、未改或重启原manager、未重发任务。

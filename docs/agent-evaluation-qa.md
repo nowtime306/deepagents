@@ -66,3 +66,30 @@ freeze7881a2fde54cb4d1aadabd6ff2f78f183b0e29d6b099423d11be16abb94fdab7的实际�
 网络证据也有明确局限：最后cleanup CLI覆盖journal.network_observations，只剩execution阶段2条allowed事件且无destination。它不能证明整次多进程、import/metric/export全部阶段无外连，也不是OS出站隔离。固定模型工厂/策略核验与完整出站流量证据分别报告；不称AE-02完整验收。真实外部模型/裁判与UI未执行，sandbox_creates=0；基础设施成本NOT_PRICED、total/cost仍null/UNKNOWN，没有将未知费用记0。父层只有JSON/JUnit，中文MD在子层，父汇总可读报告缺口另由ops处理。
 
 旧执行的停止/精确回收收据已补齐并只读核验：正式cleanup/stop/target cleanup退出码均0；库 `owner_agent_evaluation_3c54514f3b694275acb498c80291db83_test` 的ops只读pg_database结果不存在、会话0；CIM核PID63816进程数0。上述是对ops收据核验，本角色未另查生产DB或重跑业务。`completion-receipt.json` SHA256 `96d180a74db7d85c37d818bfe29681aa1f2325fcc530d69e825fbd722db422d6` 及其8项artifact hash核对匹配；本角色此前记录的10项原artifact摘要未变。精确路径 `.local/agent-evaluations/suite-a02-first-76d819ab/`，含suite.json、父results.xml、子result/{journal.json,report.json,report.md,results.xml}、completion-receipt.json、pid-receipt.json。核验私有收据 `services/evaluation/.local/first-a02-evidence-review/artifact-receipt.json`。本次仅记录已执行观察与缺项，未修改原数据/报告或产品实现。
+
+
+## R02修复复审（仅8探针，未执行新业务）
+
+原R02/P1及复审发现的3个P2已在客户端代码审查范围关闭。新差异freeze `789d5b04f350e4c5f27dc30a10e0cd6685ea63126bd73d1941ce3640221c5f85` 叠加base84f130的10文件摘要一致；已实现最小脱敏事实快照/hash引用、两轮输入/最终JSON/上下文/终态/用量重算，以及缺证据阻断cleanup/offline。另修单次有界读取同bytes校验解析、缺本root context为Blocked而非已知FAIL、当前工具证据不足时拒绝旧评分PASS。
+
+根授权的8个最小独立复审探针全部通过，执行前后10文件hash不变，无HTTP/DB/业务/付费/UI；未运行作者103工程组，不与旧66或实际任务计数相加。证据 `services/evaluation/.local/r02-independent-review/run_71f3fd8b56f6/`。首次旧A02仍保留code gate PASS与独立事实验收NEEDS_REVIEW_R02的历史结论；代码修复不补回已删除数据库中的证据。R03及消费路径独审、完整工程QA与新隔离实际suite仍是后续独立门禁。
+
+
+## 私有W01观察模块工程批次（未接线，非真实Work）
+
+W01-S01/P2未知操作状态可被当已结束的问题已复审关闭：严格035五种原生状态，仅SUCCEEDED/FAILED视为settled。私有模块冻结SHA075a44f4...及测试14b0b7ea...后独立 **20passed/0failed/0skipped，0.13秒**；另7个原状态边界探针通过，不与20混加。5个直接源码/测试摘要前后相同，私有无外连环境的实际网络事件0。
+
+证据 `services/evaluation/.local/w01-independent-qa/run_0342944bff0a/`；细节 `services/evaluation/.local/w01-independent-review/review.md`。仅MockTransport正式GET形状与纯事实重算，无真实目标HTTP、Coding沙箱、PG或UI。该模块尚未接线/READY，移入src后的接线与证据/清理消费仍需独审，本批不增加已验收A20任务数，也不与A02工程/原实际suite计数混加。
+
+
+## R02/R03合并冻结完整客户端工程QA
+
+R02事实证据复审及R03-01当前audit-index/ready闭合复审后，根明确授权完整客户端工程执行。活动冻结采用base `84f130989c1054f463c930d38ec8c0bee34bfe9eff2101988faf6d760aadecd7`、R02fix `789d5b04f350e4c5f27dc30a10e0cd6685ea63126bd73d1941ce3640221c5f85`、R03fix `d15d0f028880152a1e17115651eebaf07f0dec54d18e2ea5e605d308c007baf6`；未改的核心/首fixture依赖亦逐文件纳入本次manifest，不误称旧提交已包含后续未提交修复。
+
+独立 **124passed/0failed/0skipped，4.77秒**，11个冻结测试文件：core18、modes3、review_regressions12、review_r4 4、UTF8 2、strict15、fixed profiles4、offline report identity8、evidence retention34、network sessions3、ready closure21。35个选定源码/测试/契约与依赖摘要执行前后相同。124替代本范围旧103/66工程快照，不与它们相加；W01私有模块未接线且未收进本124。R02原问题8审查探针、R03其他角色复审探针、W01私有20+7亦分别保留，均不增加真实业务任务数。
+
+环境无供应商凭据、私有home/temp/DeepEval目录。父pytest进程socket/DNS一律拒绝，实际事件0；唯一实际连接工程场景在fresh `-I`子进程自建临时loopback HTTPServer，由源内守卫限定该端口。其留存audit摘要hash匹配：execution记录allowed DNS+connect以及对固定外部测试地址的denied DNS；import/metric/export均COMPLETE且event_count0。外部地址在解析前被拒绝，没有访问外部服务；子进程只运行本地真实DeepEval确定性工具指标。该审计是Python层测试观察，不是OS防火墙、真实平台worker、供应商调用或完整轨迹验收。
+
+覆盖包括消息/输出/context/终态/nativeusage从已留存事实重算、缺失/篡改/跨scope/保存失败不能新导出PASS、完整事实先于cleanup、三报告hash/ready/current-index闭合、最后session/全身份/旧引用/错误或pending后继/reader锁等反例，以及此前预算、未知提交、事实优先、严格类型和Windows中文CLI回归。仍仅MockTransport正式API形状、真实本地CLI文件I/O/DeepEval与上述临时loopback测试；无真实target业务、PG、Coding沙箱、页面或付费。
+
+证据 `services/evaluation/.local/a02-complete-client-independent-qa/run_e1604e09040e/{manifest.json,summary.json,pytest.log,results.xml}`。summary包含逐文件实际数量及临时网络场景hash/phase摘要；初次摘要未匹配pytest缩短目录名，随后只读定位原audit补入summary，未重跑测试。root另行开发/审查suite消费checked-ready及相同bytes导出绑定，不在本客户端35文件范围。真实新A02仍须完整ops消费复审及新开始门禁；首次旧A02的NEEDS_REVIEW_R02历史结论不变。

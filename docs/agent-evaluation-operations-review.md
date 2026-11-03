@@ -39,3 +39,11 @@ O1～O7在 `suite-o6-o7-freeze.json` 冻结后静态复审关闭，清单摘要 
 首A02原执行记录PASS，但原事实快照及完整审计缺失，独立验收待R02/R03修复；原报告不回写。父层此前仅JSON/JUnit，中文可读报告位于子层。新增父层 `report.md` 使用与JUnit相同的计划/状态行，明确案例与重复计数、未执行项、源码/规则身份、清理和子报告引用，并说明代码PASS不等于独立事实验收。
 
 根角色复审两文件冻结 `suite-parent-md-freeze.json`（摘要 `fc80c1777caa8578b7456abbe8a1499433aff71b4aec2525460b6ef2dd6264c1`）后独立工程重测 **29通过、0跳过**（0.30秒）；包含旧27项，不相加。前后源码/测试摘要一致，未启动HTTP、数据库或容器。证据 `.local/agent-evaluations/ops-md-independent-5c30043a18394d19953f8e2daebf18c8/`。
+
+## R02/R03消费与独立回收门禁
+
+根实现的批次消费增量经另一角色复审及独立38项工程测试：验证最后收据、当前目标/用例/重复身份、同份有界报告字节，清理后再次检查；foreign journal不提供本次运行或失败事实，已绑定的持久事实FAIL不被导出异常覆盖。此组包含旧29项，不累加，见网络审查记录。
+
+运维实现的独立target回收守卫经根静态复审，补齐私有HOME与reader禁止socket目的地。只有业务历史为零的纯预检沿用原规则；存在任务、Work或Workflow历史（含初始化）时必须使用独立eval环境的固定只读reader核收据/事实/审计及owner/environment/candidate/target摘要，所有attempt CLEAN才可回收，业务FAIL不改为PASS。API环境不新增DeepEval依赖，不重跑report伪造收据。
+
+冻结 `target-ready-guard-home-freeze.json` 摘要 `965e2b4f48fd1af0b0dc0869331561775d33d9057b7a3e6258e7b4ec526de8c7`；根作为非作者独立执行target守卫 **12通过**（0.22秒）、eval reader **10通过**（0.47秒），4文件摘要前后一致。真实新进程反例只尝试loopback DNS并被拒，未发connect；其他DB/HTTP用例为接口替身，不称真实删库。证据分别 `.local/agent-evaluations/target-ready-independent-75bfd83a96474754b94457b19dea1452/` 和 `reader-ready-independent-9f4035cc3908470b9fc290e5d031b34f/`。

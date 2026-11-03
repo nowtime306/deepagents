@@ -15,7 +15,8 @@ from xml.etree import ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
 from evaluation_sources import source_fingerprint as inventory_fingerprint
-from evaluation_runner.contracts import Dataset
+from evaluation_runner.contracts import Dataset, Target
+from evaluation_runner.fixed_audit import validate_ready
 from evaluation_runner.journal import digest
 
 
@@ -127,6 +128,31 @@ def factual_failure(report):
                for row in report.get('attempts',[]) for fact in row.get('fact_results',[]))
 
 
+def bound_identity(data, state, attempt):
+    """Bind locally valid evidence to this dispatched target, rather than another valid result."""
+    target=Target.model_validate_json((state/'target-manifest.json').read_text(encoding='utf-8'))
+    context=json.loads((state.parent/'suite-context.json').read_text(encoding='utf-8'))
+    expected={'case_id':attempt['case_id'],'repeat_index':attempt['repeat_ordinal'],
+              'candidate_commit':attempt['candidate_commit'],'case_definition_digest':attempt['case_digest']}
+    if (any(context.get(key)!=value for key,value in expected.items())
+            or data.get('environment_id')!=target.environment_id or data.get('owner_id')!=target.owner_id
+            or data.get('target_digest')!=digest(target.model_dump()) or data.get('suite_context')!=context
+            or data.get('case_definition_digest')!=context['case_definition_digest']
+            or data.get('dataset_digest')!=context['catalog_digest']
+            or context['candidate_commit']!=target.platform_commit):
+        raise ValueError('Evidence belongs to a different target, case or repeat')
+
+
+def verified_child_report(state,result,attempt):
+    ready=validate_ready(result)
+    bound_identity(ready,state,attempt)
+    with (result/'report.json').open('rb') as stream:
+        raw=stream.read(2*1024*1024+1)
+    if len(raw)>2*1024*1024 or hashlib.sha256(raw).hexdigest()!=ready['files']['report.json']:
+        raise ValueError('Report changed after its final receipt was verified')
+    return json.loads(raw.decode('utf-8'))
+
+
 def verify_frozen_source(record):
     try:
         if not record.get('source_sha256') or not record.get('candidate_commit'):
@@ -166,6 +192,7 @@ def finalize_target(attempt,state,result,call):
     if (steps.get('formal_cleanup_exit')==0 and steps.get('stop_exit')==0
             and (state/'stopped.json').exists() and not attempt.get('unknown_submission')):
         try:
+            verified_child_report(state,result,attempt)
             steps['target_cleanup_exit']=call('target-cleanup')
         except Exception as error:
             steps['target_cleanup_error']=type(error).__name__
@@ -186,13 +213,18 @@ def perform_attempt(attempt,state,result,call,candidate):
         code=call('run',credentials)
         report_path=result/'report.json'
         if report_path.is_file():
-            report=json.loads(report_path.read_text(encoding='utf-8'))
-            observe_started(attempt,report)
-            attempt['status']=report.get('gate','NEEDS_REVIEW')
-            if factual_failure(report):attempt['status']='FAIL'
-            if attempt['status'] not in {'PASS','FAIL','NEEDS_REVIEW'}:attempt['status']='NEEDS_REVIEW'
-            if attempt['status']=='PASS' and not attempt['business_started']:
-                attempt.update(status='NEEDS_REVIEW',reason='NO_CONFIRMED_BUSINESS_ROOT')
+            try:
+                report=verified_child_report(state,result,attempt)
+                attempt['report_validation']={'status':'VERIFIED'}
+                observe_started(attempt,report)
+                attempt['status']=report.get('gate','NEEDS_REVIEW')
+                if factual_failure(report):attempt['status']='FAIL'
+                if attempt['status'] not in {'PASS','FAIL','NEEDS_REVIEW'}:attempt['status']='NEEDS_REVIEW'
+                if attempt['status']=='PASS' and not attempt['business_started']:
+                    attempt.update(status='NEEDS_REVIEW',reason='NO_CONFIRMED_BUSINESS_ROOT')
+            except Exception as error:
+                attempt['report_validation']={'status':'REJECTED','error_type':type(error).__name__}
+                attempt['status']='NEEDS_REVIEW'
         if code not in (0,1) or not report_path.is_file():
             attempt['infrastructure_error']={'exit_code':code,'reason':'NO_VALID_PROCESS_RESULT'}
             if attempt['status']!='FAIL':attempt['status']='NEEDS_REVIEW'
@@ -206,6 +238,7 @@ def perform_attempt(attempt,state,result,call,candidate):
         if journal.is_file():
             try:
                 stored=json.loads(journal.read_text(encoding='utf-8'))
+                bound_identity(stored,state,attempt)
                 observe_started(attempt,stored)
                 if factual_failure(stored):attempt['status']='FAIL'
             except Exception:attempt['unknown_submission']=True

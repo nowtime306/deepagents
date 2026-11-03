@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 from uuid import uuid4
 
 import pytest
-from evaluation_runner.contracts import Dataset
+from evaluation_runner.contracts import Dataset, Target
 
 spec = importlib.util.spec_from_file_location('evaluation_suite', Path(__file__).with_name('evaluation-suite.py'))
 suite = importlib.util.module_from_spec(spec)
@@ -20,6 +20,23 @@ def dataset(repeats=1, payload='quoted $(unexpected-command)'):
         'input':payload,'fixture_profile':{'id':'controlled-v1','version':1},'repeats':repeats,
         'validators':[{'registered_id':'output_equals','parameters':{'expected':{}}}],
         'budgets':{'max_model_calls':2,'max_tokens':30,'timeout_seconds':10}}]})
+
+
+def registered_target(directory):
+    state,result=directory/'target',directory/'result';state.mkdir();result.mkdir()
+    target=Target(environment_id=str(uuid4()),owner_id=str(uuid4()),api_base_url='http://127.0.0.1:1',
+                  platform_commit='a'*40,required_migrations=[],fixture_profile={'id':'controlled-v1','version':1})
+    context={'schema_version':1,'suite_id':str(uuid4()),'case_id':'AET-A02','repeat_index':1,
+             'candidate_commit':'a'*40,'catalog_digest':'b'*64,'case_definition_digest':'c'*64,'rules_id':'controlled-a20-v1'}
+    suite.save(state/'target-state.json',{})
+    suite.save(state/'target-manifest.json',target.model_dump())
+    suite.save(state/'credentials.json',{'username':'test','password':'test-only'})
+    suite.save(directory/'suite-context.json',context)
+    attempt={'case_id':'AET-A02','repeat_ordinal':1,'case_digest':'c'*64,'candidate_commit':'a'*40,
+             'status':'NEEDS_REVIEW','unknown_submission':False,'business_started':False}
+    identity={'owner_id':target.owner_id,'environment_id':target.environment_id,'target_digest':suite.digest(target.model_dump()),
+              'dataset_digest':'b'*64,'case_definition_digest':'c'*64,'suite_context':context}
+    return state,result,attempt,identity
 
 
 def test_parent_reservation_never_refunds_unknown_and_blocks_next_dispatch():
@@ -180,15 +197,14 @@ def test_final_aggregate_rechecks_candidate_and_complete_source_after_last_case(
 
 @pytest.mark.parametrize('code',[0,3,130])
 def test_persisted_fact_fail_survives_infrastructure_or_mismatched_exit(tmp_path,monkeypatch,code):
-    state,result=tmp_path/'target',tmp_path/'result';state.mkdir();result.mkdir()
-    suite.save(state/'target-state.json',{})
-    suite.save(state/'credentials.json',{'username':'test','password':'test-only'})
+    state,result,attempt,identity=registered_target(tmp_path)
     monkeypatch.setattr(suite,'check_candidate',lambda *args:None)
-    attempt={'status':'NEEDS_REVIEW','unknown_submission':False}
     def call(action,auth=None):
         if action=='run':
-            suite.save(result/'report.json',{'gate':'FAIL','attempts':[{'started':True,
-                'platform_root':{'id':str(uuid4())},'fact_results':[{'required':True,'status':'FAIL'}]}]})
+            record={**identity,'gate':'FAIL','attempts':[{'started':True,
+                'platform_root':{'id':str(uuid4())},'fact_results':[{'required':True,'status':'FAIL'}]}]}
+            suite.save(result/'report.json',record)
+            suite.save(result/'journal.json',record)
             return code
         if action=='stop':suite.save(state/'stopped.json',{'environment_id':'test'})
         return 1 if action=='cleanup' else 0
@@ -197,19 +213,90 @@ def test_persisted_fact_fail_survives_infrastructure_or_mismatched_exit(tmp_path
 
 
 def test_durable_fact_failure_in_journal_survives_missing_final_report(tmp_path,monkeypatch):
-    state,result=tmp_path/'target',tmp_path/'result';state.mkdir();result.mkdir()
-    suite.save(state/'target-state.json',{})
-    suite.save(state/'credentials.json',{'username':'test','password':'test-only'})
+    state,result,attempt,identity=registered_target(tmp_path)
     monkeypatch.setattr(suite,'check_candidate',lambda *args:None)
-    attempt={'status':'NEEDS_REVIEW','unknown_submission':False}
     def call(action,auth=None):
         if action=='run':
-            suite.save(result/'journal.json',{'attempts':[{'fact_results':[{'status':'FAIL','required':True}]}]})
+            suite.save(result/'journal.json',{**identity,'attempts':[{'fact_results':[{'status':'FAIL','required':True}]}]})
             return 3
         if action=='stop':suite.save(state/'stopped.json',{'environment_id':'test'})
         return 1 if action=='cleanup' else 0
     suite.perform_attempt(attempt,state,result,call,'a'*40)
     assert attempt['status']=='FAIL' and attempt['infrastructure_error']['exit_code']==3
+
+
+@pytest.mark.parametrize('change',['owner','environment','case','repeat','target_digest'])
+def test_another_internally_valid_receipt_cannot_be_reused_for_this_target(tmp_path,monkeypatch,change):
+    state,result,attempt,identity=registered_target(tmp_path)
+    receipt=json.loads(json.dumps(identity))
+    if change in {'owner','environment'}:receipt[change+'_id']=str(uuid4())
+    elif change=='case':receipt['suite_context']['case_id']='AET-W01'
+    elif change=='repeat':receipt['suite_context']['repeat_index']=2
+    else:receipt['target_digest']='d'*64
+    monkeypatch.setattr(suite,'validate_ready',lambda directory:receipt)
+    suite.save(result/'report.json',{'gate':'PASS'})
+    with pytest.raises(ValueError):suite.verified_child_report(state,result,attempt)
+
+
+def test_bare_pass_report_never_counts_a_business_start_or_permits_drop(tmp_path,monkeypatch):
+    state,result,attempt,identity=registered_target(tmp_path)
+    monkeypatch.setattr(suite,'check_candidate',lambda *args:None)
+    calls=[]
+    def call(action,auth=None):
+        calls.append(action)
+        if action=='run':suite.save(result/'report.json',{'gate':'PASS','attempts':[{'started':True,'platform_root':{'id':str(uuid4())}}]})
+        if action=='stop':suite.save(state/'stopped.json',{'environment_id':identity['environment_id']})
+        if action=='target-cleanup':pytest.fail('A bare PASS must not authorize database deletion')
+        return 0
+    suite.perform_attempt(attempt,state,result,call,'a'*40)
+    assert attempt['status']=='NEEDS_REVIEW' and not attempt['business_started']
+    assert attempt['report_validation']['status']=='REJECTED' and attempt['cleanup']=='RETAINED'
+    assert 'target-cleanup' not in calls
+
+
+def test_cleanup_revalidates_the_final_receipt_before_any_database_drop(tmp_path,monkeypatch):
+    state,result,attempt,identity=registered_target(tmp_path)
+    monkeypatch.setattr(suite,'check_candidate',lambda *args:None)
+    available=True
+    def validate(directory):
+        if not available:raise ValueError('Cleanup export did not produce valid evidence')
+        return {**identity,'files':{'report.json':suite.hashlib.sha256((directory/'report.json').read_bytes()).hexdigest()}}
+    monkeypatch.setattr(suite,'validate_ready',validate)
+    def call(action,auth=None):
+        nonlocal available
+        if action=='run':suite.save(result/'report.json',{'gate':'PASS','attempts':[{'started':True,'platform_root':{'id':str(uuid4())}}]})
+        if action=='cleanup':available=False
+        if action=='stop':suite.save(state/'stopped.json',{'environment_id':identity['environment_id']})
+        if action=='target-cleanup':pytest.fail('An invalid cleanup receipt must retain the database')
+        return 0
+    suite.perform_attempt(attempt,state,result,call,'a'*40)
+    assert attempt['business_started'] and attempt['status']=='NEEDS_REVIEW' and attempt['cleanup']=='RETAINED'
+
+
+def test_foreign_journal_does_not_supply_run_ids_or_fact_failures(tmp_path,monkeypatch):
+    state,result,attempt,identity=registered_target(tmp_path)
+    monkeypatch.setattr(suite,'check_candidate',lambda *args:None)
+    def call(action,auth=None):
+        if action=='run':
+            suite.save(result/'journal.json',{**identity,'environment_id':str(uuid4()),'attempts':[{'started':True,
+                'platform_root':{'id':str(uuid4())},'fact_results':[{'required':True,'status':'FAIL'}]}]})
+            return 3
+        if action=='stop':suite.save(state/'stopped.json',{'environment_id':identity['environment_id']})
+        return 1 if action=='cleanup' else 0
+    suite.perform_attempt(attempt,state,result,call,'a'*40)
+    assert not attempt['business_started'] and attempt['unknown_submission'] and attempt['status']=='NEEDS_REVIEW'
+
+
+def test_report_replaced_after_ready_validation_is_never_used_for_a_gate(tmp_path,monkeypatch):
+    state,result,attempt,identity=registered_target(tmp_path)
+    suite.save(result/'report.json',{'gate':'NEEDS_REVIEW'})
+    original=(result/'report.json').read_bytes()
+    def validate(directory):
+        suite.save(directory/'report.json',{'gate':'PASS','attempts':[{'started':True,'platform_root':{'id':str(uuid4())}}]})
+        return {**identity,'files':{'report.json':suite.hashlib.sha256(original).hexdigest()}}
+    monkeypatch.setattr(suite,'validate_ready',validate)
+    with pytest.raises(ValueError,match='changed after'):
+        suite.verified_child_report(state,result,attempt)
 
 
 def test_parent_markdown_matches_json_junit_case_repeat_counts_and_identity(tmp_path,monkeypatch):

@@ -9,13 +9,12 @@ from uuid import UUID, uuid4
 
 import httpx
 
-from . import adapters, network
+from . import adapters, fixed_audit, fixed_evidence, network
 from .client import Platform
-from .contracts import Check, Dataset, Result, Target
+from .contracts import Dataset, Result, Target
 from .fixed_fixtures import FixedFixtures
 from .journal import Journal, atomic_json, digest
 from .metrics import score
-from .reports import write_report
 
 RULES_ID = "controlled-a20-v1"
 IMPLEMENTED = {"AET-A02"}
@@ -90,28 +89,8 @@ def execute(platform, journal, attempt, specimen, output):
                                 cancelled=lambda: (output / "cancel.request").exists())
     facts = []
     if specimen.case_id == "AET-A02":
-        from .facts import verify
-
-        facts.append(verify(Check(registered_id="user_message_count", parameters={"expected": 2}), evidence, platform))
-        try:
-            actual = json.loads(evidence["run"]["output"])
-            matches = json.dumps(actual, sort_keys=True) == json.dumps({"project": "星桥", "people": 3}, sort_keys=True)
-            facts.append(Result(registered_id="output_equals", status="PASS" if matches else "FAIL"))
-        except (KeyError, TypeError, ValueError):
-            facts.append(Result(registered_id="output_equals", status="FAIL", reason="No valid final JSON object"))
-        attempt["fact_results"] = [fact.model_dump() for fact in facts]
-        journal.save()
-        observed = platform.get("/api/v1/agent-evaluations/profiles/runs/ask/" + attempt["platform_root"]["id"] + "/observations")
-        assertions = observed.get("context_assertions", [])
-        complete = observed.get("controlled_model", {}).get("complete") is True
-        context = complete and any(row.get("human_turns") == 2 and row.get("has_project_context") is True
-                                   and row.get("has_update_to_three") is True for row in assertions)
-        facts.append(Result(registered_id="received_context", status="PASS" if context else "BLOCKED",
-                            reason="Only trusted booleans and context digests are observed"))
-        messages = evidence["messages"]
-        no_tools = all(row.get("role") != "tool" and not row.get("content", {}).get("data", {}).get("tool_calls")
-                       for row in messages["items"])
-        evidence.update(tools_complete="messages" in evidence["observed"] and no_tools, tools=[])
+        snapshot = fixed_evidence.capture(platform, journal, attempt, specimen, evidence)
+        facts, evidence = fixed_evidence.evaluate(snapshot, specimen, attempt)
     else:
         from .facts import verify
         facts = [verify(check, evidence, platform) for check in specimen.validators]
@@ -121,7 +100,6 @@ def execute(platform, journal, attempt, specimen, output):
     journal.save()
     attempt["usage"] = adapters.known_usage(evidence, specimen)
     attempt["usage_completeness"] = "KNOWN"
-    network.PHASE = "metric"
     metrics = []
     for check in specimen.metrics:
         try:
@@ -142,6 +120,10 @@ def cleanup(platform, journal, attempt):
     root = attempt.get("platform_root")
     if not root:
         return "CLEAN" if not attempt.get("created_resources") else "NEEDS_REVIEW"
+    specimen = next(row for row in catalog().cases if row.case_id == attempt["case_id"])
+    fixed_evidence.verified(journal.directory, journal.data, attempt, specimen)
+    pending = network.ACTIVE.data["session_id"] if network.ACTIVE else None
+    fixed_audit.validate(journal.directory, journal.data, pending_session=pending)
     for reference in [*attempt.get("prior_run_refs", {}).values(), root]:
         if adapters.read_run(platform, reference).get("status") not in {"SUCCEEDED", "COMPLETED", "FAILED", "CANCELLED"}:
             return "NEEDS_REVIEW"
@@ -184,7 +166,7 @@ def suite_context(path, specimen, dataset, target, existing=None):
     return value
 
 
-def validate_offline_report(data, specimen, dataset, *, context_path=None, target_path=None):
+def validate_offline_report(data, specimen, dataset, *, context_path=None, target_path=None, directory=None):
     expected = describe(specimen, dataset)
     context = data["suite_context"]
     if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
@@ -216,6 +198,26 @@ def validate_offline_report(data, specimen, dataset, *, context_path=None, targe
                 or attempt.get("owner_id") != data["owner_id"] or attempt.get("environment_id") != data["environment_id"]
                 or digest(attempt.get("case_snapshot")) != expected["case_definition_digest"]):
             raise ValueError("Attempt identity or immutable snapshot differs")
+        if attempt.get("started"):
+            if directory is None:
+                raise ValueError("A retained evidence directory is required")
+            snapshot = fixed_evidence.verified(directory, data, attempt, specimen)
+            facts, evidence = fixed_evidence.evaluate(snapshot, specimen, attempt)
+            if ([row.model_dump() for row in facts] != attempt.get("fact_results")
+                    or snapshot["usage"] != attempt.get("usage")):
+                raise ValueError("Stored verdict differs from independently recomputed facts")
+            if attempt.get("task_outcome") == "PASS" and any(row.status != "PASS" for row in facts):
+                raise ValueError("A failing factual snapshot cannot produce PASS")
+            metrics = [Result.model_validate(row) for row in attempt.get("metric_results", [])]
+            if any(row.registered_id == "tool_correctness" and row.status == "PASS"
+                   and not evidence["tools_complete"] for row in metrics):
+                raise ValueError("Saved tool score lacks complete retained no-tool evidence")
+            if ([row.registered_id for row in metrics] != [check.registered_id for check in specimen.metrics]
+                    or any(row.required != check.required for row, check in zip(metrics, specimen.metrics, strict=True))
+                    or (attempt.get("task_outcome") == "PASS" and any(row.status != "PASS" for row in metrics))):
+                raise ValueError("Required metric results are missing or inconsistent")
+    fixed_audit.validate(directory, data, pending_session=network.ACTIVE.data["session_id"] if network.ACTIVE else None)
+
 
 
 def main():
@@ -230,99 +232,115 @@ def main():
     specimen = next((row for row in dataset.cases if row.case_id == args.case_id), None)
     if specimen is None:
         parser.error("Only fixed reviewed case IDs are accepted")
-    if args.action == "describe":
-        print(json.dumps(describe(specimen, dataset)))
-        return 0
-    if args.output is None:
+    if args.output is None and args.action != "describe":
         parser.error("--output is required")
-    output = args.output.resolve()
+    output = args.output.resolve() if args.output else None
+    session = network.Session(args.action, describe(specimen, dataset), None)
+    network.install_guard(None, session=session)
+    if output is None:
+        with network.phase("execution"):
+            result = describe(specimen, dataset)
+        with network.phase("export"):
+            result = dict(result)
+        session.data.update(status="COMPLETE", ended_at=network.now(), policy_digest=digest(session.data["policy"]))
+        session.closed = True
+        print(json.dumps({**result, "network_audit": session.data, "network_audit_digest": digest(session.data)}))
+        return 0
     output.mkdir(parents=True, exist_ok=True)
-    if args.action == "report":
-        journal = Journal(output)
-        try:
-            validate_offline_report(journal.data, specimen, dataset, context_path=args.suite_context,
-                                    target_path=args.target_manifest)
-            return 0 if write_report(output, journal.data)["gate"] == "PASS" else 1
-        except (ValueError, KeyError, TypeError):
-            print("Offline fixed report identity is invalid")
-            return 2
-        finally:
-            journal.close()
-    if args.target_manifest is None:
-        parser.error("--target-manifest is required")
-    platform, journal = None, None
+    journal, platform = None, None
     try:
-        target = Target.model_validate_json(args.target_manifest.read_text(encoding="utf-8"))
-        for key in ("DEEPEVAL_HOME", "ENV_DIR_PATH", "DEEPEVAL_RESULTS_FOLDER", "DEEPEVAL_CACHE_FOLDER"):
-            private = output / key.lower()
-            private.mkdir(exist_ok=True)
-            os.environ[key] = str(private)
-        network.install_guard(urlsplit(target.api_base_url).port)
-        network.PHASE = "execution"
-        platform = Platform(target)
-        platform.login()
-        if args.action == "preflight":
-            result = readiness(platform, specimen)
-            atomic_json(output / "fixed-preflight.json", {"environment_status": "ATTESTED", **result,
-                                                         **describe(specimen, dataset)})
-            return 0 if result["status"] == "READY" else 1
         journal = Journal(output)
-        context = suite_context(args.suite_context, specimen, dataset, target, journal.data.get("suite_context"))
-        identity = {"environment_id": target.environment_id, "owner_id": target.owner_id,
-                    "target_digest": digest(target.model_dump()), "dataset_digest": context["catalog_digest"],
-                    "case_definition_digest": context["case_definition_digest"], "suite_context": context,
-                    "expected_attempts": 1}
-        for key, value in identity.items():
-            if key in journal.data and journal.data[key] != value:
-                raise ValueError("Existing journal identity changed")
-        journal.data.update(identity)
-        if not journal.data["attempts"]:
-            journal.data["attempts"].append({"attempt_id": str(uuid4()), "case_id": specimen.case_id,
-                                             "repeat_index": context["repeat_index"], "started": False,
-                                             "environment_id": target.environment_id, "owner_id": target.owner_id,
-                                             "case_snapshot": specimen.model_dump(),
-                                             "fact_results": [], "metric_results": [], "cleanup_status": "NOT_CHECKED",
-                                             "task_outcome": "NEEDS_REVIEW", "cost_completeness": "UNKNOWN", "cost": None})
-        attempt = journal.data["attempts"][0]
-        journal.save()
-        try:
-            if (output / "cancel.request").exists() and args.action in {"init", "run"}:
-                raise adapters.Blocked("Cancelled before further dispatch")
-            if args.action == "init":
-                initialize(platform, journal, attempt, specimen)
-            elif args.action == "run":
-                status = readiness(platform, specimen)
-                if status["status"] != "READY":
-                    raise adapters.Blocked("Read-only case readiness blocked execution")
-                execute(platform, journal, attempt, specimen, output)
-                attempt["cleanup_status"] = cleanup(platform, journal, attempt)
-                if attempt["cleanup_status"] != "CLEAN" and attempt["task_outcome"] == "PASS":
-                    attempt["task_outcome"] = "NEEDS_REVIEW"
-            elif args.action == "cleanup":
-                attempt["cleanup_status"] = cleanup(platform, journal, attempt)
-        except Exception as error:  # noqa: BLE001 -- Persist partial facts, unknown effects and safe error types at the CLI boundary.
-            if any(row.get("required") and row.get("status") == "FAIL" for row in attempt["fact_results"]):
-                attempt["task_outcome"] = "FAIL"
+        fixed_audit.begin(output, session)
+        if args.action == "describe":
+            with network.phase("execution"):
+                result = describe(specimen, dataset)
+            with network.phase("export"):
+                atomic_json(output / "fixed-description.json", result)
+            fixed_audit.seal(output, session, "COMPLETE")
+            print(json.dumps(result))
+            return 0
+        with network.phase("execution"):
+            if args.action == "report":
+                validate_offline_report(journal.data, specimen, dataset, context_path=args.suite_context,
+                                        target_path=args.target_manifest, directory=output)
+                session.data["identity"].update({key: journal.data[key] for key in
+                                               ("environment_id", "owner_id", "target_digest")})
+                session.data["identity"]["candidate_commit"] = journal.data["suite_context"]["candidate_commit"]
             else:
-                attempt["task_outcome"] = "NEEDS_REVIEW"
-            attempt.update(reason="Fixed profile blocked/failed: " + type(error).__name__, cleanup_status="NEEDS_REVIEW")
-            journal.save()
-            write_report(output, journal.data)
-            return 1
-        journal.save()
-        network.PHASE = "export"
-        journal.data["network_observations"] = list(network.EVENTS)
-        journal.save()
-        report = write_report(output, journal.data)
+                if args.target_manifest is None:
+                    raise ValueError("A target manifest is required")
+                target = Target.model_validate_json(args.target_manifest.read_text(encoding="utf-8"))
+                session.data["identity"].update(environment_id=target.environment_id, owner_id=target.owner_id,
+                                               target_digest=digest(target.model_dump()), candidate_commit=target.platform_commit)
+                session.data["policy"]["allowed_origin"] = target.api_base_url
+                network.install_guard(urlsplit(target.api_base_url).port, session=session)
+                for key in ("DEEPEVAL_HOME", "ENV_DIR_PATH", "DEEPEVAL_RESULTS_FOLDER", "DEEPEVAL_CACHE_FOLDER"):
+                    private = output / key.lower()
+                    private.mkdir(exist_ok=True)
+                    os.environ[key] = str(private)
+                platform = Platform(target)
+                platform.login()
+                if args.action == "preflight":
+                    result = readiness(platform, specimen)
+                    with network.phase("export"):
+                        atomic_json(output / "fixed-preflight.json", {"environment_status": "ATTESTED", **result,
+                                                                     **describe(specimen, dataset)})
+                else:
+                    context = suite_context(args.suite_context, specimen, dataset, target, journal.data.get("suite_context"))
+                    identity = {"environment_id": target.environment_id, "owner_id": target.owner_id,
+                                "target_digest": digest(target.model_dump()), "dataset_digest": context["catalog_digest"],
+                                "case_definition_digest": context["case_definition_digest"], "suite_context": context,
+                                "expected_attempts": 1}
+                    for key, value in identity.items():
+                        if key in journal.data and journal.data[key] != value:
+                            raise ValueError("Existing journal identity changed")
+                    journal.data.update(identity)
+                    session.data["identity"].update(suite_id=context["suite_id"], repeat_index=context["repeat_index"])
+                    if not journal.data["attempts"]:
+                        journal.data["attempts"].append({"attempt_id": str(uuid4()), "case_id": specimen.case_id,
+                            "repeat_index": context["repeat_index"], "started": False,
+                            "environment_id": target.environment_id, "owner_id": target.owner_id,
+                            "case_snapshot": specimen.model_dump(), "fact_results": [], "metric_results": [],
+                            "cleanup_status": "NOT_CHECKED", "task_outcome": "NEEDS_REVIEW",
+                            "cost_completeness": "UNKNOWN", "cost": None})
+                    attempt = journal.data["attempts"][0]
+                    journal.save()
+                    if (output / "cancel.request").exists() and args.action in {"init", "run"}:
+                        raise adapters.Blocked("Cancelled before further dispatch")
+                    if args.action == "init":
+                        initialize(platform, journal, attempt, specimen)
+                    elif args.action == "run":
+                        status = readiness(platform, specimen)
+                        if status["status"] != "READY":
+                            raise adapters.Blocked("Read-only case readiness blocked execution")
+                        attempt["run_audit_session_id"] = session.data["session_id"]
+                        journal.save()
+                        execute(platform, journal, attempt, specimen, output)
+                        attempt["cleanup_status"] = cleanup(platform, journal, attempt)
+                        if attempt["cleanup_status"] != "CLEAN" and attempt["task_outcome"] == "PASS":
+                            attempt["task_outcome"] = "NEEDS_REVIEW"
+                    elif args.action == "cleanup":
+                        attempt["cleanup_status"] = cleanup(platform, journal, attempt)
+        if args.action == "preflight":
+            fixed_audit.seal(output, session, "COMPLETE")
+            return 0 if result["status"] == "READY" else 1
+        report = fixed_audit.publish(output, journal, session)
         if args.action == "init":
-            return 0  # Initialization is not task success; the report gate remains NEEDS_REVIEW.
-        return 0 if (attempt["cleanup_status"] == "CLEAN" if args.action == "cleanup" else report["gate"] == "PASS") else 1
-    except ValueError:
-        print("Fixed evaluation contract is invalid")
-        return 2
-    except Exception as error:  # noqa: BLE001 -- Do not print secret-bearing request/response bodies or exception locals.
-        print("Fixed evaluation infrastructure error: " + type(error).__name__)
-        return 3
+            return 0
+        if args.action == "cleanup":
+            return 0 if attempt["cleanup_status"] == "CLEAN" else 1
+        return 0 if report["gate"] == "PASS" else 1
+    except Exception as error:  # noqa: BLE001 -- Preserve facts, safe failure types and per-command audit on every exit.
+        if journal is not None and args.action in {"init", "run", "cleanup"}:
+            for attempt in journal.data.get("attempts", []):
+                failed = any(row.get("required") and row.get("status") == "FAIL" for row in attempt.get("fact_results", []))
+                attempt.update(task_outcome="FAIL" if failed else "NEEDS_REVIEW", cleanup_status="NEEDS_REVIEW",
+                               reason="Fixed profile blocked/failed: " + type(error).__name__)
+            journal.save()
+        if journal is not None and not session.closed:
+            fixed_audit.seal(output, session, "ERROR")
+        print("Fixed evaluation blocked: " + type(error).__name__)
+        return 2 if isinstance(error, (ValueError, KeyError, TypeError)) else 1
     finally:
         if journal is not None:
             journal.close()
