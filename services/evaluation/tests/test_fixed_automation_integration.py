@@ -133,7 +133,7 @@ def harness(tmp_path, monkeypatch, *, lost_step=False, profile_fault=None):
             return httpx.Response(200, json={"mode": "ask", "run_id": root, "configuration_scope": {"mode": "ask", "run_id": root},
                 "business_version": {"published_version_id": identifiers["version"], "published_version": 1}, "items": [{
                     "resource_kind": "model", "resource_id": identifiers["model"], "snapshot_id": str(uuid5(UUID(root), "snapshot")),
-                    "revision": 2, "used_at": server_time, "snapshot": {"temperature": 0.4}, "calls": [{
+                    "revision": "2", "used_at": server_time, "snapshot": {"temperature": 0.4}, "calls": [{
                         "call_id": str(uuid5(UUID(root), str(index))), "run_id": root, "mode": "ask", "model_id": identifiers["model"],
                         "model_revision": 2, "status": "KNOWN", "input_tokens": 10, "output_tokens": 5} for index in range(1 if child else 3)]}]} )
         if path.endswith("/events"):
@@ -179,6 +179,10 @@ def test_a01_formal_http_lifecycle_retains_recomputable_ask_and_occurrence_befor
     specimen = next(row for row in fixed_run.catalog().cases if row.case_id == "AET-A01")
     snapshot = fixed_automation_evidence.verified(output, data, attempt, specimen)
     assert fixed_automation_evidence.evaluate(snapshot, specimen, attempt)[0][0].status == "PASS"
+    assert type(snapshot["body"]["draft"]["source"]["model"]["revision"]) is str
+    assert snapshot["body"]["draft"]["source"]["model"]["revision"] == "2"
+    assert all(type(row["model_revision"]) is int and row["model_revision"] == 2
+               for row in snapshot["body"]["draft"]["source"]["model"]["calls"])
     assert len(calls) == 9 and sum(path.endswith("/step") for _, path, _ in calls) == 1
     audit = [fixed_evidence.load(output, ref, "network-audit") for ref in ready["network_audit_refs"]]
     assert {phase["name"] for phase in audit[1]["phases"]} == {"execution", "export"}
@@ -340,3 +344,29 @@ def test_early_http_budget_inconsistency_permits_no_next_business_mutation(tmp_p
     assert command("run") != 0
     assert not any(path.endswith("/step") for _, path, _ in calls)
     assert sum(path.endswith("/state") for _, path, _ in calls) == int(stage == "enabled")
+
+
+@pytest.mark.parametrize("reference", [True, False, 2, 2.0, "02", "2.0", "2 ", " 2", "1", None])
+def test_snapshot_reference_revision_preserves_exact_text_contract_without_numeric_coercion(tmp_path, monkeypatch, reference):
+    command, output, _, _, _ = harness(tmp_path, monkeypatch)
+    assert command("init") == command("run") == 0
+    data = json.loads((output / "journal.json").read_text(encoding="utf-8"))
+    attempt = data["attempts"][0]
+    specimen = next(row for row in fixed_run.catalog().cases if row.case_id == "AET-A01")
+    snapshot = deepcopy(fixed_automation_evidence.verified(output, data, attempt, specimen))
+    snapshot["body"]["execution"]["model"]["revision"] = reference
+    with pytest.raises(fixed_run.adapters.Blocked):
+        fixed_automation_evidence.evaluate(snapshot, specimen, attempt)
+
+
+@pytest.mark.parametrize("native", [True, False, "2", "02", "2.0", 2.0, 1, None])
+def test_native_call_revision_remains_strict_integer_and_matches_text_reference(tmp_path, monkeypatch, native):
+    command, output, _, _, _ = harness(tmp_path, monkeypatch)
+    assert command("init") == command("run") == 0
+    data = json.loads((output / "journal.json").read_text(encoding="utf-8"))
+    attempt = data["attempts"][0]
+    specimen = next(row for row in fixed_run.catalog().cases if row.case_id == "AET-A01")
+    snapshot = deepcopy(fixed_automation_evidence.verified(output, data, attempt, specimen))
+    snapshot["body"]["execution"]["model"]["calls"][0]["model_revision"] = native
+    with pytest.raises(fixed_run.adapters.Blocked):
+        fixed_automation_evidence.evaluate(snapshot, specimen, attempt)

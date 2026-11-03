@@ -249,7 +249,7 @@ def validate_root(row, attempt, *, scheduled=False):
     require_keys(row["model"], "snapshot_id revision used_at temperature calls")
     model = row["model"]
     observation.identifier(model["snapshot_id"])
-    if type(model["revision"]) is not int or model["revision"] != 2 or digest(model["temperature"]) != digest(0.4) or model["used_at"] is None:
+    if type(model["revision"]) is not str or model["revision"] != "2" or digest(model["temperature"]) != digest(0.4) or model["used_at"] is None:
         raise adapters.Blocked("A01 did not actually call the maintained model configuration")
     datetime.fromisoformat(model["used_at"])
     if not isinstance(model["calls"], list) or len(model["calls"]) != (1 if scheduled else 3):
@@ -262,6 +262,8 @@ def validate_root(row, attempt, *, scheduled=False):
                 or type(call["input_tokens"]) is not int or call["input_tokens"] != 10
                 or type(call["output_tokens"]) is not int or call["output_tokens"] != 5):
             raise adapters.Blocked("A01 model usage does not match its called configuration")
+        if model["revision"] != str(call["model_revision"]):
+            raise ValueError("Snapshot reference revision differs from its strictly typed native call revision")
     calls = len(model["calls"])
     if digest(row["usage"]) != digest({"calls": calls, "reported_calls": calls, "unknown_calls": 0,
                                       "pending_calls": 0, "input_tokens": 10 * calls, "output_tokens": 5 * calls}):

@@ -28,6 +28,15 @@ an author HTTP-transport test is not business acceptance or production release.
    occurrence's real root/conversation/Agent version and terminal outcome through formal
    APIs. One created draft alone is not A01 acceptance.
 
+The public resource snapshot's `revision` is its original TEXT reference (`"2"` for
+this fixed maintenance), while each actual `model_usage.model_revision` remains the
+integer `2`. Retain both original types and cross-check only after each strict contract
+passes. Booleans, numeric snapshot revisions, `"02"`, `"2.0"` or text native revisions
+are invalid; no text-to-integer coercion is permitted. The first 4627 A01 target stopped
+before enable/dispatch because the earlier client incorrectly expected an integer
+snapshot reference. Its original ERROR audit, retained draft and stopped database remain
+unchanged; a new candidate must use a fresh target for actual acceptance.
+
 ## Budget and isolation
 
 The published target factory already enforces per-root A01 limits4 calls/60 controlled
