@@ -62,6 +62,8 @@ async def main() -> None:
                 raise RuntimeError("平台正在备份维护，请稍后启动任务服务")
             models = ModelRegistry(database, CredentialVault(settings.data_dir / "model.key", create=False))
             mcp = MCPService(database, models.vault)
+            from app.browser_skill_runtime import BrowserSkillRuntime
+
             engine = WorkEngine(
                 database,
                 models,
@@ -74,6 +76,7 @@ async def main() -> None:
                     model_registry=models
                 ),
                 internal_api_url=settings.internal_api_url,
+                browser_skills=BrowserSkillRuntime(database, settings.data_dir),
             )
             await sandboxes.reconcile()
             recovery = WorkRecovery(database, sandboxes, engine.artifacts, vault=models.vault)

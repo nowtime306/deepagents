@@ -1,5 +1,7 @@
 # BrowserSkill 平台集成开发说明
 
+后续实现/真实专项的最新状态以 [后端接口与运维交接](browser-skill-backend-contract.md) 为准。本文保留初研方案背景；bundle路径和v3 redact行为已依据实际扩展录制更正，原“待验证”清单是初研时点，不能用于替代最新验收记录。
+
 当前状态：实现位于独立开发分支 `onwer_agent_browser_skill`，后端及运维已通过独立非界面验收，界面代码已构建并静态审查，实际页面验收受浏览器保存权限阻挡，未部署。本篇其余内容保留2026-11-03初研背景；最新接口、生命周期与验收见该分支 `browser-skill-backend-contract.md`、`browser-skill-qa.md`。工作流迁移080与本功能081仍未应用到生产；所有现有账号、数据、配置和密钥保留。
 
 ## 最小交付及验收
@@ -28,7 +30,7 @@
 
 权威实现：[record CLI](https://github.com/Tencent/BrowserSkill/blob/b8f2d4f0fa35c8c7c866229e1cf3b3329ae39de5/crates/bsk-cli/src/cli/record.rs)、[录制协议](https://github.com/Tencent/BrowserSkill/blob/b8f2d4f0fa35c8c7c866229e1cf3b3329ae39de5/crates/bsk-protocol/src/tools/record.rs)、[v3 数据类型](https://github.com/Tencent/BrowserSkill/blob/b8f2d4f0fa35c8c7c866229e1cf3b3329ae39de5/crates/bsk-protocol/src/tools/record_v3.rs)、[扩展事件捕获](https://github.com/Tencent/BrowserSkill/blob/b8f2d4f0fa35c8c7c866229e1cf3b3329ae39de5/apps/extension/src/content/record-capture.ts)。
 
-`bsk record start --browser <instance> --url <explicit-url> --output <private-directory> --redact-values --json` 自行创建聚焦 Agent session，发 `tool.record_start`，随后阻塞等待 `tool.record_await`，最长 24 小时。人工点击扩展“结束”或另一进程执行 `bsk record stop --output <same-directory> --json` 才导出。结束后 CLI 自行停止 session。没有 `bsk record await` 子命令，`record start` 也不接受现有 `--session`；`record stop` 从相同 `BSK_HOME/record-session.json` 找 session，不能把它当无状态并发命令。
+`bsk record start --browser <instance> --url <explicit-url> --output <private-directory> --json` 自行创建聚焦 Agent session，发 `tool.record_start`，随后阻塞等待 `tool.record_await`，最长 24 小时。人工点击扩展“结束”或另一进程执行 `bsk record stop --output <same-directory> --json` 才导出。结束后 CLI 自行停止 session。没有 `bsk record await` 子命令，`record start` 也不接受现有 `--session`；`record stop` 从相同 `BSK_HOME/record-session.json` 找 session，不能把它当无状态并发命令。
 
 底层 RPC 可分开 start/stop/await：start 参数为 `session_id, tab_id?, url?, purpose?, max_page_tokens?, redact_values?, trace_version?, supports_tab_switch_steps?`，返回 `{tab_id,recording}`；stop 参数为 `{session_id}`，返回 `{trace}`。CLI 请求 `trace_version:3`、`supports_tab_switch_steps:true`，省略版本的协议调用默认 v2。旧扩展可降级 v2，平台 MVP 应明确报告版本不支持，不能悄悄假装 v3。CLI 的 `--tab-id` 仍受新 session 所有权检查，不代表任意已有用户 tab 可直接借用；MVP 选新 session 的专用 tab，借用已有 tab 后续另议。
 
@@ -42,8 +44,8 @@ Wire v3 envelope：`version:3, purpose?, started_at?, recorded_at, stopped_by, e
 - Step：`id,op,state,result:{state}`，`state` 和 `result.state` 引用前后观测。
 - `navigate` 含 `to,cause`；`click/hover` 含 target；`fill` 含 `target,value,commit,redacted?`；`select` 含 `target,selection:[{value,label?}]`；`press` 含 `key,modifiers?,target?`；`scroll/switch_tab` 无可直接重放的距离/tab 目标参数。
 - Target：`ref?,role?,name?,ctx?,unmatched?`，没有持久 CSS selector。ref 只对录制时观测有效，不能拿到新会话直接执行。role/name/ctx 是不可信页面内容；不能成为系统指令或授权。
-- CLI 磁盘导出不同于 wire：`<output>/trace.json` 中 state 使用 `page:"states/s1.txt"` 代替 `body`，实际 VOM 外置文本。Importer 只能读取服务端生成的目录和严格 `states/sN.txt`，禁止客户端传路径、相对上跳、绝对路径、链接和任意文件引用。
-- password fill 在扩展层变成 `"***"` 并标记 redacted；`--redact-values` 仅遮盖页面观测中的表单值，普通 `fill.value` 仍可能是原文。上游恢复导出失败会暂存完整 `BSK_HOME/record-recovery.json`，不应遗漏清理。
+- CLI 磁盘导出不同于 wire：`<output>/trace.json` 中 state 使用 `page:"s1.txt"（相对 states 目录）` 代替 `body`，实际 VOM 外置文本。Importer 只能读取服务端生成的目录和严格 `states/sN.txt`，禁止客户端传路径、相对上跳、绝对路径、链接和任意文件引用。
+- password fill 在扩展层变成 `"***"` 并标记 redacted；实际 v3 reducer 在 `--redact-values` 开启时也把普通 fill 值替换为 *** 并标记 redacted，同时省略 select.selection；为区分普通输入与密码，本方案不传此 flag，原值只允许私有临时 bundle/内存存在，导入参数化后清理，绝不持久化至平台。上游恢复导出失败会暂存完整 `BSK_HOME/record-recovery.json`，不应遗漏清理。
 
 ### 调试、审计和录像的区别
 

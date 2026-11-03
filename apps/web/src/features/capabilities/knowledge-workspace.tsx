@@ -159,7 +159,7 @@ export function KnowledgeWorkspace({ knowledge, onBack, onChanged, canManage, ca
       {!canSearch && <p>当前角色没有知识检索权限。</p>}{searchBusy && <p role="status">正在检索资料…</p>}
       {results && <div className="knowledge-results"><p>{results.mode === "hybrid" ? "混合检索" : "关键词检索"}{results.reranked ? " · 已重排" : ""} · 候选证据 {results.items.length} 个片段
         {results.keyword_min_coverage !== undefined && ` · 关键词门槛 ${Math.round(results.keyword_min_coverage * 100)}%`}{results.keyword_filtered ? ` · 筛除 ${results.keyword_filtered} 个弱关键词匹配` : ""}</p>
-        {results.guidance && <p role="status">{results.guidance}</p>}{results.warning && <p>{results.warning}</p>}
+        {!!results.items.length && <p role="status">已找到候选资料，请核对原文与适用范围。检索分数不代表回答置信度。</p>}{results.warning && <p>{results.warning}</p>}
         {results.items.map((item) => <article key={item.chunk_id}><header><strong>{item.name}</strong><span>{item.location}</span></header><MarkdownText>{item.text}</MarkdownText>
           <small>引用 ID：{item.chunk_id} · {results.score_type === "rerank" ? "重排分数" : "融合排名分数"} {item.score}
             {item.keyword_coverage !== undefined && ` · 关键词覆盖 ${Math.round(item.keyword_coverage * 100)}%`}{item.vector_score != null && ` · 向量相似度 ${item.vector_score.toFixed(3)}`}（分数不是回答置信度）</small></article>)}

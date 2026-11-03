@@ -48,12 +48,14 @@ class WorkEngine:
         *,
         capabilities_factory: Callable[[dict], CapabilityService] | None = None,
         internal_api_url: str = DEFAULT_INTERNAL_API_URL,
+        browser_skills=None,
     ) -> None:
         self.database, self.models, self.sandboxes = database, models, sandboxes
         self.artifacts, self.saver, self.model_factory = artifacts, saver, model_factory
         self.events = WorkWorker(database, self.execute)
         self.capabilities_factory = capabilities_factory
         self.internal_api_url = validate_internal_api_url(internal_api_url)
+        self.browser_skills = browser_skills
 
     async def model(self, run: dict) -> BaseChatModel:
         rows = await self.database.fetch("SELECT * FROM model_configs WHERE id=%s AND enabled", (run["model_id"],))
@@ -420,6 +422,19 @@ class WorkEngine:
         tools, _ = await capabilities.for_owner(run["owner_id"], snapshot, work_run=run)
         tools.extend(browser)
         selection = snapshot or await capabilities.bindings(run["owner_id"])
+        if (
+            self.browser_skills
+            and run["environment"] == "browser"
+            and selection.get("skill_ids")
+            and run.get("allow_local_browser") is True
+            and selection.get("allow_local_browser") is True
+        ):
+            from app.browser_skill_work import browser_skill_tool
+            from app.permissions import require_account
+
+            account = await require_account(self.database, run["owner_id"], "work.execute")
+            if account["is_admin"]:
+                tools.append(browser_skill_tool(self.database, self.browser_skills, backend, run, selection))
         if selection.get("web_enabled"):
             if selection.get("web_mode") == "openai_native":
                 tools.append({"type": "web_search"})

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api/platform";
 import type { ResourcePage } from "./use-paged-resources";
 import { TaskFiles, ArtifactPreview } from "./task-files";
@@ -9,6 +9,7 @@ import { DraftEstimate, WorkTokenUsage } from "./token-usage";
 import { RunDiagnostics } from "./run-diagnostics";
 import { BrowserWorkbench } from "./browser-workbench";
 import { WorkflowApproval } from "./workflow-approval";
+import { BrowserSkillApproval } from "./browser-skill-approval";
 import { RepositoryPicker, type RepositoryPermissions } from "./repository-picker";
 import { RepositoryReview } from "./repository-review";
 import { nodeLabels } from "./workflow-editor";
@@ -18,6 +19,7 @@ type Run = {
   id: string;
   status: string;
   environment?: string;
+  allow_local_browser?: boolean;
   created_at: string;
   error_code?: string;
   pause_requested?: boolean;
@@ -123,6 +125,9 @@ export function WorkRunPanel({
   const [tokenLimit, setTokenLimit] = useState(80000);
   const [networkDomains, setNetworkDomains] = useState("");
   const [environment, setEnvironment] = useState("coding");
+  const [hostAdmin, setHostAdmin] = useState(false), [allowLocalBrowser, setAllowLocalBrowser] = useState(false);
+  const [browserChecks, setBrowserChecks] = useState<Record<string, boolean>>({});
+  const checkBrowser = useCallback((key: string, valid: boolean) => setBrowserChecks(previous => previous[key] === valid ? previous : { ...previous, [key]: valid }), []);
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
   const [runCursor, setRunCursor] = useState<string | null>(null), [historyLoading, setHistoryLoading] = useState(false);
@@ -152,13 +157,15 @@ export function WorkRunPanel({
           enabled: boolean;
         }[];
       }>("/agents"),
+      api<{ is_admin: boolean }>("/auth/me"),
     ])
-      .then(([m, c, a]) => {
+      .then(([m, c, a, account]) => {
         if (active) {
           setModels(m.items);
           setModel(m.items[0]?.id || "");
           setEnabled(c.enabled);
           setAgents(a.items.filter((item) => item.enabled));
+          setHostAdmin(account.is_admin === true);
         }
       })
       .catch((reason) => {
@@ -266,6 +273,7 @@ export function WorkRunPanel({
       </div>
       <p>
         {task.workflow_task ? "固定流程按节点顺序执行，审批通过后才运行代码；关闭页面后后台继续。"
+          : allowLocalBrowser ? "本次允许使用本机已登录浏览器，录制路径须批准后执行；该浏览器没有网络硬隔离。"
           : "命令和删除操作需要审批。默认禁止出站，可在提交前授权公网域名；关闭页面后，已提交任务由后台继续处理。"}
       </p>
       {enabled === false && (
@@ -306,11 +314,13 @@ export function WorkRunPanel({
                   revision,
                   restore_from_run: restore ? selected : null,
                   environment,
+                  allow_local_browser: hostAdmin && environment === "browser" && allowLocalBrowser,
                   repository_id: environment === "coding" ? repository || null : null,
                 }),
               },
             );
             setSelected(result.run_id);
+            setAllowLocalBrowser(false);
           });
         }}
       >
@@ -371,12 +381,14 @@ export function WorkRunPanel({
           <select
             aria-label="任务环境"
             value={environment}
-            onChange={(event) => setEnvironment(event.target.value)}
+            onChange={(event) => { setEnvironment(event.target.value); setAllowLocalBrowser(false); }}
           >
             <option value="coding">编程与文件处理</option>
             <option value="browser">浏览器与文件处理</option>
           </select>
         </label>
+        {environment === "browser" && hostAdmin && <label><span><input type="checkbox" aria-label="允许本次使用本机浏览器" checked={allowLocalBrowser} onChange={event => setAllowLocalBrowser(event.target.checked)} />允许本次使用本机已登录浏览器</span>
+          <small>仅本次新运行有效，恢复副本也需重新勾选。用于重放已绑定的浏览器技能，完整路径须另行审批。该浏览器无网络硬隔离，页面可能向其他站点发请求；请使用专用账号。</small></label>}
         {repositoryPermissions.use && environment === "coding" && <RepositoryPicker value={repository} onChange={setRepository} />}
         <button
           className="settings-primary"
@@ -423,8 +435,9 @@ export function WorkRunPanel({
         />
       </label>
       <p>
-        最多 10
+        {allowLocalBrowser ? "本机浏览器：最多 10 个完整公网域名，仅约束顶层导航，不限制页面后台请求。此授权可能向站点发送内容。" : <>最多 10
         个完整域名，内网、回环、元数据和未授权站点禁止访问。网页依赖其他域名时需一并填写；此授权会允许任务向对应站点发送内容。
+        </>}
       </p>
       <TaskFiles
         taskId={task.id}
@@ -477,7 +490,7 @@ export function WorkRunPanel({
             <>
               <p role="status">{labels[run.status] || run.status}</p>
               <WorkTokenUsage run={run.id} active={["PENDING", "RUNNING"].includes(run.status)} />
-              {run.environment === "browser" && <BrowserWorkbench key={run.id} run={run.id} status={run.status} />}
+              {run.environment === "browser" && (run.allow_local_browser ? <p>此运行允许已绑定的技能使用本机专用浏览器。请核对下方完整路径审批与执行凭据；该浏览器无网络硬隔离。</p> : <BrowserWorkbench key={run.id} run={run.id} status={run.status} />)}
               <RunDiagnostics id={run.id} mode="work" active={["PENDING", "RUNNING"].includes(run.status)} />
               {run.model_calls !== undefined && (
                 <p>
@@ -589,6 +602,7 @@ export function WorkRunPanel({
                     ? "删除"
                     : operation.name === "workflow_code" ? "流程代码"
                     : operation.name === "workflow_approval" ? "流程人工确认"
+                    : operation.name === "run_browser_skill" ? "本机浏览器完整路径"
                     : "MCP 写操作"}{" "}
                 ·{" "}
                 {operation.status === "APPROVED" && run && ["COMPLETED", "FAILED", "CANCELLED", "NEEDS_REVIEW"].includes(run.status)
@@ -670,11 +684,13 @@ export function WorkRunPanel({
                             ? "浏览器操作列表"
                             : request.name === "workflow_code" ? "执行固定流程代码"
                             : request.name === "workflow_approval" ? "流程人工确认"
+                            : request.name === "run_browser_skill" ? "本机浏览器完整路径"
                             : "外部写操作"}
                     </strong>
                     {request.description && <p>{request.description}</p>}
                     {["workflow_code", "workflow_approval"].includes(request.name)
                       ? <WorkflowApproval approval={approval.id} name={request.name} args={request.args} />
+                      : request.name === "run_browser_skill" ? <BrowserSkillApproval key={`${approval.id}:${approval.digest}:${index}:${JSON.stringify(request.args)}`} args={request.args} checkKey={`${approval.id}:${approval.digest}:${index}:${JSON.stringify(request.args)}`} checked={checkBrowser} />
                       : <pre>{JSON.stringify(request.args, null, 2)}</pre>}
                   </div>
                 ))}
@@ -750,6 +766,7 @@ export function WorkRunPanel({
                     key={decision}
                     disabled={
                       busy ||
+                      (decision === "approve" && approval.payload.action_requests.some((request, index) => request.name === "run_browser_skill" && !browserChecks[`${approval.id}:${approval.digest}:${index}:${JSON.stringify(request.args)}`])) ||
                       run?.status !== "WAITING_APPROVAL" ||
                       new Date(approval.expires_at).getTime() <= Date.now()
                     }
@@ -765,7 +782,7 @@ export function WorkRunPanel({
                       )
                     }
                   >
-                    {decision === "approve" ? "批准此操作" : "拒绝此操作"}
+                    {decision === "approve" ? (approval.payload.action_requests.some(request => request.name === "run_browser_skill") ? "批准本次完整路径" : "批准此操作") : "拒绝此操作"}
                   </button>
                 ))}
               </article>
