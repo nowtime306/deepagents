@@ -383,3 +383,15 @@ def test_command_preserves_125_without_running_host_java():
     receipt, output, error = namespace["command"](["java", "fixed-source"])
     assert receipt["exit_code"] == 125 and not receipt["timed_out"] and output == error == b""
     assert len(calls) == 1 and calls[0][1]["user"] == 1000
+
+
+def test_signature_rejection_exit_cannot_become_pass():
+    # Protocol substitute only: actual reflected-signature behavior needs the eight-source Linux probe.
+    body = report("a" * 64)
+    for row in body["cases"]:
+        row.update(exit_code=1, passed=False)
+    body["passed"] = False
+    assert validate_report(body, "a" * 64)["passed"] is False
+    body["passed"] = True
+    with pytest.raises(ValueError):
+        validate_report(body, "a" * 64)

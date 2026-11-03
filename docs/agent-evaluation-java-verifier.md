@@ -18,6 +18,8 @@ target-only固定executor按封存taskID分流，不依据名称或goal；验证
 
 固定探针须在一次exec后的子进程中核seccomp/no_new_privs、IPv4/IPv6/socketpair、44772连接尝试、原始connect、x32及安全compat getpid均EPERM，且正常native getpid与文件正探针可用。不发送Execd HTTP请求、命令或认证数据；若socket意外可创建，立即停止其余网络探针。正确Java必须另在同过滤条件真实通过。程序/报告协议升为java-max-v2，launcher源码摘要和精确拒绝证据是必需项，旧权限探针不能借用为新保护证明。
 
+接口必须精确为public类Max中声明的`public static int max(int,int)`，并严格不声明任何throws（包括checked及unchecked异常）。可信只读adapter在调用前用getDeclaredMethod精确核两个int参数、类public、方法public/static、返回类型恰为int，以及getExceptionTypes为空；不能因同包可见、long重载打印或adapter自身允许反射异常而放过接口不兼容。参数正确但package-private、返回long或声明ReflectiveOperationException的源码也应FAIL。反射检查本身不授权root执行Java，仍在同一UID1000/seccomp子进程中运行。新增三个接口反例须另经真实隔离工程探针；原47工程及五源码物理探针不回填为新签名覆盖。
+
 固定保护例为`max(2,8)=8`、`max(-7,-3)=-3`、`max(4,4)=4`。这是三个测试的结果，不是通用Java正确性或安全证明。编译失败、签名不符、非整数/额外输出、超时或结果错误应保留FAIL；SDK传输或结果封存不确定为NEEDS_REVIEW。硬编码“测试通过”及System.exit(0)不构成结果。
 
 退出码125也只作为普通命令的已知失败结果保留，不能仅凭它推断launcher未执行或把候选System.exit(125)改成环境UNKNOWN。初始隔离/文件/编译产物探针仍强制成功，缺失或失败不得进入可通过判定；本轮没有增加逐次启动握手协议来区分共享退出码。

@@ -15,7 +15,16 @@ from pathlib import Path
 
 CASES = ((2, 8, 8), (-7, -3, -3), (4, 4, 4))
 ADAPTER = '''public final class AEInvokeMax {
- public static void main(String[] args) {
+ public static void main(String[] args) throws ReflectiveOperationException {
+  java.lang.reflect.Method method = Max.class.getDeclaredMethod("max", int.class, int.class);
+  int modifiers = method.getModifiers();
+  if (!java.lang.reflect.Modifier.isPublic(Max.class.getModifiers())
+      || !java.lang.reflect.Modifier.isPublic(modifiers)
+      || !java.lang.reflect.Modifier.isStatic(modifiers)
+      || method.getReturnType() != int.class
+      || method.getExceptionTypes().length != 0) {
+   throw new IllegalStateException("Expected public static int Max.max(int,int)");
+  }
   System.out.print(Max.max(Integer.parseInt(args[0]),Integer.parseInt(args[1])));
  }
 }'''

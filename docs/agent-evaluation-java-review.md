@@ -23,3 +23,15 @@ JV03 最小修复冻结 `java-verifier-exit125-fix/manifest.json` SHA256 `47a20a
 前两次独立探针失败原样保留：`java-linux-independent-c78d689d936f4749bfad5e2404737d2c` 在私有 Docker 信息模板缺括号处停止，0 个 Java 控制；`java-linux-recheck-32af09cc24164f7085b8d495c9d54896` 仅正确控制通过后归档失败，不能算五组通过。仅修私有脚本并本机核模板/精确归档后，用新 namespace 重测；产品五文件未改。三次各自至多创建一个 Coding，均已清理，没有重放旧创建或新管理器。
 
 下一步仍需候选 Agent 正式执行、下载源码差异、第二个已租约验证任务、两根用量/会话和 reader/CLEAN 的完整共享接线验收；当前 W02 不在 READY 清单，没有生产部署。
+
+## JV04：公开 Java 签名保护
+
+根角色发现数值比较不能证明保留原 `public static int Max.max(int,int)` 接口：同包调用可能容忍非 public 方法、long 返回值；保护 adapter 声明 throws 后也不能放过新引入的 checked throws。最小修复在调用前反射检查 public 类、精确两个 int 参数、public/static 方法、int 返回及无声明异常。按原无 throws 接口保守拒绝声明异常，不重写候选源码或信任候选自己报告签名。
+
+新五文件冻结 `services/evaluation/.local/java-verifier-signature-freeze/manifest.json` SHA256 `bc2f150650d7995a78f7adac95981ecb6346d4df03e74228232dd8a6fba38eda`，PROGRAM SHA256 `2c7f26f3022590445b2dde70ef2ad3f110c1487e9646cc51e4b045283e0874c1`。service/launcher 与旧冻结字节相同。非作者先代码审查关闭，再独立指定工程文件 **48通过、0跳过**及6个协议反例；48含旧47，不相加。协议替身不证明实际 Java 反射行为。证据 `services/evaluation/.local/java-signature-independent-qa/run_8b448f1564b6/`，完成收据 `8e3a7643848745501353a3bcbde64cf2b2d2946f36172da7346aaab22eea96ac`。
+
+随后根角色在一个全新 Coding 中实际运行八组源码，保留原五组并增加 package-private 方法、long 返回和声明 ReflectiveOperationException 的反例。三反例的候选/adapter 编译均成功，九次调用实际由签名 guard 拒绝；数值正确不能掩盖接口错误。八组结果、JDK21、UID/GID、继承隔离及私有测试保护均按预期，八次归档核对通过。一个 Coding＋管理器自动侧车，原固定镜像4 CPU/5 GiB、同 namespace/session，已精确释放且末次三类库存0；程序、素材、脚本前后摘要一致。
+
+原件 `.local/agent-evaluations/java-signature-independent-d705aca917424f11b07c52285423e2a7/receipt.json` SHA256 `43371a82abaddb89c010458f33d91b6c911ea47141a2bdc5b1e0923e90f2b586`。另一角色只读交叉核验原八报告和签名异常摘要、冻结与资源收据，没有重跑 Java 或调用目标；结果 `services/evaluation/.local/java-signature-real-independent-review/review_071933e7260d/verification.json` SHA256 `87cf202ca5843d5347753db6f5e0122f399be41b09101af20598c369e6e07674`。最初一次根 shell 启动因变量名不存在，在启动 Python/创建资源前失败；改用脚本实际变量后才执行这一新探针，不计为 Java 产品失败或额外通过。
+
+JV04 在此限定工程范围关闭。旧五组原件与历史失败不回填新签名证明；W02 的真实 Agent/两根 Work 链路仍未验收，未增加 A20 已验收案例，没有新部署或正式标签。
