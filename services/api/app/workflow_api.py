@@ -251,18 +251,24 @@ async def events(identifier: UUID, run_id: UUID, request: Request) -> dict:
 
 @router.get("/{identifier}/versions")
 async def versions(identifier: UUID, request: Request) -> dict:
+    from app.workflow_versions import canvas_projection
+
     user = await identity(request)
-    await owned(request, identifier, user["id"])
-    return {
-        "items": await request.app.state.db.fetch(
-            "SELECT id,version,draft_revision,model_id,model_revision,name,instructions,digest,active,"
+    workflow = await owned(request, identifier, user["id"])
+    rows = await request.app.state.db.fetch(
+            "SELECT id,version,draft_revision,model_id,model_revision,name,instructions,digest,active,layout,"
             "created_at,definition,"
             "COALESCE(definition->'input_schema','{\"type\":\"string\"}'::jsonb) AS input_schema,"
             "COALESCE(definition->>'execution','readonly') AS execution "
             "FROM workflow_versions WHERE workflow_id=%s ORDER BY version DESC",
             (identifier,),
         )
-    }
+    for row in rows:
+        row["is_current"] = workflow["current_published_version"] == row["version"]
+        row["layout_known"] = bool(row["layout"])
+        row.update(canvas_projection(row))
+    return {"items": rows, "current_published_version": workflow["current_published_version"],
+            "release_revision": workflow["release_revision"]}
 
 
 @router.post("/{identifier}/publish", status_code=201)
@@ -283,13 +289,15 @@ async def publish(identifier: UUID, body: PublishInput, request: Request) -> dic
         model_revision = pins["models"][workflow["model_id"]]
         existing = await (
             await connection.execute(
-                "SELECT version,resource_pins FROM workflow_versions "
+                "SELECT version,resource_pins,active FROM workflow_versions "
                 "WHERE workflow_id=%s AND draft_revision=%s AND model_revision=%s",
                 (identifier, workflow["revision"], model_revision),
             )
         ).fetchone()
         if existing and (not existing["resource_pins"] or existing["resource_pins"] == pins):
-            return {"version": existing["version"]}
+            return {"version": existing["version"], "created": False, "active": existing["active"],
+                    "current_published_version": workflow["current_published_version"],
+                    "release_revision": workflow["release_revision"]}
         if workflow["tested_revision"] != workflow["revision"] or workflow["tested_pins"] != pins:
             fail(409, "WORKFLOW_UNTESTED", "请先测试通过当前草稿及资源配置，再发布版本")
         if existing:
@@ -313,7 +321,7 @@ async def publish(identifier: UUID, body: PublishInput, request: Request) -> dic
         await connection.execute(
             "INSERT INTO workflow_versions(id,workflow_id,version,draft_revision,model_id,model_revision,"
             "name,instructions,"
-            "definition,resource_pins,digest) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            "definition,resource_pins,digest,layout) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (
                 uuid4(),
                 identifier,
@@ -326,22 +334,41 @@ async def publish(identifier: UUID, body: PublishInput, request: Request) -> dic
                 Jsonb(definition.model_dump()),
                 Jsonb(pins),
                 checksum,
+                Jsonb(workflow["layout"]),
             ),
         )
-    return {"version": number}
+        release = await (await connection.execute(
+            "UPDATE workflows SET current_published_version=%s,release_revision=release_revision+1 WHERE id=%s "
+            "RETURNING release_revision", (number, identifier),
+        )).fetchone()
+    return {"version": number, "created": True, "active": True, "current_published_version": number,
+            "release_revision": release["release_revision"]}
 
 
 @router.put("/{identifier}/versions/{version}/state")
 async def version_state(identifier: UUID, version: int, body: VersionState, request: Request) -> dict:
     user = await identity(request)
-    await owned(request, identifier, user["id"])
-    rows = await request.app.state.db.fetch(
-        "UPDATE workflow_versions SET active=%s WHERE workflow_id=%s AND version=%s RETURNING id",
-        (body.active, identifier, version),
-    )
-    if not rows:
-        fail(404, "NOT_FOUND", "发布版本不存在")
-    return {"active": body.active}
+    async with request.app.state.db.pool.connection() as connection:
+        workflow = await (await connection.execute(
+            "SELECT * FROM workflows WHERE id=%s AND owner_id=%s FOR UPDATE", (identifier, user["id"]),
+        )).fetchone()
+        if not workflow:
+            fail(404, "NOT_FOUND", "工作流不存在或无权访问")
+        row = await (await connection.execute(
+            "UPDATE workflow_versions SET active=%s WHERE workflow_id=%s AND version=%s RETURNING id",
+            (body.active, identifier, version),
+        )).fetchone()
+        if not row:
+            fail(404, "NOT_FOUND", "发布版本不存在")
+        if not body.active and workflow["current_published_version"] == version:
+            await connection.execute(
+                "UPDATE workflows SET current_published_version=NULL,release_revision=release_revision+1 WHERE id=%s",
+                (identifier,),
+            )
+        release = await (await connection.execute(
+            "SELECT current_published_version,release_revision FROM workflows WHERE id=%s", (identifier,),
+        )).fetchone()
+    return {"active": body.active, **release}
 
 
 async def execute(
