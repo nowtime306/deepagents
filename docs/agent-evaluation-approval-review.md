@@ -9,3 +9,11 @@
 最后冻结 `services/evaluation/.local/approval-final-freeze/manifest.json` SHA256 `4ffd7b8f684b13a144b85eedb2f07081d173dd5de0b930d4915cca947f701e76`。三项问题均由非作者复审关闭，18 项独立边界探针通过；随后只执行指定两个测试文件，**53 通过、0 失败、0 跳过**（0.59 秒）。5 项摘要前后一致，未访问网络/真实平台、数据库或 Work。53 含作者先前 39/46 范围，探针与历次通过数不累加。
 
 原 AP01 失败证据 `services/evaluation/.local/approval-independent-review/probe_0c315a6f1376/` 保留。复审及 QA `services/evaluation/.local/approval-independent-qa/run_a4dd2224bced/`。共享上传修订、环境归属、完整 HTTP 驱动、online/offline CLEAN 和最后收据仍需后续审查测试；两个模块存在不代表实际 W03/W04 已验收。
+
+## W04 消费者重建客户端增量
+
+后续依据原测试计划新增真实消费者重建的客户端合同：批准前必须封存原根、owner/environment/namespace、新旧消费者注册及同一 checkpoint 的收据，重建未知不得再发请求或继续批准；这仍不是 OS 进程重启。目标控制器和共享链路由另一开发范围单独验证。
+
+CP01/P2 在独立最小探针复现：已知证据保存失败但没有 consumer 引用时，capture 会先发重建请求再被末尾 verified 拒绝。修复后 capture、decide 和 execute 均在入口阻断，零 attestation/GET/POST/业务提交。最后冻结 `consumer-review-fix/manifest.json` SHA256 `45d1c20ca13210536f3e6d978fe16f799eb185208ea855f56dfeb7dfdf625d4b` 经独审关闭；5 个独立探针通过，随后指定三个测试文件 **67 通过、0 失败、0 跳过**（0.82 秒）。7 项源码/测试/文档摘要前后一致，无网络或实际控制器/业务。67 包含此前 53/64，不相加。
+
+新 QA 证据 `services/evaluation/.local/consumer-independent-qa/run_9c13667932a9/`，原失败探针 `services/evaluation/.local/consumer-independent-review/probe_f8f44d542533/` 保留。实际新消费者接手、完整 HTTP 驱动、共享预算和真实 W04 仍未验收。

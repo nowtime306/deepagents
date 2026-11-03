@@ -6,6 +6,7 @@ import pytest
 from test_fixed_approval_observation import pair
 
 from evaluation_runner import fixed_approval_evidence as retained
+from evaluation_runner import fixed_consumer_evidence as consumer
 from evaluation_runner.fixed_run import catalog
 from evaluation_runner.journal import Journal, digest
 
@@ -30,16 +31,35 @@ def prepared(tmp_path, case_id="AET-W04"):
 
 def seal(journal, attempt, specimen, before, after, replay=None):
     retained.retain(journal, attempt, specimen, "waiting", before, "approval_before_ref")
+    if specimen.case_id == "AET-W04":
+        seal_consumer(journal, attempt, before)
     retained.retain(journal, attempt, specimen, "final", after, "approval_final_ref")
     if specimen.case_id == "AET-W04":
         retained.retain(journal, attempt, specimen, "replay", replay if replay is not None else after, "approval_replay_ref")
     row = before["approvals"][0]
     intent = {"status": "CONFIRMED", "path": f"/api/v1/work-approvals/{row['id']}/decisions",
               "payload_digest": digest({"digest": row["reported_digest"], "decision": "reject" if specimen.case_id == "AET-W03" else "approve"})}
-    attempt["submission_intents"] = {"decide-counter-approval": copy.deepcopy(intent)}
+    attempt.setdefault("submission_intents", {})["decide-counter-approval"] = copy.deepcopy(intent)
     if specimen.case_id == "AET-W04":
         attempt["submission_intents"]["probe-repeat-confirmed-decision"] = copy.deepcopy(intent)
     journal.save()
+
+
+def seal_consumer(journal, attempt, before):
+    from evaluation_runner.fixed_evidence import binding, store
+    work = retained.observation.parse(before).work
+    checkpoint = str(uuid4())
+    proof = {"schema_version": 1, "case_id": "AET-W04", "source_run_id": str(work.run_id),
+             "owner_id": str(work.owner_id), "environment_id": str(work.environment_id), "namespace": str(work.namespace),
+             "status": "REBUILT", "before_worker_ids": [str(uuid4())], "after_worker_ids": [str(uuid4())],
+             "checkpoint_id_before": checkpoint, "checkpoint_id_after": checkpoint}
+    ref = store(journal.directory, consumer.KIND, {"schema_version": 1, "kind": consumer.KIND,
+                "binding": binding(journal.data, attempt), "body": proof})
+    attempt.setdefault("evidence_refs", []).append(ref)
+    attempt["approval_consumer_ref"] = ref
+    attempt.setdefault("submission_intents", {})[consumer.INTENT] = {
+        "status": "CONFIRMED", "path": consumer.PATH + "/rebuild",
+        "payload_digest": digest({"source_run_id": str(work.run_id)})}
 
 
 @pytest.mark.parametrize("case_id", ["AET-W03", "AET-W04"])
@@ -49,7 +69,7 @@ def test_sealed_approval_facts_recompute_and_are_disposable_only_when_settled(tm
         seal(journal, attempt, specimen, before, after)
         snapshot = retained.verified(tmp_path, journal.data, attempt, specimen)
         facts, adapter = retained.evaluate(snapshot, specimen, attempt)
-        assert [row.status for row in facts] == ["PASS", "PASS"]
+        assert [row.status for row in facts] == ["PASS"] * (3 if case_id == "AET-W04" else 2)
         assert adapter["usage"]["total"] == after["work"]["usage"]
         assert retained.cleanup_ready(tmp_path, journal.data, attempt, specimen)
         journal.close()

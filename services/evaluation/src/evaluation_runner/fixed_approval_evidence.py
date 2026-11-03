@@ -5,6 +5,8 @@ from uuid import UUID
 
 from . import adapters
 from . import fixed_approval_observation as observation
+from . import fixed_consumer_evidence as consumer
+from .contracts import Result
 from .fixed_evidence import binding, load, store
 from .journal import digest
 
@@ -50,6 +52,8 @@ def read(directory, data, attempt, reference, specimen, stage):
 
 
 def decide(platform, journal, attempt, specimen):
+    if attempt.get("approval_evidence_failed"):
+        raise ValueError("Approval evidence persistence failed; no new decision")
     if not attempt.get("approval_before_ref"):
         before = observation.collect(platform, attempt, specimen)
         state = observation.parse(before)
@@ -66,6 +70,8 @@ def decide(platform, journal, attempt, specimen):
     before = read(journal.directory, journal.data, attempt, attempt["approval_before_ref"], specimen, "waiting")
     row = observation.parse(before).approvals[0]
     decision = "reject" if specimen.case_id == "AET-W03" else "approve"
+    if specimen.case_id == "AET-W04":
+        consumer.capture(platform, journal, attempt, observation.parse(before).work)
     journal.post(platform, attempt, f"/api/v1/work-approvals/{row.id}/decisions",
                  {"digest": row.reported_digest, "decision": decision}, "decide-counter-approval")
 
@@ -79,6 +85,8 @@ def confirmed_decision(attempt, approval, decision, key):
 
 def execute(platform, journal, attempt, specimen, *, cancelled=lambda: False):
     check_case(specimen)
+    if attempt.get("approval_evidence_failed"):
+        raise ValueError("Approval evidence persistence failed; no new execution")
     if not attempt.get("submission_complete"):
         adapters.submit(platform, journal, attempt, specimen, attempt["fixture"])
     deadline = time.monotonic() + specimen.budgets.timeout_seconds
@@ -112,26 +120,37 @@ def verified(directory, data, attempt, specimen):
     check_case(specimen)
     if attempt.get("approval_evidence_failed") or not attempt.get("approval_before_ref") or not attempt.get("approval_final_ref"):
         raise ValueError("Approval checkpoint/final facts were not confirmed retained")
-    expected = {"waiting": attempt["approval_before_ref"], "final": attempt["approval_final_ref"]}
+    expected = {"waiting": attempt["approval_before_ref"]}
+    if specimen.case_id == "AET-W04":
+        expected["consumer"] = attempt["approval_consumer_ref"]
+    elif attempt.get("approval_consumer_ref"):
+        raise ValueError("Unexpected consumer rebuild for the rejection case")
+    expected["final"] = attempt["approval_final_ref"]
     if specimen.case_id == "AET-W04":
         expected["replay"] = attempt["approval_replay_ref"]
     elif attempt.get("approval_replay_ref"):
         raise ValueError("Unexpected approval repeat probe")
     if digest(attempt.get("evidence_refs")) != digest(list(expected.values())):
         raise ValueError("Approval fact reference set/order changed")
-    bodies = {stage: read(directory, data, attempt, reference, specimen, stage) for stage, reference in expected.items()}
+    bodies = {stage: read(directory, data, attempt, reference, specimen, stage)
+              for stage, reference in expected.items() if stage != "consumer"}
+    proof = (consumer.verified(directory, data, attempt, observation.parse(bodies["waiting"]).work)
+             if specimen.case_id == "AET-W04" else None)
     approval = observation.parse(bodies["waiting"]).approvals[0]
     decision = "reject" if specimen.case_id == "AET-W03" else "approve"
     keys = ["decide-counter-approval"] + (["probe-repeat-confirmed-decision"] if specimen.case_id == "AET-W04" else [])
     if not all(confirmed_decision(attempt, approval, decision, key) for key in keys):
         raise ValueError("Approval submissions were not confirmed; no implicit reconciliation")
-    return {"before": bodies["waiting"], "after": bodies["final"], "replay": bodies.get("replay"),
+    return {"before": bodies["waiting"], "after": bodies["final"], "replay": bodies.get("replay"), "consumer": proof,
             "usage": bodies["final"]["work"]["usage"]}
 
 
 def evaluate(snapshot, specimen, attempt):
     check_case(specimen)
     facts = observation.evaluate(snapshot["before"], snapshot["after"], snapshot["replay"], specimen.case_id)
+    if specimen.case_id == "AET-W04":
+        consumer.validate(snapshot["consumer"], observation.parse(snapshot["before"]).work)
+        facts.append(Result(registered_id="approval_consumer_rebuilt", status="PASS"))
     final = observation.parse(snapshot["after"])
     return facts, {"run": {"id": str(final.work.run_id), "status": final.work.status},
                    "usage": {"total": snapshot["usage"]}, "observed": ["usage"]}
