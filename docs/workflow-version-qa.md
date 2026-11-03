@@ -1,6 +1,6 @@
 # 工作流版本与平台Release独立测试记录
 
-2026-11-03，依据workflow-version-requirements.md的WVR-01～08及workflow-version-tests.md的VT01～30。状态：**版本API与定向兼容通过，真实界面已获授权待验收，未批准正式发布**。
+2026-11-03，依据workflow-version-requirements.md的WVR-01～08及workflow-version-tests.md的VT01～30。状态：**版本API与定向兼容通过，隔离站已升级就绪，浏览器保存策略仍拒绝访问，未批准正式发布**。
 
 ## 审查与隔离
 
@@ -30,6 +30,12 @@ fixture中browser/status/deployment JSON都是虚构输入，用来验证工具�
 
 用户随后明确回复“已允许访问独立测试站”，3131旧基线真实体验已完成。但根角色在两次用户授权/改设置回复后，重试IAB2仍被工具明确拒绝：saved user permission/managed policy denies 3131。不再换浏览器、别名、CDP或其它角色绕过；旧基线截图不能代表新WVR。生产3100同样不在本次浏览器授权内。
 
-QA已准备原地升级隔离站，保留假数据/端口，根完成安全归属核对后执行080迁移并构建；当前构建状态另见私有station-upgrade.json与日志，未作为页面通过证据。待工具实际允许后先作者自验、再独立QA，页面操作仅使用Cua。VT21～23及FE01～04、390px及无脚本错误仍待实测，构建或8项未执行UI mock测试源码不能替代此结论。
+根已成功原地升级隔离站，保留假数据/端口，完成安全归属核对、080迁移及构建。沿用`owner_agent_ux_baseline_05c5b8f23993_test`、虚拟模型8160、API8161和Web3131；覆盖文件与冻结源码一致。新构建ID为`H3ZpCo3QPCDk6RUslo4Uv`，证据`.local/team-workspace/workflow-version/qa/station-upgrade.json`。待工具实际允许后先作者自验、再独立QA，页面操作仅使用Cua。VT21～23及FE01～04、390px及无脚本错误仍待实测，构建或8项未执行UI mock测试源码不能替代此结论。
+
+### 慢构建诊断与只读夹具
+
+构建曾长时间停留在客户端编译，最终自然成功，未杀进程、未移动输出。Next trace显示总构建473.552秒、服务端worker4.465秒、客户端worker461.126秒，其中globals.css客户端构建456.096秒。原因尚未确认，不把旧输出扫描或长路径假设当结论。证据`qa/slow-build-evidence.json`及私有站`wvr-build.log`。此为隔离环境构建性能记录，不影响已测API结论，也不能用来给UI通过盖章。
+
+已创建并独立查库确认虚构`wvr-viewer`账号：非管理员、内建viewer角色，自有工作流及两份历史版本。仅写隔离库，未变更原用户或角色；凭据只保存在私有`qa/readonly-admin.env`，元数据`qa/readonly-fixture.json`。这仅是只读界面用例的夹具，尚未登录浏览器执行权限验收。
 
 WVR各需求的完整层级映射见workflow-version-tests.md。当前没有把30条设计全数标通过；最终API结果、界面授权及验收、实际部署都应分别收口。
