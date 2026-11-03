@@ -33,6 +33,15 @@ class CountingToolModel(FakeMessagesListChatModel):
         return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
 
 
+class ObservedWorkEngine(WorkEngine):
+    """Observe the real compiled graph without changing its execution or checkpoint handling."""
+
+    async def agent_graph(self, run, model, backend, browser, guard):
+        graph = await super().agent_graph(run, model, backend, browser, guard)
+        self.observed_graph = graph
+        return graph
+
+
 @pytest.mark.skipif(os.getenv("RUN_LOCAL_SANDBOX") != "1", reason="Requires explicit local Coding acceptance")
 def test_real_coding_consumer_resumes_confirmed_configuration_from_original_checkpoint_once(client):
     connection, app = client  # The shared fixture additionally requires TEST_DATABASE_URL ending in _test.
@@ -74,14 +83,18 @@ def test_real_coding_consumer_resumes_confirmed_configuration_from_original_chec
     def consumer():
         service = DurableSandboxes(app.state.db, management)
         services.append(service)
-        return WorkEngine(app.state.db, app.state.models, service, storage, app.state.runtime.saver, factory,
-                          capabilities_factory=lambda _: app.state.capabilities)
+        return ObservedWorkEngine(app.state.db, app.state.models, service, storage, app.state.runtime.saver, factory,
+                                  capabilities_factory=lambda _: app.state.capabilities)
 
     def state():
         return connection.portal.call(app.state.db.fetch, "SELECT * FROM work_queue_runs WHERE id=%s", (run_id,))[0]
 
     def checkpoint():
         return connection.portal.call(app.state.runtime.saver.aget_tuple,
+                                      {"configurable": {"thread_id": "work:" + run_id}})
+
+    def graph_state(engine):
+        return connection.portal.call(engine.observed_graph.aget_state,
                                       {"configurable": {"thread_id": "work:" + run_id}})
 
     def tick(engine):
@@ -112,7 +125,7 @@ def test_real_coding_consumer_resumes_confirmed_configuration_from_original_chec
         assert paused["resume_decision"] and all(value is True for value in paused["resume_decision"].values())
         original = checkpoint()
         assert original is not None
-        humans = [message for message in original.checkpoint["channel_values"]["messages"]
+        humans = [message for message in graph_state(first).values["messages"]
                   if isinstance(message, HumanMessage)]
         assert len(humans) == 1 and goal in humans[0].content
         assert model.requests == []
@@ -145,8 +158,7 @@ def test_real_coding_consumer_resumes_confirmed_configuration_from_original_chec
         assert finished["status"] == "COMPLETED" and marker in finished["result"]["text"], finished
         assert configured[len(before_recovery):]
         assert all(item == (2, 2, confirmed_url, 0.4) for item in configured[len(before_recovery):])
-        final = checkpoint()
-        final_humans = [message for message in final.checkpoint["channel_values"]["messages"]
+        final_humans = [message for message in graph_state(second).values["messages"]
                         if isinstance(message, HumanMessage)]
         assert len(final_humans) == 1 and final_humans[0].id == humans[0].id
         assert final_humans[0].content == humans[0].content
