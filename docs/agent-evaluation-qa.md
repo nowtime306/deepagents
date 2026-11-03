@@ -44,3 +44,12 @@ preflight的ATTESTED仍不表示每项profile、权限和预算可用；固定fi
 freeze7881a2fde54cb4d1aadabd6ff2f78f183b0e29d6b099423d11be16abb94fdab7的实际内容已独立核对。原version=True/计数False被拒；布尔数字输出区分、规范虚拟artifact路径、摘要格式、非finite阈值/JSON、未知metric及隐式judge参数均由独立28边界检查验证；前向已登记但尚未实现的检查在业务POST前BLOCKED，不冒充A20可执行。
 
 复审关闭后，新冻结6文件工程测试独立 **54passed/0failed/0skipped，1.06秒**，源码与测试摘要前后相同。证据services/evaluation/.local/core-strict-independent-qa/run_f20d23585db8。28是审查探针，不与54合计；54不与旧39/37或API批次合计。仍仅真实本地DeepEval加HTTP替身，无实际A20业务、付费模型、UI或部署验收。详见核心审查最新附节。
+
+
+## 后续 A02 fixed 客户端冻结批次（非真实A02执行）
+
+叠加core strict 7881、A02 base e6fc6b104c6aa83d76a3cdcd9567e1b8dfac94877d50451f5166d42f625eb07a与修复manifest dd12cba4c666cdc798f3e4e0acc883fb4ef60131335441e4a875b826cd426222。客户端独审发现离线report忽略请求case/suite的P2 R01；修复后先核身份再导出。独立13离线探针覆盖匹配、错case、suite candidate/ID、target owner/environment/commit/digest、attempt owner/environment、snapshot/catalog/rules；错误均exit2且原报告字节不变，未构造HTTP客户端。R01按范围CLOSED。
+
+根明确授权后的完整客户端工程 **66passed/0failed/0skipped，1.23秒**：原核心6文件54、新fixed profiles4、新report identity8。66包含旧54，不能相加为120；13审查探针也不与66合计。全程私有无供应商凭据环境，Python socket连接/DNS一律拒绝，观察事件0；37个合并冻结文件摘要在工程和探针前后均一致。
+
+证据 `services/evaluation/.local/fixed-a02-independent-qa/run_525fed88fddc/`：manifest.json、summary.json、pytest.log、results.xml及independent-probes/probe-results.json。独审细节 `services/evaluation/.local/fixed-a02-independent-review/review.md`。仅本地真实DeepEval确定性metric、MockTransport及CLI/journal/report I/O；无实际HTTPtarget、数据库、沙箱、付费请求或UI。A02真正两轮持久队列执行及A20门禁仍未验收。cleanup CLEAN在本客户端合同中指无活动/未知效果并保留私有目标历史，不能称数据库/资源已删除；实际目标deprovision另留证。

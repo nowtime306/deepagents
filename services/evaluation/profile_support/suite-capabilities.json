@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "initializer_sha256": "d51f5294558901c73f0cc2084de255b2d1e959bea89cfe3761b303f5b2400684",
+  "sandbox_bounds": {
+    "AET-A02": 2
+  }
+}
