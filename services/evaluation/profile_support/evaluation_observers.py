@@ -42,4 +42,3 @@ def attach_observers(app):
         return {"schema_version": 1, "fixture_profile": {"id": "controlled-v1", "version": 1},
                 "observers": ["root-model-context-v1", "owned-sandbox-states-v1"],
                 "sandbox_limits": service.capability() if service else None, "work_manager": manager}
-
