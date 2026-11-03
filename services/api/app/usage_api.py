@@ -23,8 +23,8 @@ def totals(rows: list[dict]) -> dict:
         "reported_calls": known,
         "unknown_calls": sum(row["unknown_calls"] for row in rows),
         "pending_calls": sum(row["pending_calls"] for row in rows),
-        "input_tokens": sum(row["input_tokens"] or 0 for row in rows) if known else None,
-        "output_tokens": sum(row["output_tokens"] or 0 for row in rows) if known else None,
+        "input_tokens": sum(row["input_tokens"] or 0 for row in rows) if known or not rows else None,
+        "output_tokens": sum(row["output_tokens"] or 0 for row in rows) if known or not rows else None,
     }
 
 

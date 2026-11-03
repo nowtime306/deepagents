@@ -59,3 +59,5 @@ CLEAN、合作stop和只读reader/精确删库均成功；库不存在/会话0�
 执行者封存后，另一角色实际只读核验同次事实/审计/生命周期及回收，没有重跑业务或重导出报告。完成收据 SHA256 `f048f511dab3397cafcd7181fe3958e1602b6c56eb26f25ec4e3ac2df7b44e13`；独立结果 `services/evaluation/.local/three-case-independent-review/run_6e004cba171e/verification/verification.json` SHA256 `65517a5c5c3977bc4c5c2e93c71595fe45ff57fed01f06d93ab4382586684ad4`。
 
 目前 A20 有 **4 个不同案例完成限定工程验收、各 1 次实际重复**：A02/F02/F04 的任务结果 PASS，W01 的预期负控制正确检出原任务 FAIL。不是 4 个任务全部成功，不含真实模型质量、界面、完整 SSE、OS/worker 出网或生产发布。其他 16 个案例与 B/C/D 继续按原门槛开发；旧 A02 缺证据记录保持原结论。
+
+下一批基础另已独审/工程 QA：审批/消费者客户端指定三文件 67 通过（包含旧 53）；原生空用量聚合指定 API 单元文件 6 通过，明确空查询为 0、已有未知调用仍为 null。两组不是实际 A20 任务，不相加；消费者目标控制器、Java 保护及完整共享链路仍待各自审查和实际验收。补齐需求见 `agent-evaluation-remaining-requirements.md`。
