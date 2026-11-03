@@ -19,7 +19,7 @@ MCP 工具历史按工具名排序比较：`name/enabled/read_only` 变化归“
 - resource_type：model / mcp / route / knowledge / memory / repository / notification。
 - 返回 changes 为 `{字段:{before,after,credential_change?}}`，包含 categories、source、actor_id、change_id、baseline、before_revision/after_revision。
 - `GET /notifications/deliveries` 增加 retry_of、target_summary、current_target_summary。摘要为 `{kind,host,identity}`，界面可对比 host 和 identity 前12位；无摘要应标“历史未记录”。
-- retry 请求 `{acknowledge_duplicate:true,confirm_target?:true}`；返回新投递 ID。原失败/未知/暂停记录保持不变。
+- retry 请求 `{acknowledge_duplicate:true,confirm_target?:true,expected_target?:"当前目标的64位摘要"}`；存在固定目标的历史投递须提交所查看的当前目标摘要，服务端锁定并核对后才创建新投递。目标并发变化拒绝；返回新投递 ID，原失败/未知/暂停记录保持不变。
 
 ## 数据升级与回退
 

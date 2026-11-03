@@ -36,3 +36,14 @@
 - Windows发布工具：[4b818f326aaa3ba8cd001418d4d1a00b036d5bf4](https://github.com/nowtime306/deepagents/commit/4b818f326aaa3ba8cd001418d4d1a00b036d5bf4)，混合CRLF/LF场景，双摘要保持原始验收字节与归档一致性；独立审查及31项通过。
 - 合并至用户指定主开发分支：[49b23fb35b5472a8bbf83b9fec314622a5ad9e7b](https://github.com/nowtime306/deepagents/commit/49b23fb35b5472a8bbf83b9fec314622a5ad9e7b)，`onwer_agent`现包含两组实现。相对已验组合671c的业务Git内容差异仅为上述发布脚本及其单元测试，已单独验收；其它应用、前端、后端、迁移内容相同。
 - 应用页面仍受浏览器保存权限拒绝，未正式部署或新打验收标签；原基线标签不覆盖。开发提交及报告可审阅，实际部署后另追加BUILD_ID与当前数据备份记录。
+
+## 待页面验收开发快照：资源引用解耦与变更追溯
+
+- 分支：`onwer_agent`，远端仍为 `origin/onwer_agent`，不改写历史。
+- 实现提交：`833a4ac212b2103d05e3a73e352d27af74d52e07`，资源当前配置与业务发布版本解耦、运行阶段快照、历史与索引兼容、工具/仓库/通知边界及迁移 082～084。
+- 审查修复提交：`fcdc1dd1ef8022dfe80a4d20f4ebd972578b0a0b`，历史列表/详情关联、饱和查询、历史类别及工具 Schema 强类型约束；独立复审关闭后冻结进行完整相关回归。
+- 测试提交：`1dc9bb412ee415107a7db107431334bc68c44ad8`，真实恢复测试用公开图状态读取完整消息；不改变产品或弱化消息唯一性、检查点和单次执行断言，独立复审后实测通过。
+- 上述三项提交已正常推送至 `origin/onwer_agent`，远端快进 `048169073..1dc9bb412`。这是开发快照同步，不是部署或正式发布。
+- 验证：独立后端 401 passed/21 skipped、66 passed/2 skipped；单元 282 passed；根执行者真实 Coding 专项 6 passed，另一执行者真实补测 18 passed。原跳过基线保留，补测另列。组间有重叠，不合并成总数；补充分组、审查与边界见 [验收汇总](../resource-reference-acceptance.md)。
+- 实际新页面尚未验收，生产未应用 082～084、未发布 RDC。没有新正式标签。
+- 已发布 Web 恢复记录：开发误写默认 `.next` 后，从 `zhixing-v0.1.0` 的 `2818e6f647093a1e8ad1695139f9fdaf4ace8ab7` 在独立目录重建恢复，现 BUILD_ID `Z9Xjn2GY4sh3N_OwxqLbU`、进程64396；原基线二进制 ID `0VM-F40sjLHOkgIlT5ZSe` 不再作为当前构建声明。744个非缓存文件摘要及进程监听已核验，数据库/API未因此迁移或重启，见 [事件记录](../resource-reference-build-isolation.md)。
