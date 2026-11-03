@@ -8,6 +8,7 @@ import pytest
 from test_api import ORIGIN
 from test_api import client as client
 from test_browser_skill_api import PREFIX, seed
+from test_browser_skill_opt_in import work_runs as work_runs
 
 from app.browser_skill_work import browser_skill_tool, guard
 from app.errors import APIError
@@ -71,7 +72,7 @@ def test_deleted_skill_cannot_be_replayed_from_old_recording(client):
 
 
 @pytest.mark.parametrize("change", ["expired", "cancelled", "revoked", "snapshot"])
-def test_live_guard_rechecks_real_database_not_only_start_snapshot(client, change):
+def test_live_guard_rechecks_real_database_not_only_start_snapshot(client, change, work_runs):
     connection, app = client
     user = UUID(connection.get("/api/v1/auth/me").json()["id"])
     connection.portal.call(app.state.db.execute, "UPDATE users SET is_admin=true WHERE id=%s", (user,))
@@ -87,6 +88,7 @@ def test_live_guard_rechecks_real_database_not_only_start_snapshot(client, chang
     )
     assert response.status_code == 202, response.text
     identifier, lease = response.json()["run_id"], uuid4()
+    work_runs.append(identifier)
     connection.portal.call(
         app.state.db.execute,
         "UPDATE work_queue_runs SET status='RUNNING',lease_token=%s,lease_until=now()+interval '1 minute' WHERE id=%s",
@@ -110,7 +112,7 @@ def test_live_guard_rechecks_real_database_not_only_start_snapshot(client, chang
         connection.portal.call(guard, app.state.db, backend, run)
 
 
-def test_automatic_work_clears_inherited_local_browser_opt_in(client):
+def test_automatic_work_clears_inherited_local_browser_opt_in(client, work_runs):
     from app.automation_target import enqueue
 
     connection, app = client
@@ -130,6 +132,7 @@ def test_automatic_work_clears_inherited_local_browser_opt_in(client):
             return await enqueue(database, source, "虚构自动任务")
 
     run, _ = connection.portal.call(insert)
+    work_runs.append(run)
     row = connection.portal.call(
         app.state.db.fetch, "SELECT allow_local_browser,agent_snapshot FROM work_queue_runs WHERE id=%s", (run,)
     )[0]

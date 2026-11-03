@@ -2,11 +2,28 @@
 
 from uuid import UUID, uuid4
 
+import pytest
 from test_api import ORIGIN
 from test_api import client as client
 
 
-def test_local_browser_consent_defaults_denial_and_frozen_snapshot(client):
+@pytest.fixture
+def work_runs(client):
+    """Release only runs explicitly recorded by this case; global claims are unfiltered."""
+    connection, app = client
+    owner = UUID(connection.get("/api/v1/auth/me").json()["id"])
+    identifiers = []
+    yield identifiers
+    for identifier in identifiers:
+        connection.portal.call(
+            app.state.db.execute,
+            "UPDATE work_queue_runs SET status='CANCELLED',cancel_requested=true,lease_token=NULL,lease_until=NULL "
+            "WHERE id=%s AND owner_id=%s AND status IN ('PENDING','RUNNING','WAITING_APPROVAL','PAUSED')",
+            (identifier, owner),
+        )
+
+
+def test_local_browser_consent_defaults_denial_and_frozen_snapshot(client, work_runs):
     connection, app = client
     app.state.settings.work_enabled = True
     connection.portal.call(app.state.db.execute, "INSERT INTO work_worker_instances(id) VALUES(%s)", (uuid4(),))
@@ -16,9 +33,12 @@ def test_local_browser_consent_defaults_denial_and_frozen_snapshot(client):
         task = connection.post(
             "/api/v1/work-tasks", json={"title": "授权验证", "goal": "无模型无浏览器执行"}, headers=ORIGIN
         ).json()["id"]
-        return connection.post(
+        response = connection.post(
             f"/api/v1/work-tasks/{task}/runs", json={"model_id": "test", "revision": 1, **extra}, headers=ORIGIN
         )
+        if response.status_code == 202:
+            work_runs.append(response.json()["run_id"])
+        return response
 
     assert submit(environment="browser", allow_local_browser=True).status_code == 403
     ordinary = submit(environment="browser")
