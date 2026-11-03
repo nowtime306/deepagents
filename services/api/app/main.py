@@ -135,6 +135,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     msg = "当前数据库已有 API 进程运行；P0/P1 仅支持单进程"
                     raise RuntimeError(msg)
                 app.state.db = database
+                from app.browser_skill_runtime import BrowserSkillRuntime
+
+                app.state.browser_skills = BrowserSkillRuntime(database, settings.data_dir)
+                await app.state.browser_skills.recover()
                 encrypted = await database.fetch(
                     "SELECT 1 FROM model_configs WHERE api_key_ciphertext<>'' "
                     "UNION ALL SELECT 1 FROM mcp_servers WHERE token_ciphertext<>'' "
@@ -237,6 +241,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 try:
                     yield
                 finally:
+                    await app.state.browser_skills.close()
                     consumer.cancel()
                     await asyncio.gather(consumer, return_exceptions=True)
                     if automatic:
@@ -407,6 +412,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     from app.habit_api import router as habit_router
 
     app.include_router(habit_router)
+    from app.browser_skill_api import router as browser_skill_router
+
+    app.include_router(browser_skill_router)
     app.include_router(capability_router)
     app.include_router(knowledge_documents_router)
     app.include_router(knowledge_ocr_router)

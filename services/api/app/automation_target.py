@@ -26,6 +26,7 @@ async def target(state, owner: UUID, body) -> dict:
         fail(403, "AGENT_VERSION_UNAVAILABLE", "请选择本人可用的已发布智能体版本")
     row = rows[0]
     snapshot = {**row["snapshot"], "published_version_id": str(row["id"]), "published_version": row["version"]}
+    snapshot["allow_local_browser"] = False
     config = await state.models.get(snapshot["model_id"])
     if not supports_chat(config.kind, config.protocol) or config.revision != snapshot["model_revision"]:
         fail(409, "AGENT_MODEL_CHANGED", "发布版本的模型已变化或不支持聊天，请重新发布")
@@ -63,7 +64,7 @@ async def enqueue(
     connection, source: dict, goal: str, *, occurrence: UUID | None = None, item: UUID | None = None
 ) -> tuple:
     run, destination = uuid4(), uuid4()
-    snapshot, owner = source["snapshot"], source["owner_id"]
+    snapshot, owner = {**source["snapshot"], "allow_local_browser": False}, source["owner_id"]
     origin = "schedule" if occurrence else "batch"
     budget = source.get("budget", source.get("item_budget"))
     if source["mode"] == "ask":

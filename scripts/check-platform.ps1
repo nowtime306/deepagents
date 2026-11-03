@@ -57,4 +57,11 @@ print(json.dumps({'data_dir':str(s.data_dir),'services':live,'work_instances':wo
     }
 } finally { Pop-Location }
 $results.migrations = 'current'
+$results.browser_skill = 'not-configured (optional)'
+if (Test-Path -LiteralPath (Join-Path $state.data_dir 'browser-skill\connection.json')) {
+    try {
+        $browserSkill = & (Join-Path $PSScriptRoot 'check-browser-skill.ps1') -DataDir $state.data_dir | ConvertFrom-Json
+        $results.browser_skill = if ($browserSkill.ready) { 'ready (optional)' } else { 'unavailable (optional)' }
+    } catch { $results.browser_skill = 'unavailable (optional)' }
+}
 $results | ConvertTo-Json

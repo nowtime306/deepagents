@@ -21,6 +21,7 @@ from app.harness import WORK_POLICY
 from app.list_pagination import decode_cursor, page
 from app.model_catalog import supports_chat
 from app.operation_journal import receipts
+from app.permissions import require_account
 from app.security import identity
 from app.web_search import ensure_available
 from app.work_artifacts import WorkArtifacts
@@ -43,6 +44,7 @@ class StartWork(BaseModel):
     network_domains: list[str] = Field(default_factory=list, max_length=10)
     repository_id: UUID | None = None
     model_routing: bool = False
+    allow_local_browser: bool = False
 
 
 class EditedAction(BaseModel):
@@ -63,7 +65,7 @@ async def owned(request: Request, identifier: UUID) -> dict:
     rows = await request.app.state.db.fetch(
         "SELECT id,task_id,owner_id,title,goal,status,result,error_code,environment,"
         "used_tokens,model_calls,usage_unknown,input_files,pause_requested,created_at,updated_at,"
-        "step_limit,token_limit,network_domains "
+        "step_limit,token_limit,network_domains,allow_local_browser "
         "FROM work_queue_runs WHERE id=%s AND owner_id=%s",
         (identifier, user["id"]),
     )
@@ -75,6 +77,12 @@ async def owned(request: Request, identifier: UUID) -> dict:
 @router.post("/work-tasks/{identifier}/runs", status_code=202)
 async def start(identifier: UUID, body: StartWork, request: Request) -> dict:
     user = await identity(request)
+    if body.allow_local_browser:
+        account = await require_account(request.app.state.db, user["id"], "work.execute")
+        if not account["is_admin"]:
+            fail(403, "BROWSER_HOST_ADMIN_REQUIRED", "本机已登录浏览器仅允许主机管理员显式启用")
+        if body.environment != "browser":
+            fail(422, "BROWSER_ENVIRONMENT_REQUIRED", "本机浏览器授权仅适用于浏览器任务")
     if not request.app.state.settings.work_enabled:
         fail(503, "WORK_DISABLED", "任务执行尚未通过本机验收，当前仅开放草稿")
     online = await request.app.state.db.fetch(
@@ -143,6 +151,7 @@ async def start(identifier: UUID, body: StartWork, request: Request) -> dict:
             snapshot = await selected_agent_version(request, user["id"], body.agent_id, body.agent_version_id)
         await request.app.state.capabilities.validate(user["id"], snapshot)
         snapshot = await request.app.state.capabilities.freeze(user["id"], snapshot)
+        snapshot["allow_local_browser"] = body.allow_local_browser
         effective_model = snapshot.get("model_id", body.model_id)
         routing = snapshot.get("model_routing", False) if body.agent_id else body.model_routing
         if routing:
@@ -183,8 +192,8 @@ async def start(identifier: UUID, body: StartWork, request: Request) -> dict:
         await connection.execute(
             "INSERT INTO work_queue_runs(id,task_id,owner_id,title,goal,task_revision,model_id,model_revision,"
             "environment,step_limit,token_limit,agent_snapshot,instructions,network_domains,"
-            "input_files,restore_snapshot_id) "
-            "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            "input_files,restore_snapshot_id,allow_local_browser) "
+            "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (
                 run_id,
                 identifier,
@@ -202,6 +211,7 @@ async def start(identifier: UUID, body: StartWork, request: Request) -> dict:
                 Jsonb(normalized),
                 Jsonb(jsonable_encoder(inputs)),
                 restore_snapshot,
+                body.allow_local_browser,
             ),
         )
         await attach(connection, user["id"], run_id, frozen_repository)

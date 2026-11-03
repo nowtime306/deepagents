@@ -46,7 +46,8 @@ def prepare(connection):
     connection.execute("CREATE TABLE platform_maintenance(singleton boolean,active boolean)")
     connection.execute("INSERT INTO platform_maintenance VALUES(true,false)")
     for table in ("task_runs", "work_queue_runs", "workflow_runs", "resource_operations", "knowledge_experiments",
-                  "notification_deliveries", "repository_actions", "work_browser_controls", "backup_jobs"):
+                  "notification_deliveries", "repository_actions", "work_browser_controls", "backup_jobs",
+                  "browser_skill_recordings"):
         connection.execute(sql.SQL("CREATE TABLE {} (status text)").format(sql.Identifier(table)))
 
 
@@ -69,6 +70,8 @@ def test_gate_fences_shared_admission_and_preserves_pending(isolated_url):
     ("resource_operations", "RUNNING"), ("knowledge_experiments", "RUNNING"),
     ("notification_deliveries", "SENDING"), ("repository_actions", "STARTED"),
     ("work_browser_controls", "OPEN"), ("backup_jobs", "RUNNING"),
+    ("browser_skill_recordings", "starting"), ("browser_skill_recordings", "recording"),
+    ("browser_skill_recordings", "stopping"),
 ])
 def test_active_operations_refuse_without_mutation(isolated_url, table, status):
     with psycopg.connect(isolated_url, autocommit=True) as owner:
@@ -77,6 +80,13 @@ def test_active_operations_refuse_without_mutation(isolated_url, table, status):
         with pytest.raises(RuntimeError, match="ACTIVE_OPERATIONS"):
             gate.admit(owner)
         assert owner.execute(sql.SQL("SELECT status FROM {}").format(sql.Identifier(table))).fetchone()[0] == status
+
+
+def test_review_recording_does_not_block_deployment(isolated_url):
+    with psycopg.connect(isolated_url, autocommit=True) as owner:
+        prepare(owner)
+        owner.execute("INSERT INTO browser_skill_recordings VALUES('review')")
+        assert gate.admit(owner) == "existing"
 
 
 def test_fresh_unknown_existing_maintenance_and_busy_lock(isolated_url):

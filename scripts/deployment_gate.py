@@ -31,6 +31,7 @@ def admit(connection):
         "notification_deliveries": "status='SENDING'",
         "repository_actions": "status='STARTED'",
         "work_browser_controls": "status<>'CLOSED'",
+        "browser_skill_recordings": "status IN ('starting','recording','stopping')",
         "backup_jobs": "status='RUNNING'",
         "identity_deliveries": "status='sending'",
         "knowledge_video_jobs": "holds_memory OR status IN ('RUNNING','UNKNOWN')",

@@ -12,9 +12,10 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api/platform";
-import { MarkdownText } from "@/components/thread/markdown-text";
+import { SkillResourcePreview } from "./skill-resource-preview";
 import { MemoryCenter } from "./memory-center";
 import { HabitLearning } from "./habit-learning";
+import { BrowserSkills } from "./browser-skills";
 import { KnowledgeWorkspace, type Knowledge } from "./knowledge-workspace";
 import "./capability-center.css";
 import "../ask/resource-list.css";
@@ -58,6 +59,9 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(() => allowed("knowledge.read") ? "knowledge" : allowed("skills.read") ? "skills" : allowed("tools.read") ? "mcp" : "memory");
   const [listQuery, setListQuery] = useState("");
+  const [skillView, setSkillView] = useState("library");
+  const [browserDirty, setBrowserDirty] = useState(false);
+  const leaveBrowser = () => !browserDirty || window.confirm("浏览器录制的修改尚未保存，放弃修改并离开？");
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [servers, setServers] = useState<MCP[]>([]);
@@ -204,6 +208,8 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
               key={id as string}
               className={tab === id ? "active" : ""}
               onClick={() => {
+                if (id === tab || !leaveBrowser()) return;
+                setBrowserDirty(false);
                 setTab(id as string);
                 setLoading(true);
                 setListQuery("");
@@ -235,7 +241,8 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
         </div>
       )}
       {tab === "memory" && <MemoryCenter />}
-      {tab !== "memory" && !selected && <label className="resource-list-search"><input aria-label="搜索能力资源" placeholder={tab === "knowledge" ? "搜索知识库名称或描述" : "搜索资源名称"} value={listQuery} onChange={(event) => setListQuery(event.target.value)}/><span>{tab === "knowledge" ? `${visibleKnowledge.length} / ${knowledge.length} 个知识库` : `${tab === "mcp" ? servers.length : skills.length}项资源`}</span></label>}
+      {tab === "skills" && <nav className="browser-skill-views" aria-label="技能视图"><button type="button" aria-pressed={skillView === "library"} onClick={() => { if (!leaveBrowser()) return; setBrowserDirty(false); setSkillView("library"); }}>技能库与习惯学习</button><button type="button" aria-pressed={skillView === "browser"} onClick={() => setSkillView("browser")}>浏览器录制</button></nav>}
+      {tab !== "memory" && !(tab === "skills" && skillView === "browser") && !selected && <label className="resource-list-search"><input aria-label="搜索能力资源" placeholder={tab === "knowledge" ? "搜索知识库名称或描述" : "搜索资源名称"} value={listQuery} onChange={(event) => setListQuery(event.target.value)}/><span>{tab === "knowledge" ? `${visibleKnowledge.length} / ${knowledge.length} 个知识库` : `${tab === "mcp" ? servers.length : skills.length}项资源`}</span></label>}
       <div className="capability-actions">
         <p>
           {tab === "knowledge"
@@ -264,7 +271,7 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
             添加 MCP
           </button>
         )}
-        {tab === "skills" && canManageSkills && (
+        {tab === "skills" && skillView === "library" && canManageSkills && (
           <label className="settings-primary upload-label">
             <Upload size={15} />
             导入技能
@@ -364,6 +371,7 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
       )}
       {tab === "skills" && (
         <>
+          {skillView === "browser" ? <BrowserSkills isAdmin={isAdmin} canManage={canManageSkills} onChanged={() => reload()} onDirty={setBrowserDirty} onOpenSkill={id => { void api<{ name: string; files: Record<string, string> }>(`/capabilities/skills/${id}`).then(detail => { setPreview(detail); setFilePath("SKILL.md"); }).catch(reason => setError(reason.message)); }}/> : <>
           <HabitLearning canRead={allowed("skills.read")} canManage={allowed("skills.manage")} canBind={canBind} canReadChat={allowed("chat.read")} resourcesRevision={JSON.stringify([skills.map(item => [item.id, item.version, item.enabled]), bindings.skill_ids])} onChanged={() => reload()} onOpenConversation={onOpenConversation}/>
           <div className="capability-grid">
             {skills.filter((item) => item.name.toLowerCase().includes(listQuery.toLowerCase())).map((item) => (
@@ -447,8 +455,9 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
             )}
           </div>
           <p className="capability-help">
-            技能说明和文本资源可供助手读取。脚本随包保存，在沙箱执行能力接入前不会在本机运行。
+            技能说明和文本资源可供助手读取。浏览器录制技能只能在单独授权并审批的任务中重放。
           </p>
+          </>}
         </>
       )}
       {tab === "mcp" && (
@@ -600,11 +609,7 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
                 <option key={path}>{path}</option>
               ))}
             </select>
-            {filePath.endsWith(".md") ? (
-              <MarkdownText>{preview.files[filePath]}</MarkdownText>
-            ) : (
-              <pre>{preview.files[filePath]}</pre>
-            )}
+            <SkillResourcePreview path={filePath} text={preview.files[filePath] || ""}/>
           </section>
         </div>
       )}

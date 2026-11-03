@@ -92,6 +92,8 @@ def route_permission(path: str, method: str) -> str | None:
         if path.endswith(("/search", "/image-search", "/image-query")):
             return "knowledge.search"
         return "knowledge.read" if reading else "knowledge.manage"
+    if path.startswith("browser-skills"):
+        return "skills.read" if reading else "skills.manage"
     if path.startswith("capabilities/habits"):
         return "skills.read" if reading else "skills.manage"
     if path.startswith("capabilities/skills"):
