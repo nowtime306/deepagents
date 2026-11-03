@@ -210,3 +210,40 @@ def test_durable_fact_failure_in_journal_survives_missing_final_report(tmp_path,
         return 1 if action=='cleanup' else 0
     suite.perform_attempt(attempt,state,result,call,'a'*40)
     assert attempt['status']=='FAIL' and attempt['infrastructure_error']['exit_code']==3
+
+
+def test_parent_markdown_matches_json_junit_case_repeat_counts_and_identity(tmp_path,monkeypatch):
+    monkeypatch.setattr(suite,'check_candidate',lambda *args:None)
+    monkeypatch.setattr(suite,'source_fingerprint',lambda:{'source.py':'hash'})
+    record={'candidate_commit':'a'*40,'head':'a'*40,'source_sha256':{'source.py':'hash'},
+            'dataset_digest':'b'*64,'rules_id':'controlled-a20-v1','rules_digest':'c'*64,'unique_case_count':2,
+            'expected_attempts':4,'planned':[(('AET-A02',n)) for n in range(1,4)]+[('AET-W01',1)],
+            'attempts':[{'case_id':'AET-A02','repeat_ordinal':n,'status':status,
+                         'dispatch_attempted':True,'business_started':n<3,'unknown_submission':n==3,
+                         'cleanup':'RETAINED' if n==3 else 'CLEAN','private_prompt':'DO_NOT_RENDER'}
+                        for n,status in [(1,'PASS'),(2,'FAIL'),(3,'NEEDS_REVIEW')]]}
+    assert suite.aggregate(tmp_path,record)==1
+    markdown=(tmp_path/'report.md').read_text(encoding='utf-8')
+    stored=json.loads((tmp_path/'suite.json').read_text(encoding='utf-8'))
+    xml=ET.parse(tmp_path/'results.xml').getroot()
+    assert stored['gate']=='FAIL' and '代码门禁：失败（FAIL）' in markdown
+    assert '通过 1；失败 1；待核验 1；未执行 1' in markdown
+    assert xml.get('tests')=='4' and xml.get('failures')=='1' and xml.get('errors')=='2'
+    assert all(f'AET-A02 / 独立重复 {n}' in markdown for n in range(1,4))
+    assert 'AET-W01 / 独立重复 1：未执行' in markdown
+    assert 'a'*40 in markdown and 'b'*64 in markdown and 'c'*64 in markdown
+    assert suite.digest(record['source_sha256']) in markdown and 'MATCHED' in markdown
+    assert '不代表独立业务事实或出网验收已通过' in markdown
+    assert 'DO_NOT_RENDER' not in markdown
+
+
+def test_parent_markdown_keeps_zero_execution_non_green(tmp_path,monkeypatch):
+    monkeypatch.setattr(suite,'check_candidate',lambda *args:None)
+    monkeypatch.setattr(suite,'source_fingerprint',lambda:{'source.py':'hash'})
+    record={'candidate_commit':'a'*40,'source_sha256':{'source.py':'hash'},'unique_case_count':1,
+            'expected_attempts':1,'planned':[('AET-A02',1)],'attempts':[]}
+    assert suite.aggregate(tmp_path,record)==1
+    markdown=(tmp_path/'report.md').read_text(encoding='utf-8')
+    assert '代码门禁：待核验（NEEDS_REVIEW）' in markdown
+    assert '通过 0；失败 0；待核验 0；未执行 1' in markdown
+    assert ET.parse(tmp_path/'results.xml').getroot().get('errors')=='1'

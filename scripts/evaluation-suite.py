@@ -249,16 +249,40 @@ def aggregate(directory, record):
     save(directory/'suite.json', record)
     tests = ET.Element('testsuite', name='isolated-agent-evaluation-suite', tests=str(record['expected_attempts']))
     failures = errors = 0
+    rows=[]
+    counts={'PASS':0,'FAIL':0,'NEEDS_REVIEW':0,'UNEXECUTED':0}
     for case_id, ordinal in record['planned']:
         item = next((a for a in attempts if a['case_id'] == case_id and a['repeat_ordinal'] == ordinal), None)
         node = ET.SubElement(tests, 'testcase', classname=case_id, name=f'repeat-{ordinal}')
         status = item['status'] if item else 'UNEXECUTED'
+        counts[status]=counts.get(status,0)+1
+        rows.append((case_id,ordinal,status,item))
         if status != 'PASS':
             ET.SubElement(node, 'failure' if status == 'FAIL' else 'error', message=status)
             failures += status == 'FAIL'
             errors += status != 'FAIL'
     tests.set('failures', str(failures)); tests.set('errors', str(errors))
     ET.ElementTree(tests).write(directory/'results.xml', encoding='utf-8', xml_declaration=True)
+    labels={'PASS':'通过','FAIL':'失败','NEEDS_REVIEW':'待核验','UNEXECUTED':'未执行'}
+    text=lambda value:str(value).replace('\r',' ').replace('\n',' ').replace('`','\\`')
+    lines=['# 隔离 Agent 评测批次报告','',f"代码门禁：{labels.get(gate,gate)}（{gate}）。",
+           '代码 PASS 不代表独立业务事实或出网验收已通过；原始证据完整性及独立核验另行判定。','',
+           f"候选提交：`{text(record.get('candidate_commit','未记录'))}`。",
+           f"启动 HEAD：`{text(record.get('head','未记录'))}`。",
+           f"规则版本：`{text(record.get('rules_id','未记录'))}`；规则摘要：`{text(record.get('rules_digest','未记录'))}`。",
+           f"原题集摘要：`{text(record.get('dataset_digest','未记录'))}`。",
+           f"源码集合：{len(record.get('source_sha256',{}))} 文件；摘要 `{digest(record.get('source_sha256',{}))}`；核对 `{text(record['source_verification']['status'])}`。",'',
+           f"计划执行 {record['expected_attempts']} 次；已有样本记录 {len(attempts)} 条；案例唯一数 {record.get('unique_case_count','未记录')}（独立重复不计新案例）。",
+           f"通过 {counts['PASS']}；失败 {counts['FAIL']}；待核验 {counts['NEEDS_REVIEW']}；未执行 {counts['UNEXECUTED']}。",
+           f"已尝试派发案例 {record['unique_cases_dispatched']}；平台已受理根运行的案例 {record['unique_cases_business_started']}；未知提交样本 {record['unknown_submission_attempts']}。",'']
+    if record.get('stopped_reason'):lines.extend(['停止原因：`'+text(record['stopped_reason'])+'`。',''])
+    for case_id,ordinal,status,item in rows:
+        cleanup=item.get('cleanup','未记录') if item else '未执行'
+        lines.append(f"- {case_id} / 独立重复 {ordinal}：{labels.get(status,status)}（{status}）；清理 `{text(cleanup)}`。")
+        if item and item.get('child') and (directory/item['child']/'result/report.md').is_file():
+            link=(Path(item['child'])/'result/report.md').as_posix()
+            lines.append(f"  [子报告]({link})")
+    (directory/'report.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     return 0 if gate == 'PASS' else 1
 
 

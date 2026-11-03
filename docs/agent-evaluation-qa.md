@@ -53,3 +53,16 @@ freeze7881a2fde54cb4d1aadabd6ff2f78f183b0e29d6b099423d11be16abb94fdab7的实际�
 根明确授权后的完整客户端工程 **66passed/0failed/0skipped，1.23秒**：原核心6文件54、新fixed profiles4、新report identity8。66包含旧54，不能相加为120；13审查探针也不与66合计。全程私有无供应商凭据环境，Python socket连接/DNS一律拒绝，观察事件0；37个合并冻结文件摘要在工程和探针前后均一致。
 
 证据 `services/evaluation/.local/fixed-a02-independent-qa/run_525fed88fddc/`：manifest.json、summary.json、pytest.log、results.xml及independent-probes/probe-results.json。独审细节 `services/evaluation/.local/fixed-a02-independent-review/review.md`。仅本地真实DeepEval确定性metric、MockTransport及CLI/journal/report I/O；无实际HTTPtarget、数据库、沙箱、付费请求或UI。A02真正两轮持久队列执行及A20门禁仍未验收。cleanup CLEAN在本客户端合同中指无活动/未知效果并保留私有目标历史，不能称数据库/资源已删除；实际目标deprovision另留证。
+
+
+## 首次实际 A02 suite：旧执行记录PASS，独立事实验收待核验
+
+非作者ops在候选 `3f1f680f5a43653be81400f50b6b7402adad4060` 执行一次正式隔离suite：仅AET-A02、1case/1repeat，经真实平台HTTP与持久Ask队列，两轮正式run。代码gate PASS及原始报告保留；**本角色只读独立核验现有证据，没有再执行一次任务。** 它不计为A20完成，也不与前述66工程测试合计。
+
+19项记录一致性检查通过：父JSON/JUnit与子JSON/JUnit/MD均为1样本PASS，3项required事实PASS、实际本地DeepEval ToolCorrectness score=1且judge.generate=0；candidate/suite/case/catalog摘要一致，case snapshot与target摘要可重算；297个source_sha256与冻结文件匹配。原两次提交均CONFIRMED，prior run `eee38303-e769-4e61-a5df-6a3a2a712faf` 与最后run `053ed3e5-3291-4cc0-a6a6-46d9b68f002b` 引用都保存在子journal。持久受控provider账本各root恰1call/15tokens，累计native usage记录2calls、20 input/10 output、unknown/pending均0，最后平台状态SUCCEEDED。父root_run_ids仅列最后run，完整有序两run见child prior_run_refs及completion receipt，不能据父数组长度误称只有一轮。
+
+**R02 / P1 OPEN：业务事实原观察未留存，不能独立复算。** `fixed_run.execute` 只保fact PASS/最终平台status/累计usage，evidence_refs为空；原GET messages、两root run、context observations及每root native usage最小脱敏响应未归档。数据库已按合同删除，无法从当前留存字节重算两条消息、最后JSON、received_context三个事实或prior原终态。已核结果/账本一致性不等于独立事实验收。原gate PASS不改写，但验收状态是 `NEEDS_REVIEW_R02_RAW_FACT_EVIDENCE_MISSING`。根已登记修复：写入最小脱敏快照及hash引用，保存失败/缺失/篡改不PASS且不清库，离线验证身份；独审关闭后另用新库执行，不为补证复活旧库或重放旧run。
+
+网络证据也有明确局限：最后cleanup CLI覆盖journal.network_observations，只剩execution阶段2条allowed事件且无destination。它不能证明整次多进程、import/metric/export全部阶段无外连，也不是OS出站隔离。固定模型工厂/策略核验与完整出站流量证据分别报告；不称AE-02完整验收。真实外部模型/裁判与UI未执行，sandbox_creates=0；基础设施成本NOT_PRICED、total/cost仍null/UNKNOWN，没有将未知费用记0。父层只有JSON/JUnit，中文MD在子层，父汇总可读报告缺口另由ops处理。
+
+旧执行的停止/精确回收收据已补齐并只读核验：正式cleanup/stop/target cleanup退出码均0；库 `owner_agent_evaluation_3c54514f3b694275acb498c80291db83_test` 的ops只读pg_database结果不存在、会话0；CIM核PID63816进程数0。上述是对ops收据核验，本角色未另查生产DB或重跑业务。`completion-receipt.json` SHA256 `96d180a74db7d85c37d818bfe29681aa1f2325fcc530d69e825fbd722db422d6` 及其8项artifact hash核对匹配；本角色此前记录的10项原artifact摘要未变。精确路径 `.local/agent-evaluations/suite-a02-first-76d819ab/`，含suite.json、父results.xml、子result/{journal.json,report.json,report.md,results.xml}、completion-receipt.json、pid-receipt.json。核验私有收据 `services/evaluation/.local/first-a02-evidence-review/artifact-receipt.json`。本次仅记录已执行观察与缺项，未修改原数据/报告或产品实现。
