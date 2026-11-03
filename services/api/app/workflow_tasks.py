@@ -63,8 +63,6 @@ async def start_task(
         fail(422, "WORKFLOW_READONLY", "只读流程请使用原来的测试或版本运行入口")
     validate_text(body.text, definition.input_schema)
     pins = await validate_definition(request, definition, user["id"], source["model_id"])
-    if body.version and source["resource_pins"] != pins:
-        fail(409, "WORKFLOW_RESOURCE_CHANGED", "发布资源已变化，请重新测试和发布")
     try:
         domains = list(dict.fromkeys(domain(item) for item in body.network_domains))
         await policy(domains)

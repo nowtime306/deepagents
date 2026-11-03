@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { ConfigurationHistory } from "./configuration-history";
 import { api } from "@/lib/api/platform";
 import "../ask/repositories.css";
 import { ResourceDialog } from "../ask/resource-dialog";
@@ -170,6 +171,7 @@ export function ModelRoutes({
               编辑路由
             </button>
           )}
+          {isAdmin && <ConfigurationHistory kind="route" resourceId={item.id} name={item.name}/>}
         </article>
       ))}
       {isAdmin && open && (

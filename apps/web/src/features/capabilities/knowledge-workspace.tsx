@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowLeft, BookOpen, Search, Upload, X } from "lucide-react";
+import { ConfigurationHistory } from "../settings/configuration-history";
 import { api, ApiError } from "@/lib/api/platform";
 import { MarkdownText } from "@/components/thread/markdown-text";
 import { KnowledgeProcessing, DocumentRevisionActions } from "./knowledge-processing";
@@ -180,7 +181,7 @@ export function KnowledgeWorkspace({ knowledge, onBack, onChanged, canManage, ca
       <section><h3>关键词召回策略</h3><form onSubmit={(event) => { event.preventDefault(); void operate(() => api(base + "/retrieval", { method: "PUT", body: JSON.stringify({ keyword_min_coverage: coverage / 100 }) }), "检索策略已保存。"); }}>
         <label>最低关键词覆盖率（%）<input aria-label="最低关键词覆盖率" type="number" min={0} max={100} step={1} required disabled={!canManage || busy} value={coverage} onChange={(event) => setCoverage(Number(event.target.value))}/></label>
         {canManage && <button type="submit" className="knowledge-secondary" disabled={busy}>保存检索策略</button>}</form><p>默认 0%，排除仅单字匹配；门槛只作用于关键词候选，不限制向量召回，也不是回答置信度。提高门槛可能漏掉同义表达。</p></section>
-      <KnowledgeProcessing id={knowledge.id} canManage={canManage} view="settings"/>
+      <KnowledgeProcessing id={knowledge.id} canManage={canManage} view="settings"/><ConfigurationHistory kind="knowledge" resourceId={knowledge.id} name={knowledge.name}/>
     </div>}
     {tab === "处理记录" && <><h3>处理记录</h3><KnowledgeProcessing id={knowledge.id} canManage={canManage} view="operations"/></>}
     {tab === "评测" && <><KnowledgeEvaluation id={knowledge.id} documents={documents} canManage={canManage} paid={!!(knowledge.embedding_model_id || rerank)}/><QualityGate key={knowledge.id} id={knowledge.id} canManage={canManage}/></>}

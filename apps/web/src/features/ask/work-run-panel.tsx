@@ -690,7 +690,7 @@ export function WorkRunPanel({
                     {request.description && <p>{request.description}</p>}
                     {["workflow_code", "workflow_approval"].includes(request.name)
                       ? <WorkflowApproval approval={approval.id} name={request.name} args={request.args} />
-                      : request.name === "run_browser_skill" ? <BrowserSkillApproval key={`${approval.id}:${approval.digest}:${index}:${JSON.stringify(request.args)}`} args={request.args} checkKey={`${approval.id}:${approval.digest}:${index}:${JSON.stringify(request.args)}`} checked={checkBrowser} />
+                      : request.name === "run_browser_skill" ? <BrowserSkillApproval approvalId={approval.id} key={`${approval.id}:${approval.digest}:${index}:${JSON.stringify(request.args)}`} args={request.args} checkKey={`${approval.id}:${approval.digest}:${index}:${JSON.stringify(request.args)}`} checked={checkBrowser} />
                       : <pre>{JSON.stringify(request.args, null, 2)}</pre>}
                   </div>
                 ))}

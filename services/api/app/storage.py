@@ -1,5 +1,6 @@
 """Small PostgreSQL repository with durable ordered run events."""
 
+from contextlib import asynccontextmanager
 from uuid import UUID
 
 from psycopg.rows import dict_row
@@ -12,11 +13,23 @@ from app.errors import fail
 WORK_MAINTENANCE_LOCK = 710017
 
 
+class HistoryConnectionPool(AsyncConnectionPool):
+    """Bind authenticated audit metadata to the same transaction as each mutation."""
+
+    @asynccontextmanager
+    async def connection(self, timeout=None):  # noqa: ASYNC109 -- preserve psycopg pool public API.
+        from app.configuration_history import bind_context
+
+        async with super().connection(timeout=timeout) as connection:
+            await bind_context(connection)
+            yield connection
+
+
 class Database:
     """Own the application pool and transaction boundaries."""
 
     def __init__(self, url: str) -> None:
-        self.pool = AsyncConnectionPool(url, open=False, min_size=1, max_size=8, kwargs={"row_factory": dict_row})
+        self.pool = HistoryConnectionPool(url, open=False, min_size=1, max_size=8, kwargs={"row_factory": dict_row})
 
     async def fetch(self, sql: str, params: tuple = ()) -> list[dict]:
         """Fetch rows in a short transaction."""

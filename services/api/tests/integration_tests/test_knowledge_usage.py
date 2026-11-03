@@ -118,6 +118,37 @@ def test_actual_embedding_rerank_usage_and_duplicate_import(provider):
     ]
 
 
+
+def test_vector_reuse_maintenance_rerank_change_and_same_dimension_model_rejection(provider):
+    connection, app, identifier, models, requests, _ = provider
+    uploaded = upload(connection, identifier)
+    assert uploaded["index"]["status"] == "SUCCEEDED"
+    target = f"/api/v1/capabilities/knowledge/{identifier}/search"
+    before = connection.portal.call(app.state.db.fetch,
+        "SELECT vector_fingerprint,vector_dimensions FROM documents WHERE id=%s", (uploaded["id"],))[0]
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET name=name||'-maintained',revision=revision+1 WHERE id=ANY(%s)", (models,))
+    result = connection.post(target, json={"query": "价格"}, headers=ORIGIN)
+    assert result.status_code == 200 and result.json()["mode"] == "hybrid" and result.json()["reranked"]
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET model='rerank-v2',revision=revision+1 WHERE id=%s", (models[1],))
+    assert connection.post(target, json={"query": "价格"}, headers=ORIGIN).json()["mode"] == "hybrid"
+    after = connection.portal.call(app.state.db.fetch,
+        "SELECT vector_fingerprint,vector_dimensions FROM documents WHERE id=%s", (uploaded["id"],))[0]
+    assert before == after
+    count = len(requests)
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET model='other-same-dimension' WHERE id=%s", (models[0],))
+    result = connection.post(target, json={"query": "价格"}, headers=ORIGIN)
+    assert result.json()["mode"] == "keyword" and result.json()["warning"] and len(requests) == count
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET model='local-embedding' WHERE id=%s", (models[0],))
+    connection.portal.call(app.state.db.execute,
+        "UPDATE documents SET vector_fingerprint=NULL WHERE id=%s", (uploaded["id"],))
+    result = connection.post(target, json={"query": "价格"}, headers=ORIGIN)
+    assert result.json()["mode"] == "keyword" and "兼容" in result.json()["warning"]
+
+
 def test_unknown_index_requires_explicit_ack_and_rerank_never_replays(provider):
     connection, _, identifier, _, requests, behavior = provider
     behavior["disconnect"] = "/v1/embeddings"

@@ -67,12 +67,41 @@ class UsageRecorder(AsyncCallbackHandler):
         revision = member.get("revision", self.revision) if self.call_kind == "chat" else self.revision
         reserve = member.get("reserve", self.reserve) if self.call_kind == "chat" else self.reserve
         rows = await self.database.fetch(
-            "SELECT revision,model,provider,protocol FROM model_configs WHERE id=%s AND enabled", (model,)
+            "SELECT revision,model,kind,provider,protocol,base_url,supports_images "
+            "FROM model_configs WHERE id=%s AND enabled", (model,)
         )
-        configuration = SimpleNamespace(**rows[0]) if rows else None
-        if revision is not None:
-            if not rows or rows[0]["revision"] != revision:
-                fail(409, "MODEL_VERSION_CHANGED", "模型配置已变化或停用，请创建新运行")
+        from app.resource_runtime import resolved_model
+
+        if not rows:
+            fail(422, "MODEL_NOT_FOUND", "模型不存在或已停用，未请求模型")
+        frozen = resolved_model(model)
+        if frozen:
+            from app.model_compatibility import capability
+
+            current = rows[0]
+            if current["kind"] != frozen["kind"] or capability(
+                current["kind"], current["protocol"], current["provider"]
+            )["state"] in {"unsupported", "configuration_only"}:
+                fail(422, "MODEL_INCOMPATIBLE", "本次模型用途或协议已不兼容，未请求模型")
+        if self.call_kind == "chat" and kwargs.get("invocation_params", {}).get("tools"):
+            from app.model_capabilities import require_tools
+
+            declarations = await self.database.fetch(
+                "SELECT supports_tools FROM model_capability_declarations WHERE model_id=%s", (model,),
+            )
+            require_tools(SimpleNamespace(supports_tools=declarations[0]["supports_tools"] if declarations else None))
+        has_images = any(
+            isinstance(part, dict) and part.get("type") in {"image", "image_url", "input_image"}
+            for batch in messages for message in batch
+            for part in (message.content if isinstance(message.content, list) else [])
+        )
+        if has_images:
+            from app.model_capabilities import require_images
+
+            require_images(SimpleNamespace(**rows[0]))
+        configuration = SimpleNamespace(**(frozen or rows[0]))
+        if frozen:
+            revision = frozen["revision"]
         estimate = message_tokens(messages, configuration) + text_tokens(
             json.dumps(kwargs.get("invocation_params", {}).get("tools", []), ensure_ascii=False, default=str),
             configuration,
@@ -202,6 +231,32 @@ class UsageRecorder(AsyncCallbackHandler):
                     self.call_kind,
                     model,
                 ),
+            )
+            from app.resource_runtime import active_resources
+
+            resources = active_resources.get()
+            if resources and frozen:
+                snapshot = await (await connection.execute(
+                    "UPDATE run_resource_snapshots SET used_at=coalesce(used_at,now()) WHERE owner_id=%s "
+                    "AND mode=%s AND run_id=%s AND phase=%s AND resource_kind='model' AND resource_id=%s "
+                    "RETURNING snapshot_id,phase",
+                    (resources.owner, resources.mode, resources.run, resources.phase, model),
+                )).fetchone()
+                if snapshot:
+                    await connection.execute(
+                        "UPDATE model_usage SET resource_snapshot_id=%s,resource_phase=%s WHERE call_id=%s",
+                        (snapshot["snapshot_id"], snapshot["phase"], run_id),
+                    )
+            from psycopg.types.json import Jsonb
+
+            invocation = kwargs.get("invocation_params", {})
+            effective = {
+                key: invocation[key]
+                for key in ("temperature", "max_tokens", "max_completion_tokens", "max_output_tokens")
+                if isinstance(invocation.get(key), (int, float)) and not isinstance(invocation.get(key), bool)
+            }
+            await connection.execute(
+                "UPDATE model_usage SET effective_parameters=%s WHERE call_id=%s", (Jsonb(effective), run_id),
             )
             if route:
                 await connection.execute(

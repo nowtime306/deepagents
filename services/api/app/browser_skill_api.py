@@ -236,3 +236,46 @@ async def delete(identifier: UUID, body: Revision, request: Request):
         await connection.execute("DELETE FROM browser_skill_recordings WHERE id=%s", (identifier,))
     request.app.state.browser_skills.clean(identifier)
     return {"ok": True, "published_skill_preserved": bool(row["skill_id"])}
+
+
+@router.get("/approvals/{approval}/skills/{identifier}")
+async def approval_skill(approval: UUID, identifier: UUID, request: Request):
+    """Read only the protected Skill content actually fixed for this approval's run."""
+    user = await owner(request, "skills.read")
+    await require_account(request.app.state.db, user, "work.read")
+    db = request.app.state.db
+    rows = await db.fetch(
+        "SELECT a.payload,a.run_id,r.agent_snapshot FROM work_approvals a "
+        "JOIN work_queue_runs r ON r.id=a.run_id WHERE a.id=%s AND a.owner_id=%s AND r.owner_id=%s",
+        (approval, user, user))
+    if not rows:
+        fail(404, "NOT_FOUND", "审批不存在或无权访问")
+    action = next((item for item in rows[0]["payload"].get("action_requests", [])
+                   if item["name"] == "run_browser_skill" and item["args"].get("skill_id") == str(identifier)), None)
+    live = await db.fetch("SELECT id FROM skills WHERE id=%s AND owner_id=%s AND enabled", (identifier, user))
+    if not action or not live:
+        fail(403, "BROWSER_SKILL_UNAVAILABLE", "审批中的技能不可用或授权已撤销")
+    from app.resource_tools import skill_binding
+
+    await skill_binding(db, user, rows[0]["agent_snapshot"] or {}, identifier)
+    frozen = await db.fetch(
+        "SELECT execution_config FROM run_resource_snapshots WHERE run_id=%s AND owner_id=%s "
+        "AND mode='work' AND resource_kind='skill' AND resource_id=%s ORDER BY phase DESC LIMIT 1",
+        (rows[0]["run_id"], user, str(identifier)))
+    if not frozen:
+        fail(409, "BROWSER_SKILL_HISTORY_UNRECORDED", "历史未记录本次固定技能内容，不能使用当前版本代替审批")
+    skill = json.loads(request.app.state.models.vault.decrypt(frozen[0]["execution_config"]).get_secret_value())
+    if skill["version"] != action["args"].get("version"):
+        fail(409, "BROWSER_SKILL_VERSION_MISMATCH", "审批版本与本次运行固定内容不符")
+    from app.resource_tools import digest
+
+    try:
+        path = json.loads(skill["files"]["trajectory.json"])
+    except (KeyError, ValueError, TypeError):
+        fail(409, "BROWSER_SKILL_PATH_MISSING", "固定技能未包含有效浏览器路径")
+    published = await db.fetch(
+        "SELECT trajectory FROM browser_skill_versions WHERE skill_id=%s AND owner_id=%s AND version=%s",
+        (identifier, user, skill["version"]))
+    if not published or digest(published[0]["trajectory"]) != digest(path):
+        fail(409, "BROWSER_SKILL_PATH_CHANGED", "发布路径与本次固定内容不一致，不能批准")
+    return {**skill, "enabled": True, "content_digest": digest(skill["files"])}

@@ -85,8 +85,6 @@ class CapabilityService:
             "skill_pins": {str(row["id"]): row["version"] for row in skills},
             "mcp_pins": {str(row["id"]): server_pin(row) for row in servers},
         }
-        if any(key in selection and selection[key] != value for key, value in pins.items()):
-            fail(409, "AGENT_RESOURCE_CHANGED", "智能体引用的资源版本已变化，请发布新版本")
         from app.model_routing import freeze
         from app.team_config import freeze_team
 
@@ -101,8 +99,6 @@ class CapabilityService:
             (selected, owner_id),
         )
         versions = {str(row["id"]): row["version"] for row in rows}
-        if "skill_pins" in selection and versions != selection["skill_pins"]:
-            fail(409, "SKILL_VERSION_CHANGED", "技能版本已变化，请创建新运行")
         if set(versions) != set(selected):
             fail(403, "SKILL_UNAVAILABLE", "技能已停用或删除")
 
@@ -119,12 +115,16 @@ class CapabilityService:
                 "SELECT id,version FROM skills WHERE id=ANY(%s::uuid[]) AND owner_id=%s AND enabled",
                 (selected, owner_id),
             )
-            if not set(selected) <= set(current) or {str(row["id"]): row["version"] for row in latest} != versions:
-                fail(403, "SKILL_REVOKED", "技能授权或版本已变化，请重新开始运行")
+            if not set(selected) <= set(current) or {str(row["id"]) for row in latest} != set(selected):
+                fail(403, "SKILL_REVOKED", "技能授权已撤销、停用或删除")
 
             from app.habit_skills import guard_selected
 
             await guard_selected(self.database, owner_id, selected)
+            from app.resource_tools import used
+
+            for identifier in selected:
+                await used("skill", identifier)
 
         return SkillBackend(files, guard=check)
 
@@ -245,6 +245,9 @@ class CapabilityService:
         allow_writes = bool(administrators and administrators[0]["is_admin"])
         for identifier in selection["mcp_ids"]:
             server = (await self.database.fetch("SELECT * FROM mcp_servers WHERE id=%s", (identifier,)))[0]
+            from app.resource_tools import frozen_server
+
+            server = await frozen_server(server, self.mcp.vault)
             if server.get("transport") in {"stdio", "acp"}:
                 if workspace is not None and work_run is not None:
                     from app.tool_transports import task_tool
@@ -260,17 +263,16 @@ class CapabilityService:
                             owner_id=owner_id,
                             agent_id=agent_id,
                             work_run=work_run,
-                            expected_pin=selection.get("mcp_pins", {}).get(str(server["id"])),
+                            expected_pin=server_pin(server),
                         )
                     )
         if selection["skill_ids"]:
             files = {}
             for identifier in selection["skill_ids"]:
-                skill = (
-                    await self.database.fetch(
-                        "SELECT name,files FROM skills WHERE id=%s AND owner_id=%s AND enabled", (identifier, owner_id)
-                    )
-                )[0]
+                from app.resource_tools import frozen_skill
+
+                skill = await frozen_skill(
+                    self.database, self.models.vault if self.models else self.mcp.vault, owner_id, identifier)
                 prefix = "" if workspace is not None else "/skills"
                 files.update({f"{prefix}/{skill['name']}/{path}": text for path, text in skill["files"].items()})
             backend = await self.skill_backend(owner_id, selection, files)

@@ -58,7 +58,7 @@ def test_workflow_failure_is_recorded_without_leaking_error(client) -> None:
     assert history[0]["status"] == "FAILED" and history[0]["output"] is None
 
 
-def test_publish_version_is_immutable_and_rejects_changed_model(client):
+def test_publish_version_is_immutable_and_accepts_model_maintenance(client):
     connection, app = client
     model_id = str(uuid4())
     connection.portal.call(
@@ -86,7 +86,7 @@ def test_publish_version_is_immutable_and_rejects_changed_model(client):
     connection.portal.call(
         app.state.db.execute, "UPDATE model_configs SET revision=revision+1 WHERE id=%s", (model_id,)
     )
-    assert connection.post(f"{prefix}/versions/1/runs", json={"text": "测试"}, headers=ORIGIN).status_code == 409
+    assert connection.post(f"{prefix}/versions/1/runs", json={"text": "测试"}, headers=ORIGIN).status_code == 200
     assert connection.post(f"{prefix}/test-runs", json={"text": "重新验证模型配置"}, headers=ORIGIN).status_code == 200
     assert connection.post(f"{prefix}/publish", json={"revision": 2}, headers=ORIGIN).json()["version"] == 2
     name = f"other-published-{uuid4()}"

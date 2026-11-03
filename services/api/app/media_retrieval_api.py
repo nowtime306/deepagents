@@ -2,13 +2,15 @@
 
 import base64
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request, UploadFile
 
+from app.embedding_compatibility import fingerprint
 from app.errors import APIError, fail
 from app.multimodal_api import context, vectorize
 from app.permissions import require_account
+from app.resource_runtime import resource_run
 from app.security import identity
 from app.vision_api import image_type
 
@@ -17,6 +19,12 @@ router = APIRouter(prefix="/api/v1/capabilities/knowledge", tags=["图片相似�
 
 @router.post("/{identifier}/image-query/search")
 async def query_image(identifier: UUID, request: Request, file: UploadFile) -> dict:
+    owner = (await identity(request))["id"]
+    async with resource_run(request.app.state.db, owner, "resource", uuid4()):
+        return await _query_image(identifier, request, file)
+
+
+async def _query_image(identifier, request, file):
     user = await identity(request)
     await require_account(request.app.state.db, user["id"], "knowledge.search")
     index, config = await context(identifier, request)
@@ -51,10 +59,10 @@ async def query_image(identifier: UUID, request: Request, file: UploadFile) -> d
         fail(502, "MULTIMODAL_SEARCH_FAILED", "图片相似检索失败，请检查多模态模型和索引")
     # Re-authorize after provider response: deletion or revocation cannot leak old search results.
     after, after_config = await context(identifier, request)
-    if (after["model_id"], after["dimensions"], after_config.revision) != (
+    if (after["model_id"], after["dimensions"], fingerprint(after_config, preprocessing="media-v1")) != (
         index["model_id"],
         index["dimensions"],
-        config.revision,
+        fingerprint(config, preprocessing="media-v1"),
     ):
         fail(409, "INDEX_CHANGED", "图片检索期间模型或索引已改变，请重新检索")
     await require_account(request.app.state.db, user["id"], "knowledge.search")

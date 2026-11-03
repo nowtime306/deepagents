@@ -104,6 +104,9 @@ COUNTS = [
     "backup_settings",
     "backup_jobs",
     "platform_maintenance",
+    "run_resource_stages",
+    "run_resource_snapshots",
+    "embedding_compatibility_evidence",
 ] + EXPANSION_TABLES
 DATA = [
     "model.key", "attachments", "work-artifacts", "work-inputs", "speech", "images",
@@ -158,6 +161,9 @@ async def counts(connection, tables=None) -> dict:
     result = {}
     for table in COUNTS if tables is None else tables:
         optional = {
+            "run_resource_stages",
+            "run_resource_snapshots",
+            "embedding_compatibility_evidence",
             "model_capability_declarations",
             "model_routes",
             "model_route_consents",
@@ -431,10 +437,12 @@ async def restore_check(settings: Settings, target: Path, *, retain: bool = Fals
                     stdin=source,
                     stdout=subprocess.DEVNULL,
                 )
-            await migrate(make_conninfo(**params))
             async with await AsyncConnection.connect(make_conninfo(**params)) as restored:
                 if await counts(restored, manifest["counts"].keys()) != manifest["counts"]:
                     raise RuntimeError("恢复后的记录数量不一致")
+            # New migrations may add truthful rollout baselines. Compare the original dump before upgrading it.
+            await migrate(make_conninfo(**params))
+            async with await AsyncConnection.connect(make_conninfo(**params)) as restored:
                 vault = CredentialVault(target / "data/model.key", create=False)
                 cursor = await restored.execute(
                     "SELECT api_key_ciphertext FROM model_configs WHERE api_key_ciphertext<>'' "
@@ -469,6 +477,11 @@ async def restore_check(settings: Settings, target: Path, *, retain: bool = Fals
                     encrypted.extend(await cursor.fetchall())
                 for row in encrypted:
                     vault.decrypt(row[0])
+                sealed = await (await restored.execute(
+                    "SELECT execution_config FROM run_resource_snapshots"
+                )).fetchall()
+                for row in sealed:
+                    json.loads(vault.decrypt(row[0]).get_secret_value())
                 verified_artifacts = 0
                 for table, directory in [
                     ("work_artifacts", "work-artifacts"),

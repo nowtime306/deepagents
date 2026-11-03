@@ -7,7 +7,7 @@ from app.errors import APIError, fail
 from app.extra_cost_budget import reserve, settle
 from app.media_retrieval_probe import duration
 from app.permissions import require_account
-from app.resource_usage import finish_operation, operation, parent_authority
+from app.resource_usage import finish_operation, link_model_snapshot, operation, parent_authority
 
 
 class ReportedText(str):
@@ -48,8 +48,8 @@ async def begin(state, owner, config, unit, data=None, output_reserve=Decimal(60
         fail(503, "MEDIA_DURATION_UNAVAILABLE", "受管媒体时长检测失败，未发送模型请求；请检查执行环境")
     await require_account(state.db, owner, permission)
     current = await state.models.get(config.id)
-    if current.revision != config.revision:
-        fail(409, "MODEL_VERSION_CHANGED", "媒体检测期间模型配置已改变，未发送请求")
+    if (current.kind, current.protocol) != (config.kind, config.protocol):
+        fail(409, "MODEL_INCOMPATIBLE", "媒体模型用途或协议已不兼容，未发送请求")
     call = uuid4()
     context = await operation(state.db, owner, config, "media", "query")
     await state.db.execute(
@@ -58,10 +58,11 @@ async def begin(state, owner, config, unit, data=None, output_reserve=Decimal(60
     try:
         async with state.db.pool.connection() as c:
             await c.execute(
-                "INSERT INTO model_usage(call_id,run_id,owner_id,mode,model_id,status) "
-                "VALUES(%s,%s,%s,'resource',%s,'PENDING')",
-                (call, context["id"], owner, config.id),
+                "INSERT INTO model_usage(call_id,run_id,owner_id,mode,model_id,model_revision,status) "
+                "VALUES(%s,%s,%s,'resource',%s,%s,'PENDING')",
+                (call, context["id"], owner, config.id, config.revision),
             )
+            await link_model_snapshot(c, call, owner, context["id"], config.id)
             await reserve(c, owner, call, config.id, "call", Decimal(1), require_price=not seconds_prices)
             if seconds_prices:
                 await reserve(c, owner, call, config.id, unit, estimate, require_price=True)

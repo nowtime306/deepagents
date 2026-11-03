@@ -118,18 +118,36 @@ class MCPService:
 
     async def invoke(
         self, server_id: str, name: str, arguments: dict, *, before_write=None, expected_pin: str | None = None,
-        owner_id=None,
+        owner_id=None, resolved_server=None, expected_tool=None, before_call=None,
     ) -> str:
         """Recheck enabled schemas; writes require a fresh single-use Work authorization callback."""
         rows = await self.database.fetch("SELECT * FROM mcp_servers WHERE id=%s AND enabled", (server_id,))
         if not rows:
             fail(403, "MCP_DISABLED", "MCP 服务已停用或删除")
-        server = rows[0]
+        live = rows[0]
+        from app.resource_runtime import current_scope
+        from app.resource_tools import connection_identity, digest, frozen_server, used
+
+        server = await frozen_server(live, self.vault)
+        if bool(live.get("oauth_required")) != bool(server.get("oauth_required")):
+            fail(403, "MCP_AUTHORIZATION_CHANGED", "MCP授权方式已变化，请核对当前授权")
+        if server.get("allow_private") and not live.get("allow_private"):
+            fail(403, "MCP_PRIVATE_ACCESS_REVOKED", "MCP内网访问授权已撤销")
+        live_tool = next((item for item in live["tools"] if item["name"] == name and item["enabled"]), None)
         allowed = next((item for item in server["tools"] if item["name"] == name and item["enabled"]), None)
+        if not live_tool:
+            fail(403, "MCP_TOOL_DENIED", "此工具已停用或移除")
         if not allowed or (not allowed["read_only"] and before_write is None):
             fail(403, "MCP_TOOL_DENIED", "此工具未启用或需要自主任务审批")
-        if expected_pin and server_pin(server) != expected_pin:
-            fail(409, "MCP_CONFIG_CHANGED", "MCP 配置已变化，请创建新运行重新审批")
+        if live_tool["read_only"] != allowed["read_only"] or live_tool["schema"] != allowed["schema"]:
+            fail(409, "MCP_TOOL_INTERFACE_CHANGED", "此工具参数结构或读写性质已变化，请核对接口与本次审批")
+        if expected_tool and digest({key: expected_tool[key] for key in ("name", "schema", "read_only")}) != digest(
+            {key: allowed[key] for key in ("name", "schema", "read_only")}
+        ):
+            fail(409, "MCP_TOOL_INTERFACE_CHANGED", "工具实例与本次固定接口不符，原审批不能执行其他接口")
+        if (resolved_server and (not current_scope() or not allowed["read_only"])
+                and connection_identity(resolved_server) != connection_identity(server)):
+            fail(409, "MCP_TARGET_CHANGED", "工具目标与本次固定配置不符，原审批不能执行新的目标")
         async with asyncio.timeout(25), self.session(server, **({"owner_id": owner_id} if owner_id else {})) as session:
             current = await session.list_tools()
             tool = next((item for item in current.tools if item.name == name), None)
@@ -139,11 +157,30 @@ class MCPService:
             if (
                 not tool
                 or readonly != allowed["read_only"]
-                or (not allowed["read_only"] and tool.input_schema != allowed["schema"])
+                or tool.input_schema != allowed["schema"]
             ):
                 fail(403, "MCP_TOOL_DENIED", "工具权限声明或参数结构已变化，需重新发现并审核")
             if not allowed["read_only"]:
                 await before_write()
+            await used("mcp", server_id)
+            if before_call:
+                await before_call()
+            elif owner_id:
+                from app.permissions import require_account
+
+                await require_account(self.database, owner_id, "tools.use")
+            fresh = await self.database.fetch("SELECT * FROM mcp_servers WHERE id=%s AND enabled", (server_id,))
+            if not fresh:
+                fail(403, "MCP_DISABLED", "MCP服务在调用前已停用或删除")
+            declaration = next((item for item in fresh[0]["tools"]
+                                if item["name"] == name and item["enabled"]), None)
+            if not declaration:
+                fail(403, "MCP_TOOL_DENIED", "此工具在调用前已停用或移除")
+            if declaration["schema"] != allowed["schema"] or declaration["read_only"] != allowed["read_only"]:
+                fail(409, "MCP_TOOL_INTERFACE_CHANGED", "工具参数结构或读写性质在调用前已变化")
+            if (bool(fresh[0].get("oauth_required")) != bool(server.get("oauth_required"))
+                    or server.get("allow_private") and not fresh[0].get("allow_private")):
+                fail(403, "MCP_AUTHORIZATION_CHANGED", "MCP访问授权在调用前已变化")
             response = await session.call_tool(name, arguments=arguments)
         if response.is_error:
             fail(502, "MCP_TOOL_FAILED", "MCP 工具执行失败，请检查服务日志")
@@ -173,15 +210,24 @@ class MCPService:
             if not current or str(server["id"]) not in current[0]["mcp_ids"]:
                 fail(403, "MCP_BINDING_REVOKED", "此 MCP 绑定已撤销")
 
+        from app.resource_tools import operation_identity
+
         write = not metadata["read_only"]
         name = (
             "mcpw_"
             + str(server["id"]).replace("-", "")
             + "_"
-            + hashlib.sha256(metadata["name"].encode()).hexdigest()[:12]
+            + operation_identity(server, metadata)[:16]
             if write
             else f"mcp_{str(server['id']).replace('-', '')[:10]}_{metadata['name']}"
         )
+
+        async def access():
+            from app.permissions import require_account
+
+            if owner_id:
+                await require_account(self.database, owner_id, "tools.use")
+            await binding()
 
         async def invoke(**arguments) -> str:
             from app.permissions import require_account
@@ -190,12 +236,11 @@ class MCPService:
                 await require_account(self.database, owner_id, "tools.use")
             await binding()
             if not write:
-                options = {"expected_pin": expected_pin} if expected_pin else {}
+                options = {"resolved_server": server, "expected_tool": metadata, "before_call": access}
                 if server.get("oauth_required"):
                     options["owner_id"] = owner_id
                 return await self.invoke(str(server["id"]), metadata["name"], arguments, **options)
-            expected = (work_run or {}).get("agent_snapshot", {}).get("mcp_pins", {}).get(str(server["id"]))
-            if not expected:
+            if not work_run:
                 fail(403, "MCP_WRITE_REQUIRES_WORK", "写工具仅可用于固定配置并逐次审批的自主任务")
             journal = OperationJournal(self.database, work_run)
             operation = None
@@ -210,13 +255,18 @@ class MCPService:
                 current = await self.database.fetch(
                     "SELECT * FROM mcp_servers WHERE id=%s AND enabled", (server["id"],)
                 )
-                if not current or server_pin(current[0]) != expected:
-                    fail(409, "MCP_CONFIG_CHANGED", "MCP 配置已变化，请创建新运行重新审批")
+                if not current:
+                    fail(403, "MCP_DISABLED", "MCP 服务已停用或删除")
+                allowed = next((item for item in current[0]["tools"]
+                                if item["name"] == metadata["name"] and item["enabled"]), None)
+                if not allowed:
+                    fail(403, "MCP_TOOL_DENIED", "此工具已停用或移除")
                 operation = await journal.start(name, arguments)
 
             try:
                 result = await self.invoke(
-                    str(server["id"]), metadata["name"], arguments, before_write=authorize, expected_pin=expected,
+                    str(server["id"]), metadata["name"], arguments, before_write=authorize,
+                    resolved_server=server, expected_tool=metadata, before_call=access,
                     **({"owner_id": owner_id} if server.get("oauth_required") else {}),
                 )
                 if operation:

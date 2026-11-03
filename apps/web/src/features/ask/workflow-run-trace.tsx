@@ -3,6 +3,7 @@
 import { nodeLabels } from "./workflow-editor";
 import { executionLabels, nodeExecutions, type NodeEvent, type WorkflowRun } from "./workflow-execution";
 import { RouteSelection } from "@/features/settings/model-routes";
+import { RunConfigurations } from "./run-configurations";
 
 export function WorkflowRunTrace({ run, events, selected, onSelect, onTask }: {
   run: WorkflowRun | null; events: NodeEvent[]; selected: string;
@@ -27,6 +28,7 @@ export function WorkflowRunTrace({ run, events, selected, onSelect, onTask }: {
     </div>
     {run.task_id && <button type="button" className="workflow-secondary" onClick={() => onTask(run.task_id!)}>查看任务与审批</button>}
     {run.routed && <RouteSelection run={run.routing_run_id || run.id}/>}
+    <RunConfigurations id={run.id} mode="workflow"/>
     {debug && <div className="workflow-debug-input" aria-label="节点实际输入"><strong>实际输入</strong><pre>{debugState?.input ?? run.input}</pre></div>}
     {debugState?.duration_ms !== undefined && <p className="workflow-debug-duration">节点耗时：{debugState.duration_ms} ms</p>}
     {debugState?.error_code && <p role="alert">节点测试失败：{debugState.error_code}。请检查节点配置和输入后重新测试。</p>}

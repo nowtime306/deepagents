@@ -53,7 +53,7 @@ class Journal:
         self.allowed = allowed
         self.uncertain = 0
 
-    async def start(self, *args):
+    async def start(self, *args, **kwargs):
         if not self.allowed:
             raise PermissionError("No approval")
         return uuid4()

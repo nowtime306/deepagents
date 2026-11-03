@@ -1,11 +1,13 @@
 """Private encrypted channel configuration and fenced delivery attempts."""
 
 import asyncio
+import hashlib
 from typing import Literal
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
+from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from app.errors import APIError, fail
@@ -80,18 +82,22 @@ async def save(request, body: ChannelInput, identifier: UUID | None = None):
     )
     if body.kind == "webhook" and not ciphertext:
         fail(422, "SIGNING_SECRET_REQUIRED", "自定义 Webhook 必须配置签名密钥")
+    same_target = bool(previous and vault.decrypt(previous["endpoint_ciphertext"]).get_secret_value() == url)
+    target_digest = previous["target_digest"] if same_target else hashlib.sha256(url.encode()).hexdigest()
+    endpoint_ciphertext = previous["endpoint_ciphertext"] if same_target else vault.encrypt(url)
     if identifier:
         rows = await db.fetch(
             "UPDATE notification_channels SET name=%s,endpoint_ciphertext=%s,secret_ciphertext=%s,host_hint=%s,"
-            "allow_private=%s,enabled=%s,revision=revision+1 WHERE id=%s AND owner_id=%s "
+            "allow_private=%s,enabled=%s,target_digest=%s,revision=revision+1 WHERE id=%s AND owner_id=%s "
             "AND revision=%s RETURNING id,revision",
             (
                 body.name,
-                vault.encrypt(url),
+                endpoint_ciphertext,
                 ciphertext,
                 host,
                 body.allow_private,
                 body.enabled,
+                target_digest,
                 identifier,
                 user["id"],
                 body.revision,
@@ -103,18 +109,19 @@ async def save(request, body: ChannelInput, identifier: UUID | None = None):
     identifier = uuid4()
     await db.execute(
         "INSERT INTO notification_channels"
-        "(id,owner_id,name,kind,endpoint_ciphertext,secret_ciphertext,host_hint,allow_private,enabled) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "(id,owner_id,name,kind,endpoint_ciphertext,secret_ciphertext,host_hint,allow_private,enabled,target_digest) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             identifier,
             user["id"],
             body.name,
             body.kind,
-            vault.encrypt(url),
+            endpoint_ciphertext,
             ciphertext,
             host,
             body.allow_private,
             body.enabled,
+            target_digest,
         ),
     )
     return {"id": identifier, "revision": 1}
@@ -148,7 +155,8 @@ async def deliveries(request: Request):
     return {
         "items": await request.app.state.db.fetch(
             "SELECT d.id,d.notification_id,d.channel_id,c.name AS channel_name,"
-            "d.status,d.attempts,d.error_code,d.created_at "
+            "d.status,d.attempts,d.error_code,d.created_at,d.retry_of,d.target_summary,"
+            "jsonb_build_object('kind',c.kind,'host',c.host_hint,'identity',c.target_digest) AS current_target_summary "
             "FROM notification_deliveries d JOIN notifications n ON n.id=d.notification_id "
             "LEFT JOIN notification_channels c ON c.id=d.channel_id WHERE n.owner_id=%s "
             "ORDER BY d.created_at DESC LIMIT 100",
@@ -160,6 +168,8 @@ async def deliveries(request: Request):
 class Retry(BaseModel):
     model_config = ConfigDict(extra="forbid")
     acknowledge_duplicate: bool = False
+    confirm_target: bool = False
+    expected_target: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 @router.post("/notifications/deliveries/{identifier}/retry")
@@ -167,18 +177,37 @@ async def retry(identifier: UUID, body: Retry, request: Request):
     owner = (await identity(request))["id"]
     if not body.acknowledge_duplicate:
         fail(422, "DUPLICATE_ACK_REQUIRED", "重新投递可能重复，请明确确认")
-    rows = await request.app.state.db.fetch(
-        "UPDATE notification_deliveries d SET status='PENDING',channel_revision=c.revision,"
-        "lease_token=NULL,lease_until=NULL,"
-        "error_code=NULL,finished_at=NULL FROM notifications n,notification_channels c "
-        "WHERE d.id=%s AND d.notification_id=n.id AND n.owner_id=%s AND c.owner_id=%s "
-        "AND c.id=d.channel_id AND c.enabled "
-        "AND d.status IN ('FAILED','UNKNOWN') RETURNING d.id",
-        (identifier, owner, owner),
-    )
-    if not rows:
-        fail(409, "DELIVERY_UNAVAILABLE", "投递不存在、仍在进行或通道已停用")
-    return {"queued": True}
+    async with request.app.state.db.pool.connection() as connection:
+        original = await (await connection.execute(
+            "SELECT d.*,c.target_digest AS current_target,c.enabled,"
+            "jsonb_build_object('kind',c.kind,'host',c.host_hint,'identity',c.target_digest) AS current_target_summary "
+            "FROM notification_deliveries d "
+            "JOIN notifications n ON n.id=d.notification_id JOIN notification_channels c ON c.id=d.channel_id "
+            "WHERE d.id=%s AND n.owner_id=%s AND c.owner_id=%s FOR UPDATE OF d,c",
+            (identifier, owner, owner),
+        )).fetchone()
+        if not original or not original["enabled"] or original["status"] not in {"FAILED", "UNKNOWN", "PAUSED"}:
+            fail(409, "DELIVERY_UNAVAILABLE", "投递不存在、仍在进行或通道已停用")
+        if not body.expected_target or body.expected_target != original["current_target"]:
+            fail(409, "DELIVERY_TARGET_CHANGED", "接收目标已变化或尚未核对，请刷新目标摘要后重新确认")
+        target = original["target_digest"]
+        target_summary = original["target_summary"]
+        if target != original["current_target"] or target is None:
+            if not body.confirm_target:
+                fail(409, "DELIVERY_TARGET_CONFIRM_REQUIRED", "目标已变化，请核对当前接收目标并明确确认")
+            target = original["current_target"]
+            target_summary = original["current_target_summary"]
+        if not target or not original["message_snapshot"]:
+            fail(409, "DELIVERY_HISTORY_MISSING", "历史未记录接收目标或消息，请创建新通知并确认")
+        # A retry is a new delivery. Never erase an unknown or failed attempt.
+        identifier_new = uuid4()
+        await connection.execute(
+            "INSERT INTO notification_deliveries(id,notification_id,channel_id,channel_revision,target_digest,"
+            "message_snapshot,retry_of,target_summary) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)",
+            (identifier_new, original["notification_id"], original["channel_id"], original["channel_revision"],
+             target, Jsonb(original["message_snapshot"]), identifier, Jsonb(target_summary)),
+        )
+    return {"queued": True, "id": identifier_new}
 
 
 async def dispatch(state):
@@ -202,12 +231,16 @@ async def dispatch(state):
         channel, notice = channels[0], notices[0]
         try:
             user = await require_account(state.db, notice["owner_id"], "notifications.manage")
-            if channel["revision"] != row["channel_revision"]:
-                code = "CHANNEL_CHANGED_REVIEW_REQUIRED"
+            if not row["target_digest"] or not row["message_snapshot"]:
+                status, code = "PAUSED", "DELIVERY_HISTORY_MISSING"
+            elif channel["target_digest"] != row["target_digest"]:
+                status, code = "PAUSED", "CHANNEL_TARGET_CHANGED_REVIEW_REQUIRED"
             elif channel["allow_private"] and not user["is_admin"]:
                 code = "CHANNEL_PRIVATE_PERMISSION_REVOKED"
             else:
-                status, code = await asyncio.to_thread(deliver, channel, notice, state.models.vault, str(row["id"]))
+                status, code = await asyncio.to_thread(
+                    deliver, channel, row["message_snapshot"], state.models.vault, str(row["id"])
+                )
         except APIError:
             code = "NOTIFICATION_PERMISSION_REVOKED"
     await state.db.execute(

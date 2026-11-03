@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import { ConfigurationHistory } from "./configuration-history";
+import { EmbeddingCompatibility } from "./embedding-compatibility";
 import { api } from "@/lib/api/platform";
 import "./model-settings.css";
 
@@ -420,6 +422,8 @@ export function ModelSettings({
                   删除
                 </button>
               </div>
+              <ConfigurationHistory kind="model" resourceId={model.id} name={model.name}/>
+              {(model.kind === "embedding" || model.kind === "multimodal_embedding") && <EmbeddingCompatibility modelId={model.id} model={model.model} revision={model.revision} baseUrl={model.base_url}/>}
             </article>
           ))}
           {!!models.length && !visible.length && (

@@ -61,6 +61,7 @@ class Runtime:
     async def run(self, run_id: UUID, conversation_id: UUID, message: str, model: ModelConfig) -> None:
         """Do not replay a request after process or lease loss; retain original accounting."""
         status, error, data = "SUCCEEDED", None, {}
+        owner = None
         try:
             if not self.lease_token:
                 await self.database.execute("UPDATE task_runs SET status='RUNNING' WHERE id=%s", (run_id,))
@@ -68,8 +69,34 @@ class Runtime:
                 run_id, "run.started", {"harness": "deepagents", "mode": "ask", "durable": bool(self.lease_token)}
             )
             await self.check_cancelled(run_id)
-            async with asyncio.timeout(self.settings.run_timeout):
-                await self.stream(run_id, conversation_id, message, model)
+            from app.resource_runtime import resolved_model, resource_run
+
+            owner = (await self.database.fetch(
+                "SELECT owner_id FROM conversations WHERE id=%s", (conversation_id,)
+            ))[0]["owner_id"]
+            async with resource_run(self.database, owner, "ask", run_id):
+                if self.model_registry and model.route_selection_id:
+                    from app.resource_route_start import at_start
+
+                    queued = (await self.database.fetch(
+                        "SELECT agent_snapshot,attachment_snapshot FROM task_runs WHERE id=%s", (run_id,),
+                    ))[0]
+                    snapshot = queued["agent_snapshot"]
+                    refreshed = await at_start(
+                        self.model_registry, owner, run_id, "ask", snapshot,
+                        images=any(item.get("media_type", "").startswith("image/")
+                                   for item in queued["attachment_snapshot"] or []),
+                        tools=bool(snapshot.get("mcp_ids") or snapshot.get("skill_ids")
+                                   or snapshot.get("knowledge_ids") or snapshot.get("team")
+                                   or snapshot.get("memory_enabled")),
+                    )
+                    if refreshed:
+                        model = refreshed
+                if self.model_registry and not resolved_model(model.id):
+                    resolved = await self.model_registry.get(model.id)
+                    model = resolved.model_copy(update={"route_selection_id": model.route_selection_id})
+                async with asyncio.timeout(self.settings.run_timeout):
+                    await self.stream(run_id, conversation_id, message, model)
         except asyncio.CancelledError:
             rows = await self.database.fetch("SELECT cancel_requested FROM task_runs WHERE id=%s", (run_id,))
             status = "CANCELLED" if not self.lease_token or (rows and rows[0]["cancel_requested"]) else "FAILED"
@@ -95,6 +122,10 @@ class Runtime:
         except APIError as exception:
             if exception.code != "ASK_LEASE_LOST":
                 raise
+        if owner:
+            from app.resource_runtime import release_credentials
+
+            release_credentials(owner, "ask", run_id)
 
     async def stream(self, run_id: UUID, conversation_id: UUID, message: str, model: ModelConfig) -> None:
         """Persist typed messages; use final graph state to correct streamed text."""
@@ -102,6 +133,17 @@ class Runtime:
             "SELECT agent_snapshot,attachment_snapshot,created_at,origin FROM task_runs WHERE id=%s", (run_id,)
         )
         snapshot = rows[0]["agent_snapshot"] or {}
+        if snapshot.get("id") and self.model_registry:
+            from app.resource_runtime import freeze_resource
+
+            version = snapshot.get("published_version_id")
+            snapshot = await freeze_resource(
+                "agent_version" if version else "agent", version or snapshot["id"],
+                snapshot.get("published_version") or snapshot.get("revision", 1), snapshot,
+                vault=self.model_registry.vault,
+                snapshot={"id": snapshot["id"], "published_version_id": version,
+                          "published_version": snapshot.get("published_version"), "revision": snapshot.get("revision")},
+            )
         attachments = rows[0]["attachment_snapshot"] or []
         documents = [item for item in attachments if not item.get("media_type", "").startswith("image/")]
         if documents:
@@ -114,6 +156,10 @@ class Runtime:
             else ([], [])
         )
         images = await asyncio.to_thread(image_blocks, self.settings.data_dir, attachments)
+        if images:
+            from app.model_capabilities import require_images
+
+            require_images(model)
         content = [{"type": "text", "text": message}, *images] if images else message
         owner = (
             await self.database.fetch(
@@ -121,7 +167,7 @@ class Runtime:
                 (conversation_id,),
             )
         )[0]
-        if self.lease_token and rows[0]["origin"] == "interactive":
+        if self.lease_token and rows[0]["origin"] == "interactive" and model.supports_tools is True:
             from app.ask_automations import automation_tools
 
             tools.extend(automation_tools(self.settings.web_origin, run_id, self.lease_token,
@@ -164,9 +210,14 @@ class Runtime:
                 guard,
             )
             team_middleware = await team.middleware(project_id=owner["project_id"])
+        from app.model_capabilities import require_tools
+
+        if tools or team_middleware or snapshot.get("skill_ids"):
+            require_tools(model)
         graph = build_ask(
             self.model_factory(model),
             self.saver,
+            tool_capable=model.supports_tools is True,
             tools=tools,
             middleware=[RunGuard(guard), AskObserver(observe), *middleware, *team_middleware,
                         references],

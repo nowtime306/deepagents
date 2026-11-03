@@ -67,7 +67,7 @@ def route_permission(path: str, method: str) -> str | None:
     if path.startswith(("automations", "batches")):
         return "automation.read" if reading else "automation.manage"
     if path.startswith("notification-channels"):
-        return "notifications.manage"
+        return "notifications.read" if reading else "notifications.manage"
     if path.startswith("notifications"):
         return "notifications.manage" if path.endswith("/retry") else "notifications.read"
     if path.startswith(("conversations", "conversation-projects", "attachments", "runs", "usage", "harness")):

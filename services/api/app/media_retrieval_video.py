@@ -15,6 +15,7 @@ from fastapi import APIRouter, Form, Request, UploadFile
 from fastapi.responses import FileResponse
 from qdrant_client import models
 
+from app.embedding_compatibility import fingerprint
 from app.errors import fail
 from app.extra_cost_budget import reserve as reserve_extra
 from app.extra_cost_budget import settle as settle_extra
@@ -23,6 +24,8 @@ from app.list_pagination import decode_cursor, page
 from app.maintenance import slot
 from app.multimodal_api import context, vectorize
 from app.permissions import require_account
+from app.resource_runtime import resource_run
+from app.resource_usage import link_model_snapshot
 from app.security import identity
 
 router = APIRouter(prefix="/api/v1/capabilities/knowledge", tags=["视频帧检索"])
@@ -81,7 +84,8 @@ async def upload(
                 fail(413, "VIDEO_STORAGE_LIMIT", "本人视频资料已达到100份或1GiB上限，请先删除不需要的资料")
             cursor = await connection.execute(
                 "INSERT INTO knowledge_video_jobs(id,knowledge_id,owner_id,model_id,model_revision,name,size,"
-                "interval_seconds,max_frames) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id,status",
+                "interval_seconds,max_frames,vector_fingerprint) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+                "RETURNING id,status",
                 (
                     key,
                     identifier,
@@ -92,6 +96,7 @@ async def upload(
                     len(data),
                     interval_seconds,
                     max_frames,
+                    fingerprint(config, preprocessing="media-v1"),
                 ),
             )
             rows = await cursor.fetchall()
@@ -269,17 +274,18 @@ async def index_frame(state, job, path, number):
         raise RuntimeError("VIDEO_CANCELLED")
     await require_account(state.db, job["owner_id"], "knowledge.manage")
     config = await state.models.get(job["model_id"])
-    if config.revision != job["model_revision"]:
+    if job.get("vector_fingerprint") != fingerprint(config, preprocessing="media-v1"):
         raise RuntimeError("VIDEO_MODEL_CHANGED")
     relative = path.absolute().relative_to(state.settings.data_dir.absolute())
     data = private_path(state.settings, *relative.parts).read_bytes()
     call = uuid4()
     async with state.db.pool.connection() as c:
         await c.execute(
-            "INSERT INTO model_usage(call_id,run_id,owner_id,mode,model_id,status) "
-            "VALUES(%s,%s,%s,'resource',%s,'PENDING')",
-            (call, job["id"], job["owner_id"], config.id),
+            "INSERT INTO model_usage(call_id,run_id,owner_id,mode,model_id,model_revision,status) "
+            "VALUES(%s,%s,%s,'resource',%s,%s,'PENDING')",
+            (call, job["id"], job["owner_id"], config.id, config.revision),
         )
+        await link_model_snapshot(c, call, job["owner_id"], job["id"], config.id)
         await reserve_extra(c, job["owner_id"], call, config.id, "call", Decimal(1))
         await reserve_extra(c, job["owner_id"], call, config.id, "image", Decimal(1), require_price=True)
     try:
@@ -305,8 +311,9 @@ async def index_frame(state, job, path, number):
                 or (not account["is_admin"] and "knowledge.manage" not in account["permissions"])):
             raise RuntimeError("VIDEO_PERMISSION_CHANGED")
         model = await (await c.execute(
-            "SELECT enabled,revision FROM model_configs WHERE id=%s FOR SHARE", (config.id,))).fetchone()
-        if not model or not model["enabled"] or model["revision"] != job["model_revision"]:
+            "SELECT enabled,revision,kind,protocol FROM model_configs WHERE id=%s FOR SHARE", (config.id,))).fetchone()
+        if (not model or not model["enabled"]
+                or (model["kind"], model["protocol"]) != (config.kind, config.protocol)):
             raise RuntimeError("VIDEO_MODEL_CHANGED")
         knowledge = await (await c.execute(
             "SELECT owner_id FROM knowledge_bases WHERE id=%s FOR SHARE", (job["knowledge_id"],))).fetchone()
@@ -321,7 +328,8 @@ async def index_frame(state, job, path, number):
         ).fetchone()
         if not row or row["cancel_requested"]:
             raise RuntimeError("VIDEO_CANCELLED")
-        if row["model_id"] != config.id or row["model_name"] != config.model or row["base_url"] != config.base_url:
+        if (row["model_id"] != config.id
+                or row.get("vector_fingerprint") != fingerprint(config, preprocessing="media-v1")):
             raise RuntimeError("VIDEO_MODEL_CHANGED")
         if row["dimensions"] and row["dimensions"] != len(vector):
             raise RuntimeError("VECTOR_DIMENSION_MISMATCH")
@@ -358,6 +366,11 @@ async def index_frame(state, job, path, number):
 
 
 async def process(state, job):
+    async with resource_run(state.db, job["owner_id"], "resource", job["id"]):
+        return await _process(state, job)
+
+
+async def _process(state, job):
     rows = await state.db.fetch("SELECT cancel_requested FROM knowledge_video_jobs WHERE id=%s", (job["id"],))
     if not rows or rows[0]["cancel_requested"]:
         await state.db.execute("UPDATE knowledge_video_jobs SET holds_memory=false WHERE id=%s", (job["id"],))

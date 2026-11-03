@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { ConfigurationHistory } from "../settings/configuration-history";
 import { api } from "@/lib/api/platform";
 import { ResourceDialog } from "../ask/resource-dialog";
 import { MemoryCandidates } from "./memory-candidates";
@@ -33,6 +34,7 @@ type Bindings = {
 };
 
 export function MemoryCenter() {
+  const [owner, setOwner] = useState("");
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Memory[]>([]);
   const [offset, setOffset] = useState<number | null>(null);
@@ -72,8 +74,9 @@ export function MemoryCenter() {
         setOffset(result.next_offset);
       })
       .catch((reason) => setError(reason.message));
-    api<{ is_admin?: boolean; permissions?: string[] }>("/auth/me")
+    api<{ id?: string; is_admin?: boolean; permissions?: string[] }>("/auth/me")
       .then((account) => {
+        setOwner(account.id || "");
         const allowed = (permission: string) =>
           !!account.is_admin ||
           account.permissions === undefined ||
@@ -334,7 +337,7 @@ export function MemoryCenter() {
       <MemoryVectors
         canManage={canManage}
         options={options}
-      />
+      />{owner && <ConfigurationHistory kind="memory" resourceId={owner} name="记忆检索设置"/>}
     </section>
   );
 }

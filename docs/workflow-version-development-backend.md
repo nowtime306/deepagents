@@ -1,5 +1,7 @@
 # 工作流版本管理后端实施
 
+> 2026-11-03 RDC变更：下文“严格pins匹配”仅代表WVR原始阶段记录；当前按 [资源引用解耦需求](resource-reference-decoupling-requirements.md) 保留业务版本/真实能力/权限校验，取消普通外部配置修订级联失效。历史pins不改写为当前值。RDC仍需独立验收与发布门禁。
+
 依据workflow-version-requirements.md WVR-01~07。当前Git baseline由根stage，子任务不操作Git；本次文件与原副本在.local/team-workspace/workflow-version/backend。先080迁移→独立历史路由服务→发布/上下架事务增量→隔离自验→独立代码审查→QA。
 
 080为workflows增加nullable current_published_version、独立release_revision默认1；旧记录不猜最高active。workflow_versions增加layout默认{}，仅新发布保存真实坐标。current复合外键限定本流程发布号。active与current不同。

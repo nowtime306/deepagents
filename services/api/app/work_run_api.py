@@ -482,12 +482,14 @@ async def resume_run(identifier: UUID, request: Request) -> dict:
     async with request.app.state.db.pool.connection() as connection:
         current = await (
             await connection.execute(
-                "SELECT task_id,status FROM work_queue_runs WHERE id=%s AND owner_id=%s FOR UPDATE",
+                "SELECT task_id,status,error_code FROM work_queue_runs WHERE id=%s AND owner_id=%s FOR UPDATE",
                 (identifier, run["owner_id"]),
             )
         ).fetchone()
         if not current or current["status"] != "PAUSED":
             fail(409, "WORK_NOT_PAUSED", "只有已暂停的运行可以继续")
+        if current["error_code"] == "RESOURCE_RECOVERY_CONFIRMATION_REQUIRED":
+            fail(409, "RESOURCE_RECOVERY_CONFIRMATION_REQUIRED", "请先查看本次配置差异并确认恢复执行阶段")
         if await (
             await connection.execute(
                 "SELECT 1 FROM work_browser_controls c JOIN work_queue_runs r ON r.id=c.run_id "

@@ -127,8 +127,10 @@ def test_video_response_rechecks_rights_model_and_job(client, monkeypatch, chang
     c.portal.call(
         app.state.db.execute,
         "INSERT INTO knowledge_video_jobs(id,knowledge_id,owner_id,model_id,model_revision,name,size,"
-        "interval_seconds,max_frames,status) VALUES(%s,%s,%s,%s,1,'fixture',1,1,1,'RUNNING')",
-        (job_id, kb, owner, key),
+        "interval_seconds,max_frames,status,vector_fingerprint) "
+        "SELECT %s,%s,%s,%s,1,'fixture',1,1,1,'RUNNING',vector_fingerprint "
+        "FROM knowledge_image_indexes WHERE knowledge_id=%s",
+        (job_id, kb, owner, key, kb),
     )
     job = c.portal.call(app.state.db.fetch, "SELECT * FROM knowledge_video_jobs WHERE id=%s", (job_id,))[0]
     folder = directory(app.state.settings, job_id)
@@ -150,6 +152,11 @@ def test_video_response_rechecks_rights_model_and_job(client, monkeypatch, chang
         return [1.0, 0.0]
 
     monkeypatch.setattr("app.media_retrieval_video.vectorize", embedding)
+    if change == "revision":
+        c.portal.call(index_frame, app.state, job, path, 0)
+        assert len(c.portal.call(app.state.db.fetch,
+                                "SELECT * FROM knowledge_video_frames WHERE job_id=%s", (job_id,))) == 1
+        return
     with pytest.raises(RuntimeError, match="VIDEO_"):
         c.portal.call(index_frame, app.state, job, path, 0)
     assert not c.portal.call(app.state.db.fetch, "SELECT * FROM knowledge_video_frames WHERE job_id=%s", (job_id,))

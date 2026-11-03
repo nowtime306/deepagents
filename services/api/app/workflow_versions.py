@@ -124,10 +124,9 @@ async def set_current(identifier: UUID, version: int, body: ReleaseRevision, req
         if not source["active"]:
             fail(409, "WORKFLOW_VERSION_INACTIVE", "该历史版本已下线，请先明确启用")
         definition = supported(source)
-        pins = await validate_definition(request, definition, owner, source["model_id"], source["layout"])
-        if (not source["digest"] or not source["resource_pins"] or source["resource_pins"] != pins
-                or source["model_revision"] != pins["models"][source["model_id"]]):
-            fail(409, "WORKFLOW_RESOURCE_CHANGED", "历史资源版本已变化或记录不完整，请恢复草稿修复后测试发布")
+        await validate_definition(request, definition, owner, source["model_id"], source["layout"])
+        if not source["digest"]:
+            fail(409, "WORKFLOW_HISTORY_INCOMPLETE", "历史版本业务定义摘要缺失，请恢复草稿检查")
         row = await (await connection.execute(
             "UPDATE workflows SET current_published_version=%s,release_revision=release_revision+1 WHERE id=%s "
             "RETURNING current_published_version,release_revision", (version, identifier),

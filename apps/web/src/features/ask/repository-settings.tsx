@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { ConfigurationHistory } from "../settings/configuration-history";
 import { api } from "@/lib/api/platform";
 import "./repositories.css";
 import { ResourceDialog } from "./resource-dialog";
@@ -75,12 +76,13 @@ export function RepositorySettings({ canManage }: { canManage: boolean }) {
     {loading && <p role="status">正在加载仓库…</p>}
     {!loading && !pageError && !items.length && <p>还没有仓库连接。添加后可在任务工作台选择。</p>}
     {items.length > 0 && !items.some((item) => `${item.name} ${item.slug}`.toLowerCase().includes(query.trim().toLowerCase())) && <p>没有匹配的仓库。</p>}
-    {items.filter((item) => `${item.name} ${item.slug}`.toLowerCase().includes(query.trim().toLowerCase())).map((item) => <article key={item.id} className="repository-card">
+    {items.filter((item) => `${item.name} ${item.slug}`.toLowerCase().includes(query.trim().toLowerCase())).map((item) => <article key={item.id} className="repository-card configuration-history-card">
       <div><strong>{item.name}</strong><p>{item.slug}{item.subdirectory ? ` / ${item.subdirectory}` : ""}</p>
         <small>{item.ref} · {item.enabled ? "已启用" : "已停用"} · {item.has_token ? "已保存令牌" : "公开访问"}</small></div>
       {canManage && <div><button disabled={busy} onClick={() => operation(item)}>只读检测</button>
         <button disabled={busy} onClick={() => edit(item)}>编辑</button>
         <button disabled={busy} onClick={() => operation(item, true)}>删除</button></div>}
+      <ConfigurationHistory kind="repository" resourceId={item.id} name={item.name}/>
     </article>)}
     {cursor && <button disabled={loading} onClick={() => void more().catch(() => {})}>加载更多仓库</button>}
   </section>;

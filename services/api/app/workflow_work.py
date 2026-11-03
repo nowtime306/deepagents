@@ -48,11 +48,9 @@ class WorkWorkflow:
             fail(409, "WORKFLOW_REVOKED", "流程运行已终止或不再属于当前账号")
         if self.binding["version_id"]:
             await self.runtime.published(str(self.binding["version_id"]), self.run["owner_id"])
-        current = await self.runtime.pins(
+        await self.runtime.pins(
             self.definition, self.run["owner_id"], self.snapshot["model_id"], allow_work=True
         )
-        if current != self.snapshot["resource_pins"]:
-            fail(409, "WORKFLOW_RESOURCE_CHANGED", "模型或资源已变化，本任务停止，请核对后创建新运行")
 
     async def observe(self, event: dict) -> None:
         from psycopg.types.json import Jsonb

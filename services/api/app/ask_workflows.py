@@ -72,8 +72,6 @@ def workflow_tool(service, owner, selection, context):
         definition = Definition.model_validate(source["definition"])
         validate_text(text, definition.input_schema)
         pins = await runtime.pins(definition, owner, source["model_id"])
-        if pins != source["resource_pins"]:
-            fail(409, "WORKFLOW_RESOURCE_CHANGED", "发布资源已变化，请重新测试和发布")
 
         async def guard():
             await require_account(service.database, owner, "workflows.execute")

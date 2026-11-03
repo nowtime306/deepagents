@@ -66,7 +66,7 @@ def test_agent_publication_ask_work_and_revision_guards(client):
         connection.post(
             "/api/v1/conversations", json={"agent_id": agent, "agent_version_id": version}, headers=ORIGIN
         ).status_code
-        == 409
+        == 201
     )
     assert connection.get(f"/api/v1/agents/{uuid4()}/versions").json()["items"] == []
     connection.portal.call(app.state.db.execute, "DELETE FROM work_queue_runs WHERE id=%s", (work_id,))

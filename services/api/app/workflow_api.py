@@ -294,14 +294,12 @@ async def publish(identifier: UUID, body: PublishInput, request: Request) -> dic
                 (identifier, workflow["revision"], model_revision),
             )
         ).fetchone()
-        if existing and (not existing["resource_pins"] or existing["resource_pins"] == pins):
+        if existing:
             return {"version": existing["version"], "created": False, "active": existing["active"],
                     "current_published_version": workflow["current_published_version"],
                     "release_revision": workflow["release_revision"]}
-        if workflow["tested_revision"] != workflow["revision"] or workflow["tested_pins"] != pins:
+        if workflow["tested_revision"] != workflow["revision"]:
             fail(409, "WORKFLOW_UNTESTED", "请先测试通过当前草稿及资源配置，再发布版本")
-        if existing:
-            fail(409, "WORKFLOW_RESOURCE_CHANGED", "资源已变化，请保存新修订后测试发布")
         number = (
             await (
                 await connection.execute(
@@ -387,13 +385,8 @@ async def execute(
         fail(422, "WORKFLOW_WORK_REQUIRED", "此流程包含持久审批或代码，请使用任务运行入口")
     validate_text(text, definition.input_schema)
     pins = await validate_definition(request, definition, owner, source["model_id"])
-    if published and (
-        not source["active"]
-        or source["model_revision"] != pins["models"][source["model_id"]]
-        or source["resource_pins"]
-        and source["resource_pins"] != pins
-    ):
-        fail(409, "WORKFLOW_RESOURCE_CHANGED", "发布版本已下线或模型/资源配置已变化，请重新测试和发布")
+    if published and not source["active"]:
+        fail(409, "WORKFLOW_VERSION_INACTIVE", "发布版本已下线")
     identifier = run_identifier or uuid4()
     revision = source["draft_revision"] if published else source["revision"]
     snapshot = {

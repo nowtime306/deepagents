@@ -115,7 +115,15 @@ def execute(body):
         send({"method": "notifications/initialized"})
         if body["operation"] == "discover":
             return request(2, "tools/list", {})
-        return request(2, "tools/call", {"name": body["tool_name"], "arguments": body["arguments"]})
+        listed = request(2, "tools/list", {})
+        tool = next((item for item in listed.get("tools", []) if item.get("name") == body["tool_name"]), None)
+        annotations = (tool or {}).get("annotations") or {}
+        readonly = bool(annotations.get("readOnlyHint") and not annotations.get("destructiveHint"))
+        if (not tool or not isinstance(body.get("expected_schema"), dict)
+                or tool.get("inputSchema") != body["expected_schema"]
+                or readonly != body.get("expected_read_only")):
+            raise RuntimeError("PROTOCOL_TOOL_INTERFACE_CHANGED")
+        return request(3, "tools/call", {"name": body["tool_name"], "arguments": body["arguments"]})
     finally:
         for sig in previous:
             signal.signal(sig, signal.SIG_IGN)

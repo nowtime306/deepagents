@@ -135,8 +135,6 @@ async def admit(body: InvokeInput, request: Request, key: dict, idempotency: str
     pins = await runtime(request).pins(
         Definition.model_validate(source["definition"]), key["owner_id"], source["model_id"]
     )
-    if pins != source["resource_pins"]:
-        fail(409, "WORKFLOW_RESOURCE_CHANGED", "发布资源配置已变化，请所有者重新测试和发布")
     fingerprint = digest({"text": body.text, "version_id": str(key["version_id"])})
     async with request.app.state.db.pool.connection() as connection:
         current = await (

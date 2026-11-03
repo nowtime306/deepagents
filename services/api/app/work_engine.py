@@ -58,10 +58,8 @@ class WorkEngine:
         self.browser_skills = browser_skills
 
     async def model(self, run: dict) -> BaseChatModel:
-        rows = await self.database.fetch("SELECT * FROM model_configs WHERE id=%s AND enabled", (run["model_id"],))
-        if not rows or rows[0]["revision"] != run["model_revision"]:
-            raise ValueError("Model configuration changed; create a new run")
-        configuration = self.models.from_row(rows[0])
+        configuration = await self.models.get(run["model_id"])
+        run["model_revision"] = configuration.revision
         configuration = configuration.model_copy(
             update={"max_output_tokens": min(configuration.max_output_tokens or 4096, 8192)}
         )
@@ -73,253 +71,279 @@ class WorkEngine:
         return model
 
     async def execute(self, run: dict) -> dict:
-        from app.automation_auth import authorize
-        from app.workflow_work import WorkWorkflow, binding
+        from app.resource_runtime import resource_run
 
-        await authorize(self.database, run["owner_id"], run["id"], "work")
-        workflow_binding = await binding(self.database, run)
-        from app.repository_runs import binding as repository_binding
+        run = dict(run)
+        async with resource_run(self.database, run["owner_id"], "work", run["id"]):
+            from app.resource_route_start import at_start
 
-        repository = await repository_binding(self.database, run)
-        if repository:
-            run = {
-                **run,
-                "instructions": run["instructions"]
-                + "\n代码位于 /repo（命令目录 /workspace/repo）。"
-                + "来源GitHub "
-                + repository["source"]["slug"]
-                + "，固定提交 "
-                + repository["source"]["sha"]
-                + "；本地任务分支 "
-                + repository["branch"]
-                + "。初始提交为源码快照，未载入上游历史。"
-                + "交付文件请放在 /outputs。远端写入只能由用户在差异审阅后单独批准，环境中没有连接凭证。",
-            }
-        if not workflow_binding and await self.database.fetch(
-            "SELECT 1 FROM work_task_workflows WHERE task_id=%s", (run["task_id"],)
-        ):
-            from app.errors import fail
-
-            fail(409, "WORKFLOW_BINDING_MISSING", "固定流程绑定已不可用，不能改为普通智能体执行")
-        if workflow_binding and self.capabilities_factory is None:
-            from app.errors import fail
-
-            fail(503, "WORKFLOW_NOT_READY", "任务后台未配置工作流资源服务")
-        if run["agent_snapshot"].get("team_pins") and self.capabilities_factory is None:
-            from app.errors import fail
-
-            fail(503, "TEAM_NOT_READY", "当前任务执行端尚未配置团队资源服务")
-        model = await self.model(run)
-        created = await self.sandboxes.create(run["id"], run["lease_token"], run["environment"])
-        if created is None:
-            raise CapacityUnavailable()
-        session, sandbox = created
-        closing = False
-
-        async def guard():
+            refreshed = await at_start(
+                self.models, run["owner_id"], run["id"], "work", run["agent_snapshot"], tools=True,
+            )
+            if refreshed:
+                run["model_id"] = refreshed.id
+                run["model_revision"] = refreshed.revision
             from app.automation_auth import authorize
+            from app.workflow_work import WorkWorkflow, binding
 
-            if not closing:
-                await authorize(self.database, run["owner_id"], run["id"], "work")
-                if repository:
-                    await repository_binding(self.database, run)
-            rows = await self.database.fetch(
-                "SELECT cancel_requested FROM work_queue_runs WHERE id=%s AND status='RUNNING' "
-                "AND lease_token=%s AND lease_until>now()",
-                (run["id"], run["lease_token"]),
-            )
-            if not rows:
-                raise LeaseLost("Work lease lost")
-            if rows[0]["cancel_requested"] and not closing:
-                raise RuntimeError("Work cancellation requested")
-            snapshot = run["agent_snapshot"]
-            if snapshot.get("id") and not closing:
-                agents = await self.database.fetch(
-                    "SELECT 1 FROM agents WHERE id=%s AND owner_id=%s AND enabled", (snapshot["id"], run["owner_id"])
-                )
-                if not agents:
-                    raise RuntimeError("Agent permission revoked")
+            await authorize(self.database, run["owner_id"], run["id"], "work")
+            workflow_binding = await binding(self.database, run)
+            from app.repository_runs import binding as repository_binding
 
-        backend = WorkBackend(
-            sandbox,
-            guard,
-            journal=OperationJournal(self.database, run),
-            repository_paths=([f["path"] for f in repository["source"]["files"]] if repository else None),
-        )
-        exported = False
-        released = False
-        keep_browser = False
-        browser = None
-        browser_saved = False
-        try:
-            await self.database.execute(
-                "UPDATE work_sandbox_sessions SET retention_required=true WHERE id=%s",
-                (session["id"],),
-            )
-            await backend.initialize()
-            if run["environment"] == "browser":
-                browser = BrowserBridge(self.database, self.models.vault, backend, run, session)
-            if not session.get("reused"):
-                await self.artifacts.restore(run, backend)
-                await self.artifacts.seed_inputs(run, backend)
-            await self.consume_approvals(run)
-            workflow = WorkWorkflow(self, run, workflow_binding, backend, guard) if workflow_binding else None
-            graph = await workflow.graph() if workflow else await self.agent_graph(run, model, backend, browser, guard)
-            config = {
-                "configurable": {"thread_id": "work:" + str(run["id"])},
-                "recursion_limit": run["step_limit"] * 12 + 20,
-                "callbacks": [
-                    WorkBudget(self.database, run),
-                    UsageRecorder(
-                        self.database,
-                        run["owner_id"],
-                        run["id"],
-                        run["model_id"],
-                        "work",
-                        route_selection_id=(run.get("agent_snapshot") or {}).get("route_selection_id"),
-                        revision=run["model_revision"],
-                        reserve=getattr(model, "max_tokens", None) or 4096,
-                        lease_token=run["lease_token"],
-                        team_budget=(
-                            bool(run["agent_snapshot"].get("team_pins"))
-                            or run.get("origin", "interactive") != "interactive"
-                        ),
-                    ),
-                ],
-            }
-            argument = (
-                Command(resume=run["resume_decision"])
-                if run["resume_decision"]
-                else {
-                    "input": workflow_binding["input"],
-                    "values": {},
-                    "output": "",
-                    "route": False,
-                    "failed": False,
-                    "last_output": "",
+            repository = await repository_binding(self.database, run)
+            if repository:
+                run = {
+                    **run,
+                    "instructions": run["instructions"]
+                    + "\n代码位于 /repo（命令目录 /workspace/repo）。"
+                    + "来源GitHub "
+                    + repository["source"]["slug"]
+                    + "，固定提交 "
+                    + repository["source"]["sha"]
+                    + "；本地任务分支 "
+                    + repository["branch"]
+                    + "。初始提交为源码快照，未载入上游历史。"
+                    + "交付文件请放在 /outputs。远端写入只能由用户在差异审阅后单独批准，环境中没有连接凭证。",
                 }
-                if workflow
-                else {"messages": [{"role": "user", "content": run["instructions"] + "\n任务目标：" + run["goal"]}]}
-            )
-            if workflow:
-                config["callbacks"] = []
-                config["recursion_limit"] = workflow.definition.node_budget * 2 + 4
-            interruptions = []
-            async for mode, update in graph.astream(argument, config, stream_mode=["messages", "updates"]):
-                await guard()
-                if mode == "messages":
-                    message, metadata = update
-                    if metadata.get("platform_role"):
-                        continue
-                    if message.type == "AIMessageChunk" and message.text:
-                        await self.events.emit(run, "message.delta", {"text": message.text[:2000]})
-                else:
-                    interruptions.extend(update.get("__interrupt__", []))
-                    reported = [name for name in update if not name.startswith("__work_pause__")]
-                    if reported:
-                        await self.events.emit(run, "step.updated", {"nodes": reported})
-                    for item in update.values():
-                        if not isinstance(item, dict):
-                            continue
-                        if "todos" in item:
-                            await self.events.emit(run, "plan.updated", {"todos": item["todos"]})
-                        for message in item.get("messages", []):
-                            if isinstance(message, ToolMessage):
-                                output = str(message.content)
-                                await self.events.emit(
-                                    run,
-                                    "tool.completed",
-                                    {
-                                        "name": message.name,
-                                        "call_id": message.tool_call_id,
-                                        "output": output[:8000],
-                                        "truncated": len(output) > 8000,
-                                    },
-                                )
-                            elif isinstance(message, AIMessage):
-                                for call in message.tool_calls:
-                                    await self.events.emit(
-                                        run, "tool.requested", {"name": call["name"], "call_id": call["id"]}
-                                    )
-            state = await graph.aget_state(config)
-            if not interruptions:
-                interruptions = [item for task in state.tasks for item in task.interrupts]
-            if browser:
-                await browser.save()
-                browser_saved = True
-            snapshot = await self.artifacts.capture(run, backend)
-            exported = True
-            await self.database.execute(
-                "UPDATE work_sandbox_sessions SET retention_required=false WHERE id=%s",
-                (session["id"],),
-            )
-            if interruptions:
-                # Keep the lease alive until sandbox cleanup finishes. Otherwise the
-                # heartbeat can cancel cleanup after the approval state is saved.
-                if browser and browser.started:
-                    await self.database.execute(
-                        "UPDATE work_sandbox_sessions SET browser_persistent=true,retention_required=true,"
-                        "updated_at=now() "
-                        "WHERE id=%s AND state='READY'",
-                        (session["id"],),
-                    )
-                    keep_browser = True
-                else:
-                    await self.sandboxes.release(session["id"])
-                    released = True
-                await self.pause(run, interruptions)
-                raise WorkPaused()
-            messages = state.values.get("messages", [])
-            output = (
-                state.values.get("output", "")
-                if workflow
-                else next((message.text for message in reversed(messages) if isinstance(message, AIMessage)), "")
-            )
-            if workflow:
-                await workflow.validate_result(output)
-            evidence = await self.database.fetch(
-                "SELECT count(*) FILTER(WHERE name='execute' AND status='SUCCEEDED') AS successful_commands,"
-                "count(*) FILTER(WHERE name='workflow_code' AND status='SUCCEEDED') AS successful_code_nodes,"
-                "count(*) FILTER(WHERE status='UNKNOWN') AS uncertain_operations "
-                "FROM operation_executions WHERE run_id=%s",
-                (run["id"],),
-            )
-            return {
-                "text": output[:100000],
-                "snapshot_id": str(snapshot),
-                "todos": state.values.get("todos", []),
-                "verification": evidence[0],
-            }
+            if not workflow_binding and await self.database.fetch(
+                "SELECT 1 FROM work_task_workflows WHERE task_id=%s", (run["task_id"],)
+            ):
+                from app.errors import fail
 
-        finally:
-            if browser and not browser_saved:
-                closing = True
-                try:
+                fail(409, "WORKFLOW_BINDING_MISSING", "固定流程绑定已不可用，不能改为普通智能体执行")
+            if workflow_binding and self.capabilities_factory is None:
+                from app.errors import fail
+
+                fail(503, "WORKFLOW_NOT_READY", "任务后台未配置工作流资源服务")
+            if run["agent_snapshot"].get("team_pins") and self.capabilities_factory is None:
+                from app.errors import fail
+
+                fail(503, "TEAM_NOT_READY", "当前任务执行端尚未配置团队资源服务")
+            if not workflow_binding:
+                from app.model_capabilities import require_tools
+
+                require_tools(await self.models.get(run["model_id"]))
+            model = await self.model(run)
+            created = await self.sandboxes.create(run["id"], run["lease_token"], run["environment"])
+            if created is None:
+                raise CapacityUnavailable()
+            session, sandbox = created
+            closing = False
+
+            async def guard():
+                from app.automation_auth import authorize
+
+                if not closing:
+                    await authorize(self.database, run["owner_id"], run["id"], "work")
+                    if repository:
+                        await repository_binding(self.database, run)
+                rows = await self.database.fetch(
+                    "SELECT cancel_requested FROM work_queue_runs WHERE id=%s AND status='RUNNING' "
+                    "AND lease_token=%s AND lease_until>now()",
+                    (run["id"], run["lease_token"]),
+                )
+                if not rows:
+                    raise LeaseLost("Work lease lost")
+                if rows[0]["cancel_requested"] and not closing:
+                    raise RuntimeError("Work cancellation requested")
+                snapshot = run["agent_snapshot"]
+                if snapshot.get("id") and not closing:
+                    agents = await self.database.fetch(
+                        "SELECT 1 FROM agents WHERE id=%s AND owner_id=%s AND enabled",
+                        (snapshot["id"], run["owner_id"])
+                    )
+                    if not agents:
+                        raise RuntimeError("Agent permission revoked")
+
+            backend = WorkBackend(
+                sandbox,
+                guard,
+                journal=OperationJournal(self.database, run),
+                repository_paths=([f["path"] for f in repository["source"]["files"]] if repository else None),
+            )
+            exported = False
+            released = False
+            keep_browser = False
+            browser = None
+            browser_saved = False
+            try:
+                await self.database.execute(
+                    "UPDATE work_sandbox_sessions SET retention_required=true WHERE id=%s",
+                    (session["id"],),
+                )
+                await backend.initialize()
+                if run["environment"] == "browser":
+                    browser = BrowserBridge(self.database, self.models.vault, backend, run, session)
+                if not session.get("reused"):
+                    await self.artifacts.restore(run, backend)
+                    await self.artifacts.seed_inputs(run, backend)
+                await self.consume_approvals(run)
+                workflow = WorkWorkflow(self, run, workflow_binding, backend, guard) if workflow_binding else None
+                graph = (await workflow.graph() if workflow
+                         else await self.agent_graph(run, model, backend, browser, guard))
+                config = {
+                    "configurable": {"thread_id": "work:" + str(run["id"])},
+                    "recursion_limit": run["step_limit"] * 12 + 20,
+                    "callbacks": [
+                        WorkBudget(self.database, run),
+                        UsageRecorder(
+                            self.database,
+                            run["owner_id"],
+                            run["id"],
+                            run["model_id"],
+                            "work",
+                            route_selection_id=(run.get("agent_snapshot") or {}).get("route_selection_id"),
+                            revision=run["model_revision"],
+                            reserve=getattr(model, "max_tokens", None) or 4096,
+                            lease_token=run["lease_token"],
+                            team_budget=(
+                                bool(run["agent_snapshot"].get("team_pins"))
+                                or run.get("origin", "interactive") != "interactive"
+                            ),
+                        ),
+                    ],
+                }
+                argument = (
+                    Command(resume=run["resume_decision"])
+                    if run["resume_decision"]
+                    else {
+                        "input": workflow_binding["input"],
+                        "values": {},
+                        "output": "",
+                        "route": False,
+                        "failed": False,
+                        "last_output": "",
+                    }
+                    if workflow
+                    else {"messages": [{"role": "user", "content": run["instructions"] + "\n任务目标：" + run["goal"]}]}
+                )
+                if workflow:
+                    config["callbacks"] = []
+                    config["recursion_limit"] = workflow.definition.node_budget * 2 + 4
+                if run.get("resource_resume_pending"):
+                    argument = Command(resume=run["resume_decision"]) if run["resume_decision"] else None
+                interruptions = []
+                async for mode, update in graph.astream(argument, config, stream_mode=["messages", "updates"]):
+                    if run.get("resource_resume_pending"):
+                        await self.database.execute(
+                            "UPDATE work_queue_runs SET resource_resume_pending=false WHERE id=%s AND lease_token=%s "
+                            "AND status='RUNNING'", (run["id"], run["lease_token"]),
+                        )
+                        run["resource_resume_pending"] = False
+                    await guard()
+                    if mode == "messages":
+                        message, metadata = update
+                        if metadata.get("platform_role"):
+                            continue
+                        if message.type == "AIMessageChunk" and message.text:
+                            await self.events.emit(run, "message.delta", {"text": message.text[:2000]})
+                    else:
+                        interruptions.extend(update.get("__interrupt__", []))
+                        reported = [name for name in update if not name.startswith("__work_pause__")]
+                        if reported:
+                            await self.events.emit(run, "step.updated", {"nodes": reported})
+                        for item in update.values():
+                            if not isinstance(item, dict):
+                                continue
+                            if "todos" in item:
+                                await self.events.emit(run, "plan.updated", {"todos": item["todos"]})
+                            for message in item.get("messages", []):
+                                if isinstance(message, ToolMessage):
+                                    output = str(message.content)
+                                    await self.events.emit(
+                                        run,
+                                        "tool.completed",
+                                        {
+                                            "name": message.name,
+                                            "call_id": message.tool_call_id,
+                                            "output": output[:8000],
+                                            "truncated": len(output) > 8000,
+                                        },
+                                    )
+                                elif isinstance(message, AIMessage):
+                                    for call in message.tool_calls:
+                                        await self.events.emit(
+                                            run, "tool.requested", {"name": call["name"], "call_id": call["id"]}
+                                        )
+                state = await graph.aget_state(config)
+                if not interruptions:
+                    interruptions = [item for task in state.tasks for item in task.interrupts]
+                if browser:
                     await browser.save()
                     browser_saved = True
-                except Exception:
-                    await browser.review()
-            if not exported:
-                closing = True
-                try:
-                    await self.artifacts.capture(run, backend)
-                    if not browser or browser_saved:
+                snapshot = await self.artifacts.capture(run, backend)
+                exported = True
+                await self.database.execute(
+                    "UPDATE work_sandbox_sessions SET retention_required=false WHERE id=%s",
+                    (session["id"],),
+                )
+                if interruptions:
+                    # Keep the lease alive until sandbox cleanup finishes. Otherwise the
+                    # heartbeat can cancel cleanup after the approval state is saved.
+                    if browser and browser.started:
                         await self.database.execute(
-                            "UPDATE work_sandbox_sessions SET retention_required=false WHERE id=%s",
+                            "UPDATE work_sandbox_sessions SET browser_persistent=true,retention_required=true,"
+                            "updated_at=now() "
+                            "WHERE id=%s AND state='READY'",
                             (session["id"],),
                         )
-                    exported = True
-                except Exception:
-                    # A failed export must retain the sandbox and its durable slot.
-                    pass
-            try:
-                if exported and not released and not keep_browser and (not browser or browser_saved):
-                    await self.sandboxes.release(session["id"])
+                        keep_browser = True
+                    else:
+                        await self.sandboxes.release(session["id"])
+                        released = True
+                    await self.pause(run, interruptions)
+                    raise WorkPaused()
+                messages = state.values.get("messages", [])
+                output = (
+                    state.values.get("output", "")
+                    if workflow
+                    else next((message.text for message in reversed(messages) if isinstance(message, AIMessage)), "")
+                )
+                if workflow:
+                    await workflow.validate_result(output)
+                evidence = await self.database.fetch(
+                    "SELECT count(*) FILTER(WHERE name='execute' AND status='SUCCEEDED') AS successful_commands,"
+                    "count(*) FILTER(WHERE name='workflow_code' AND status='SUCCEEDED') AS successful_code_nodes,"
+                    "count(*) FILTER(WHERE status='UNKNOWN') AS uncertain_operations "
+                    "FROM operation_executions WHERE run_id=%s",
+                    (run["id"],),
+                )
+                return {
+                    "text": output[:100000],
+                    "snapshot_id": str(snapshot),
+                    "todos": state.values.get("todos", []),
+                    "verification": evidence[0],
+                }
+
             finally:
-                if browser:
-                    await browser.closed()
-                # Failed export retains the sandbox reservation and its only file copy.
-                await sandbox.close()
+                if browser and not browser_saved:
+                    closing = True
+                    try:
+                        await browser.save()
+                        browser_saved = True
+                    except Exception:
+                        await browser.review()
+                if not exported:
+                    closing = True
+                    try:
+                        await self.artifacts.capture(run, backend)
+                        if not browser or browser_saved:
+                            await self.database.execute(
+                                "UPDATE work_sandbox_sessions SET retention_required=false WHERE id=%s",
+                                (session["id"],),
+                            )
+                        exported = True
+                    except Exception:
+                        # A failed export must retain the sandbox and its durable slot.
+                        pass
+                try:
+                    if exported and not released and not keep_browser and (not browser or browser_saved):
+                        await self.sandboxes.release(session["id"])
+                finally:
+                    if browser:
+                        await browser.closed()
+                    # Failed export retains the sandbox reservation and its only file copy.
+                    await sandbox.close()
 
     async def pause(self, run: dict, interruptions: list) -> None:
         """Save approval payloads and relinquish the worker lease in one transaction."""

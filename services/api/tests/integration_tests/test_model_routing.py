@@ -70,11 +70,11 @@ def submit(connection, model):
     )
 
 
-def test_no_consent_revision_change_and_revocation_stop_before_provider(client):
+def test_route_maintenance_keeps_consent_and_revocation_stops_before_provider(client):
     connection, app = client
     _, models, item, payload = setup(connection, app)
     called = []
-    app.state.runtime.model_factory = lambda config: called.append(config.id)
+    app.state.runtime.model_factory = lambda config: called.append(config.id) or TestModel(responses=["本地维护验证"])
     assert submit(connection, models[0]).json()["error"]["code"] == "ROUTE_CONSENT_REQUIRED"
     consent(connection, item)
     assert (
@@ -83,14 +83,13 @@ def test_no_consent_revision_change_and_revocation_stop_before_provider(client):
         ).status_code
         == 200
     )
+    accepted = submit(connection, models[0])
+    assert accepted.status_code == 202, accepted.text
+    connection.get(f"/api/v1/runs/{accepted.json()['run_id']}/events")
+    assert called == [models[0]]
+    assert connection.delete(f"/api/v1/model-routes/{item['id']}/consent", headers=ORIGIN).status_code == 200
     assert submit(connection, models[0]).status_code == 403
-    assert not called
-    assert (
-        connection.post(
-            f"/api/v1/model-routes/{item['id']}/consent", headers=ORIGIN, json={"digest": item["digest"]}
-        ).status_code
-        == 409
-    )
+    assert called == [models[0]]
 
 
 def test_cold_primary_selects_consented_backup_and_ledger_uses_actual_model(client):

@@ -1,19 +1,21 @@
 """Private scoped vector recall with fixed model revisions and metered requests."""
 
 import math
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 from fastapi import APIRouter, Request
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.embedding_compatibility import fingerprint
 from app.errors import APIError, fail
 from app.knowledge import embed_texts
 from app.memory_api import search as keyword_search
 from app.memory_scope import scope
 from app.model_catalog import supports_embedding
 from app.permissions import require_account
+from app.resource_runtime import resource_run
 from app.resource_usage import EmbeddingMeter, finish_operation, operation, parent_authority
 from app.security import identity
 from app.usage_api import summaries
@@ -63,12 +65,16 @@ class MemoryRecall:
         rows = await self.db.fetch("SELECT * FROM memory_settings WHERE owner_id=%s", (owner,))
         if not rows or not rows[0]["enabled"]:
             return None, None
-        settings = rows[0]
+        from app.retrieval_policy import memory_policy
+
+        settings = await memory_policy(self.registry.vault, owner, rows[0])
         try:
             config = await self.registry.get(settings["embedding_model_id"])
-        except APIError:
+        except APIError as error:
+            if error.code.startswith("RESOURCE_"):
+                raise
             return None, "语义模型已停用或移除，当前使用关键词"
-        if config.revision != settings["model_revision"] or not supports_embedding(config.kind, config.protocol):
+        if not supports_embedding(config.kind, config.protocol):
             return None, "语义模型配置已变化，请确认配置并重新索引；当前使用关键词"
         return config, None
 
@@ -97,17 +103,21 @@ class MemoryRecall:
                 "warning": "此范围超过1000条已索引记忆，请缩小范围；本次仅用关键词",
             }
         if not rows:
-            return {"items": fallback, "mode": "keyword", "warning": "此范围尚无当前模型的有效向量，请先索引记忆"}
+            return {"items": fallback, "mode": "keyword",
+                    "warning": "向量兼容证据缺失或模型身份、维度、预处理已变化；当前使用关键词，请核对或重新索引"}
         if context is None:
             return {"items": fallback, "mode": "keyword", "warning": "此执行入口尚未提供语义调用的预算上下文"}
         vector = (await self.vectors(owner, config, [query], context))[0]
         await parent_authority(self.db, owner, context)
         current, _ = await self.config(owner)
-        if current is None or current.id != config.id or current.revision != config.revision:
+        if current is None or current.id != config.id or fingerprint(current) != fingerprint(config):
             fail(409, "MEMORY_MODEL_CHANGED", "语义配置已变化，本次不返回旧配置的结果")
         await require_account(self.db, owner, "memory.read")
         rows = await self.eligible(owner, config, project_id, agent_id)
         fallback = await keyword_search(self.db, owner, query, project_id=project_id, agent_id=agent_id)
+        if any(row.get("vector_dimensions") != len(vector) or len(row["vector"]) != len(vector) for row in rows):
+            return {"items": fallback, "mode": "keyword",
+                    "warning": "查询向量维度与已保存记忆不兼容，本次仅用关键词；请核对向量模型输出并重新索引"}
         by_id = {str(row["id"]): row for row in [*rows, *fallback]}
         scored = []
         for row in rows:
@@ -129,16 +139,17 @@ class MemoryRecall:
 
     async def eligible(self, owner, config, project_id, agent_id):
         return await self.db.fetch(
-            "SELECT m.id,m.title,m.content,m.scope_kind,m.expires_at,m.vector FROM private_memories m "
+            "SELECT m.id,m.title,m.content,m.scope_kind,m.expires_at,m.vector,m.vector_dimensions "
+            "FROM private_memories m "
             "WHERE m.owner_id=%s AND m.enabled AND (m.expires_at IS NULL OR m.expires_at>now()) "
-            "AND m.vector_status='READY' AND m.vector_model_id=%s AND m.vector_model_revision=%s "
+            "AND m.vector_status='READY' AND m.vector_fingerprint=%s "
             "AND m.vector_digest=m.content_digest AND (m.scope_kind='global' OR "
             "(m.scope_kind='project' AND m.scope_id=%s AND EXISTS(SELECT 1 FROM conversation_projects p "
             "WHERE p.id=m.scope_id AND p.owner_id=m.owner_id)) OR "
             "(m.scope_kind='agent' AND m.scope_id=%s AND EXISTS(SELECT 1 FROM agents a "
             "WHERE a.id=m.scope_id AND a.owner_id=m.owner_id AND a.enabled))) "
             "ORDER BY m.updated_at DESC,m.id LIMIT 1001",
-            (owner, config.id, config.revision, project_id, agent_id),
+            (owner, fingerprint(config), project_id, agent_id),
         )
 
 
@@ -176,8 +187,6 @@ async def save(body: SettingsInput, request: Request):
         config = await request.app.state.models.get(body.embedding_model_id)
         if not supports_embedding(config.kind, config.protocol):
             fail(422, "MODEL_KIND_INVALID", "请选择当前已适配的文本向量模型")
-        if body.model_revision != config.revision:
-            fail(409, "MODEL_VERSION_CHANGED", "请刷新并核对当前模型修订后再保存语义配置")
     if body.enabled and config is None:
         fail(422, "MODEL_REQUIRED", "启用语义召回前请选择向量模型")
     rows = await request.app.state.db.fetch(
@@ -214,6 +223,12 @@ class IndexInput(BaseModel):
 @router.post("/index")
 async def index(body: IndexInput, request: Request):
     owner = (await identity(request))["id"]
+    async with resource_run(request.app.state.db, owner, "resource", uuid4()):
+        return await _index(body, request)
+
+
+async def _index(body, request):
+    owner = (await identity(request))["id"]
     db, service = request.app.state.db, MemoryRecall(request.app.state.db, request.app.state.models)
     config, warning = await service.config(owner)
     if config is None:
@@ -230,10 +245,10 @@ async def index(body: IndexInput, request: Request):
     rows = await db.fetch(
         "SELECT id,title,content,content_digest FROM private_memories WHERE owner_id=%s AND enabled "
         "AND (expires_at IS NULL OR expires_at>now()) AND (%s OR id=ANY(%s::uuid[])) "
-        "AND (NOT %s OR vector_status<>'READY' OR vector_model_id IS DISTINCT FROM %s "
-        "OR vector_model_revision IS DISTINCT FROM %s OR vector_digest IS DISTINCT FROM content_digest) "
+        "AND (NOT %s OR vector_status<>'READY' OR vector_fingerprint IS DISTINCT FROM %s "
+        "OR vector_digest IS DISTINCT FROM content_digest) "
         "ORDER BY updated_at DESC,id LIMIT 16",
-        (owner, not body.identifiers, body.identifiers, not body.identifiers, config.id, config.revision),
+        (owner, not body.identifiers, body.identifiers, not body.identifiers, fingerprint(config)),
     )
     if body.identifiers and {r["id"] for r in rows} != set(body.identifiers):
         fail(403, "MEMORY_INDEX_UNAVAILABLE", "只能索引本人启用且未过期的记忆")
@@ -252,8 +267,7 @@ async def index(body: IndexInput, request: Request):
                     "SELECT o.id FROM resource_operations o JOIN memory_settings s ON s.owner_id=o.owner_id "
                     "JOIN model_configs m ON m.id=o.model_id WHERE o.id=%s AND o.lease_token=%s "
                     "AND o.status='RUNNING' AND o.lease_until>now() AND s.enabled "
-                    "AND s.embedding_model_id=o.model_id AND s.model_revision=o.model_revision "
-                    "AND m.enabled AND m.revision=o.model_revision FOR UPDATE OF o",
+                    "AND m.enabled AND m.kind='embedding' AND m.protocol='openai' FOR UPDATE OF o",
                     (context["id"], context["lease_token"]),
                 )
             ).fetchone()
@@ -264,12 +278,15 @@ async def index(body: IndexInput, request: Request):
                 changed = await (
                     await connection.execute(
                         "UPDATE private_memories SET vector=%s,vector_status='READY',vector_model_id=%s,"
-                        "vector_model_revision=%s,vector_digest=%s WHERE id=%s AND owner_id=%s AND enabled "
+                        "vector_model_revision=%s,vector_fingerprint=%s,vector_dimensions=%s,vector_digest=%s "
+                        "WHERE id=%s AND owner_id=%s AND enabled "
                         "AND content_digest=%s AND (expires_at IS NULL OR expires_at>now()) RETURNING id",
                         (
                             Jsonb(vector),
                             config.id,
                             config.revision,
+                            fingerprint(config),
+                            len(vector),
                             row["content_digest"],
                             row["id"],
                             owner,
@@ -306,6 +323,12 @@ class RecallInput(BaseModel):
 
 @router.post("/recall")
 async def recall(body: RecallInput, request: Request):
+    owner = (await identity(request))["id"]
+    async with resource_run(request.app.state.db, owner, "resource", uuid4()):
+        return await _recall(body, request)
+
+
+async def _recall(body, request):
     owner = (await identity(request))["id"]
     db = request.app.state.db
     async with db.pool.connection() as connection:

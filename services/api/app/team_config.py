@@ -52,8 +52,8 @@ async def freeze_team(capabilities, owner: UUID, selection: dict) -> dict:
         models = await capabilities.database.fetch(
             "SELECT revision,kind,protocol FROM model_configs WHERE id=%s AND enabled", (child["model_id"],)
         )
-        if not models or models[0]["revision"] != child["model_revision"]:
-            fail(409, "TEAM_MODEL_CHANGED", "成员模型已变化，请重新发布成员版本")
+        if not models:
+            fail(409, "TEAM_MODEL_UNAVAILABLE", "成员模型不存在或已停用")
         if not supports_chat(models[0]["kind"], models[0]["protocol"]):
             fail(422, "TEAM_MODEL_UNSUPPORTED", "团队成员需要支持当前协议的聊天模型")
         child = await capabilities.freeze(owner, child)
@@ -63,6 +63,4 @@ async def freeze_team(capabilities, owner: UUID, selection: dict) -> dict:
                 "snapshot": {**child, "published_version_id": str(row["id"]), "published_version": row["version"]},
             }
         )
-    if "team_pins" in selection and selection["team_pins"] != frozen:
-        fail(409, "TEAM_MEMBER_CHANGED", "团队发布快照已变化，请重新发布主智能体")
     return {**selection, "team_pins": frozen}

@@ -51,70 +51,84 @@ class AskWorker:
                     return
 
     async def execute(self, run: dict, connection) -> None:
-        runtime = Runtime(
-            self.database,
-            AsyncPostgresSaver(connection),
-            self.settings,
-            self.model_factory,
-            lease_token=run["lease_token"],
-            lease_connection=connection,
-            model_registry=self.models,
-        )
-        runtime.capabilities = CapabilityService(
-            self.database,
-            AskKnowledge(self.database, run, self.settings.web_origin, self.settings.internal_api_url),
-            MCPService(self.database, self.models.vault),
-            model_registry=self.models,
-        )
-        try:
-            model = await self.models.get(run["model_id"])
-            if run["agent_snapshot"].get("route_selection_id"):
-                model = model.model_copy(
-                    update={"route_selection_id": UUID(run["agent_snapshot"]["route_selection_id"])}
-                )
-            if run["agent_snapshot"].get("internal_purpose") == "memory":
-                model = model.model_copy(update={"max_output_tokens": min(model.max_output_tokens or 4096, 4096)})
-            if run["agent_snapshot"].get("internal_purpose") == "ocr":
-                model = model.model_copy(update={"max_output_tokens": min(model.max_output_tokens or 8192, 8192)})
-            if run["model_revision"] is not None and run["model_revision"] != model.revision:
-                fail(409, "MODEL_VERSION_CHANGED", "模型已变化，请明确发起新一轮提问")
-            messages = await self.database.fetch(
-                "SELECT content->>'text' AS text FROM conversation_messages WHERE run_id=%s AND role='user' "
-                "ORDER BY created_at,id LIMIT 1",
-                (run["id"],),
+        from app.resource_runtime import resource_run
+
+        owner = (await self.database.fetch(
+            "SELECT owner_id FROM conversations WHERE id=%s", (run["conversation_id"],)
+        ))[0]["owner_id"]
+        async with resource_run(self.database, owner, "ask", run["id"]):
+            runtime = Runtime(
+                self.database,
+                AsyncPostgresSaver(connection),
+                self.settings,
+                self.model_factory,
+                lease_token=run["lease_token"],
+                lease_connection=connection,
+                model_registry=self.models,
             )
-            if not messages:
-                fail(409, "ASK_INPUT_MISSING", "对话输入缺失，未请求模型")
-
-            def guarded_model(configuration):
-                resolved = self.model_factory(configuration)
-                if hasattr(resolved, "max_retries"):
-                    resolved.max_retries = 0
-                return resolved
-
-            runtime.model_factory = guarded_model
-            task = asyncio.create_task(runtime.run(run["id"], run["conversation_id"], messages[0]["text"], model))
-            monitor = asyncio.create_task(self.monitor(run, task))
+            runtime.capabilities = CapabilityService(
+                self.database,
+                AskKnowledge(self.database, run, self.settings.web_origin, self.settings.internal_api_url),
+                MCPService(self.database, self.models.vault),
+                model_registry=self.models,
+            )
             try:
-                await task
-            finally:
-                monitor.cancel()
-                await asyncio.gather(monitor, return_exceptions=True)
-        except asyncio.CancelledError:
-            raise
-        except Exception as error:
-            try:
-                await self.database.event(
-                    run["id"],
-                    "run.failed",
-                    {"message": "对话后台执行失败，请检查配置或重新提问"},
-                    status="FAILED",
-                    error=error.code if isinstance(error, APIError) else "ASK_WORKER_FAILED",
-                    lease_token=run["lease_token"],
+                from app.resource_route_start import at_start
+
+                refreshed = await at_start(self.models, owner, run["id"], "ask", run["agent_snapshot"],
+                                           images=any(item.get("media_type", "").startswith("image/")
+                                                      for item in run.get("attachment_snapshot") or []),
+                                           tools=bool(run["agent_snapshot"].get("mcp_ids")
+                                                      or run["agent_snapshot"].get("skill_ids")
+                                                      or run["agent_snapshot"].get("knowledge_ids")
+                                                      or run["agent_snapshot"].get("team")
+                                                      or run["agent_snapshot"].get("memory_enabled")))
+                model = refreshed or await self.models.get(run["model_id"])
+                if run["agent_snapshot"].get("route_selection_id"):
+                    model = model.model_copy(
+                        update={"route_selection_id": UUID(run["agent_snapshot"]["route_selection_id"])}
+                    )
+                if run["agent_snapshot"].get("internal_purpose") == "memory":
+                    model = model.model_copy(update={"max_output_tokens": min(model.max_output_tokens or 4096, 4096)})
+                if run["agent_snapshot"].get("internal_purpose") == "ocr":
+                    model = model.model_copy(update={"max_output_tokens": min(model.max_output_tokens or 8192, 8192)})
+                messages = await self.database.fetch(
+                    "SELECT content->>'text' AS text FROM conversation_messages WHERE run_id=%s AND role='user' "
+                    "ORDER BY created_at,id LIMIT 1",
+                    (run["id"],),
                 )
-            except APIError as failure:
-                if failure.code != "ASK_LEASE_LOST":
-                    raise
+                if not messages:
+                    fail(409, "ASK_INPUT_MISSING", "对话输入缺失，未请求模型")
+
+                def guarded_model(configuration):
+                    resolved = self.model_factory(configuration)
+                    if hasattr(resolved, "max_retries"):
+                        resolved.max_retries = 0
+                    return resolved
+
+                runtime.model_factory = guarded_model
+                task = asyncio.create_task(runtime.run(run["id"], run["conversation_id"], messages[0]["text"], model))
+                monitor = asyncio.create_task(self.monitor(run, task))
+                try:
+                    await task
+                finally:
+                    monitor.cancel()
+                    await asyncio.gather(monitor, return_exceptions=True)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                try:
+                    await self.database.event(
+                        run["id"],
+                        "run.failed",
+                        {"message": "对话后台执行失败，请检查配置或重新提问"},
+                        status="FAILED",
+                        error=error.code if isinstance(error, APIError) else "ASK_WORKER_FAILED",
+                        lease_token=run["lease_token"],
+                    )
+                except APIError as failure:
+                    if failure.code != "ASK_LEASE_LOST":
+                        raise
 
     async def tick(self) -> bool:
         await self.heartbeat()

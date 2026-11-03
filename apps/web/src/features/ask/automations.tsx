@@ -639,7 +639,7 @@ export function Automations({
               </article>
             ))}
           </div>
-          {canManageNotifications && <NotificationChannels isAdmin={isAdmin} />}
+          <NotificationChannels isAdmin={isAdmin} canManage={canManageNotifications} />
         </>
       )}
       {history && (

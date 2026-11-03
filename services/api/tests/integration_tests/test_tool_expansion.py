@@ -266,9 +266,10 @@ def test_isolated_work_tool_requires_approval_keeps_exact_arguments_and_rechecks
     connection.portal.call(graph.ainvoke, Command(resume={"decisions": [{"type": "approve"}]}), config)
     assert calls == [(tool.name, arguments)]
     connection.portal.call(app.state.db.execute, "UPDATE mcp_servers SET command_json='[]' WHERE id=%s", (identifier,))
-    with pytest.raises(APIError, match="工具配置已改变"):
-        connection.portal.call(tool.ainvoke, arguments)
-    assert len(calls) == 1
+    connection.portal.call(tool.ainvoke, arguments)
+    assert len(calls) == 2
+    # A warm tool retains its originally approved command, not a later empty command.
+    assert calls[-1] == (tool.name, arguments)
 
 
 @pytest.mark.skipif(os.getenv("RUN_LOCAL_SANDBOX") != "1", reason="Requires trusted local coding image")

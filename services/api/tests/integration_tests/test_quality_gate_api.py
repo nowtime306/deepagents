@@ -33,6 +33,12 @@ def test_gate_requires_complete_real_labels_and_blocks_changed_sources(client, m
                   [{"document_id": document, "revision": 1, "chunk_ids": []}]} for i in range(50)]
     results = [{"id": str(i), "recall_at_10": None if i == 49 else 1,
                 "no_answer_correct": True if i == 49 else None} for i in range(50)]
+    embedding = "gate-" + uuid4().hex
+    connection.portal.call(app.state.db.execute,
+        "INSERT INTO model_configs(id,name,model,base_url,kind) VALUES(%s,%s,'vector-v1','http://unused','embedding')",
+        (embedding, embedding))
+    connection.portal.call(app.state.db.execute,
+        "UPDATE knowledge_bases SET embedding_model_id=%s WHERE id=%s", (embedding, kb))
     async def pins():
         knowledge = await app.state.knowledge.owned(UUID(kb), UUID(owner))
         return await snapshot(app.state.db, knowledge)
@@ -52,6 +58,17 @@ def test_gate_requires_complete_real_labels_and_blocks_changed_sources(client, m
         assert response.status_code == 200, response.text
     checked = connection.get(base+f"/quality/check/{exp}").json()
     assert checked["passed"] and checked["reviewed_answers"] == 50 and checked["citation_denominator"] == 49
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET name=name||'-maintained',is_default=false,revision=revision+1 "
+        "WHERE id=%s", (embedding,))
+    assert connection.get(base+f"/quality/check/{exp}").json()["passed"]
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET model='same-dimension-other-model' WHERE id=%s", (embedding,))
+    drift = connection.get(base+f"/quality/check/{exp}").json()
+    assert not drift["passed"] and drift["applicability"]["status"] == "retest_recommended"
+    assert connection.post(publication, headers=ORIGIN, json={"revision": 1}).status_code == 409
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET model='vector-v1' WHERE id=%s", (embedding,))
     from app import quality_gate
 
     original_guard = quality_gate.publication_guard

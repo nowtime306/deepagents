@@ -122,7 +122,13 @@ class WorkWorker:
             from app.workflow_work import WorkflowStopped
 
             known = error.__cause__ if isinstance(error, WorkflowNodeFailed) else error
-            if isinstance(known, WorkflowStopped):
+            if getattr(cause, "code", None) == "RESOURCE_RECOVERY_CONFIRMATION_REQUIRED":
+                await self.database.execute(
+                    "UPDATE work_queue_runs SET status='PAUSED',error_code=%s,lease_token=NULL,lease_until=NULL,"
+                    "updated_at=now() WHERE id=%s AND status='RUNNING' AND lease_token=%s",
+                    (cause.code, run["id"], run["lease_token"]),
+                )
+            elif isinstance(known, WorkflowStopped):
                 await self.finish(run, {"text": known.message}, "FAILED", error=known.code)
             else:
                 await self.interrupt(run, getattr(cause, "code", "EXECUTION_UNCERTAIN"))
@@ -130,6 +136,14 @@ class WorkWorker:
             executor.cancel()
             heartbeat.cancel()
             await asyncio.gather(executor, heartbeat, return_exceptions=True)
+            terminal = await self.database.fetch(
+                "SELECT 1 FROM work_queue_runs WHERE id=%s AND status IN ('COMPLETED','FAILED','CANCELLED')",
+                (run["id"],),
+            )
+            if terminal:
+                from app.resource_runtime import release_credentials
+
+                release_credentials(run["owner_id"], "work", run["id"])
 
     async def complete(self, run: dict, result: dict) -> None:
         """Commit completion and its final event together under a live lease."""

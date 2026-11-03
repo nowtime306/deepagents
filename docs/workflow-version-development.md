@@ -1,5 +1,7 @@
 # 工作流版本管理与软件版本留档实施
 
+> 2026-11-03：资源引用检查已按 [RDC实施计划](resource-reference-decoupling-development.md) 调整。旧版设为当前及各执行入口校验当前可用性与真实兼容，不再逐项比较外部资源通用修订。本文保留WVR阶段的原始实施记录，验收状态分别记录。
+
 依据workflow-version-requirements.md WVR-01～08，用户授权提交并推送origin/onwer_agent。已将此前完整平台作为2818e6f647093a1e8ad1695139f9fdaf4ace8ab7 / zhixing-v0.1.0基线推送；本功能独立提交，不改上游SDK版本。分支/提交/标签见docs/releases/history.md。
 
 ## 实施与验证顺序

@@ -120,13 +120,13 @@ def test_current_cas_and_downline_are_explicit_and_do_not_silently_fallback(clie
                            json={"release_revision": 5}).status_code == 200
 
 
-def test_changed_resources_cannot_become_current_but_history_can_be_copied_for_repair(client):
+def test_ordinary_resource_maintenance_allows_current_history_and_copy_for_repair(client):
     connection, app = client
     _, prefix, _, _ = seeded(connection)
     connection.portal.call(app.state.db.execute, "UPDATE model_configs SET revision=revision+1 WHERE id='test'")
     assert connection.post(prefix + "/versions/1/set-current", headers=ORIGIN,
-                           json={"release_revision": 3}).status_code == 409
-    assert connection.get(prefix).json()["current_published_version"] == 2
+                           json={"release_revision": 3}).status_code == 200
+    assert connection.get(prefix).json()["current_published_version"] == 1
     assert connection.post(prefix + "/versions/1/copy", headers=ORIGIN,
                            json={"name": "repair-" + uuid4().hex}).status_code == 201
     assert connection.post(prefix + "/versions/1/restore", headers=ORIGIN, json={"revision": 2}).status_code == 200

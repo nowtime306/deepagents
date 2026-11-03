@@ -19,9 +19,13 @@ async def authority(database, owner, knowledge, context, model=None, kind="embed
 
         await guard(database, rows[0], context["expected_pins"])
     if model:
+        from app.resource_runtime import current_scope
+
+        scope = current_scope()
+        fixed = scope.values.get(("knowledge", str(knowledge))) if scope else None
         column = "rerank_model_id" if kind == "rerank" else "embedding_model_id"
-        if rows[0][column] != model.id:
-            fail(403, "KNOWLEDGE_REVOKED", "知识库模型配置已变化，未继续请求旧模型")
+        if (fixed or rows[0])[column] != model.id:
+            fail(409, "KNOWLEDGE_CONFIGURATION_CHANGED", "知识库模型绑定已变化，未继续请求其他模型")
     if context["mode"] not in {"ask", "work"}:
         return
     table = "task_runs" if context["mode"] == "ask" else "work_queue_runs"

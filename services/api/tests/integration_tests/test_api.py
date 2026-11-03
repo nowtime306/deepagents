@@ -48,6 +48,10 @@ async def seed_model(url: str) -> None:
             "('test','测试模型','test','http://unused',%s) ON CONFLICT(id) DO UPDATE SET enabled=true",
             (vault.encrypt("test-only"),),
         )
+        await connection.execute(
+            "INSERT INTO model_capability_declarations(model_id,supports_tools) VALUES('test',true) "
+            "ON CONFLICT(model_id) DO UPDATE SET supports_tools=true"
+        )
 
 
 @pytest.fixture

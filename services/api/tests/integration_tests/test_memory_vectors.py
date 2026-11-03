@@ -124,8 +124,18 @@ def test_semantic_recall_scope_usage_prices_and_model_revision(embedding):
     prior = len(requests)
     connection.portal.call(app.state.db.execute, "UPDATE model_configs SET revision=revision+1 WHERE id=%s", (model,))
     changed = connection.post("/api/v1/memories/recall", json={"query": "中文"}, headers=ORIGIN)
-    assert changed.status_code == 200 and changed.json()["mode"] == "keyword" and changed.json()["warning"]
-    assert len(requests) == prior
+    assert changed.status_code == 200 and changed.json()["mode"] == "hybrid" and not changed.json()["warning"]
+    assert len(requests) == prior + 1
+    connection.portal.call(app.state.db.execute,
+                           "UPDATE model_configs SET model='other-same-dim' WHERE id=%s", (model,))
+    changed = connection.post("/api/v1/memories/recall", json={"query": "中文"}, headers=ORIGIN)
+    assert changed.status_code == 200 and changed.json()["mode"] == "keyword"
+    assert len(requests) == prior + 1
+    connection.portal.call(app.state.db.execute, "UPDATE model_configs SET model='local-vector' WHERE id=%s", (model,))
+    connection.portal.call(app.state.db.execute,
+                           "UPDATE private_memories SET vector_fingerprint=NULL WHERE vector_model_id=%s", (model,))
+    legacy = connection.post("/api/v1/memories/recall", json={"query": "中文"}, headers=ORIGIN)
+    assert legacy.json()["mode"] == "keyword" and "兼容证据" in legacy.json()["warning"]
 
 
 def test_index_unknown_requires_explicit_retry_and_missing_usage_remains_unknown(embedding):
@@ -375,3 +385,42 @@ def test_member_embedding_keeps_embedding_model_and_role_in_ledger(embedding):
         }
     ]
     assert len(requests) == 1 and requests[0]["model"] == "local-vector"
+
+
+def test_maintenance_during_index_preserves_actual_revision_and_next_run_reuses_vectors(embedding):
+    connection, app, model, requests, behavior = embedding
+    identifier = memory(connection, "偏好", "用户偏好中文")
+
+    def maintenance():
+        connection.portal.call(app.state.db.execute,
+            "UPDATE model_configs SET revision=revision+1,name=name||'-maintained' WHERE id=%s", (model,))
+
+    behavior["callback"] = maintenance
+    indexed = connection.post("/api/v1/memories/index", json={}, headers=ORIGIN)
+    assert indexed.status_code == 200 and indexed.json()["indexed"] == 1, indexed.text
+    behavior["callback"] = None
+    stored = connection.portal.call(app.state.db.fetch,
+        "SELECT vector_model_revision,vector_fingerprint FROM private_memories WHERE id=%s", (identifier,))[0]
+    assert stored["vector_model_revision"] == 1 and stored["vector_fingerprint"]
+    used = connection.portal.call(app.state.db.fetch,
+        "SELECT revision FROM run_resource_snapshots WHERE run_id=%s AND resource_kind='model'",
+        (indexed.json()["operation_id"],))
+    assert used[0]["revision"] == "1"
+    recalled = connection.post("/api/v1/memories/recall", json={"query": "languagechoice"}, headers=ORIGIN)
+    assert recalled.json()["mode"] == "hybrid" and len(requests) == 2
+
+
+def test_same_actual_vector_identity_reuses_across_configuration_ids(embedding):
+    connection, app, model, requests, _ = embedding
+    memory(connection, "偏好", "用户偏好中文")
+    assert connection.post("/api/v1/memories/index", json={}, headers=ORIGIN).json()["indexed"] == 1
+    alias = "vector-alias-" + uuid4().hex
+    connection.portal.call(app.state.db.execute,
+        "INSERT INTO model_configs(id,name,model,base_url,kind,protocol) "
+        "SELECT %s,%s,model,base_url,kind,protocol FROM model_configs WHERE id=%s", (alias, alias, model))
+    saved = connection.put("/api/v1/memories/settings", headers=ORIGIN,
+        json={"embedding_model_id": alias, "enabled": True, "revision": 1, "model_revision": 1})
+    assert saved.status_code == 200, saved.text
+    reused = connection.post("/api/v1/memories/recall", json={"query": "languagechoice"}, headers=ORIGIN)
+    assert reused.json()["mode"] == "hybrid" and len(requests) == 2
+    assert connection.post("/api/v1/memories/index", json={}, headers=ORIGIN).json()["indexed"] == 0

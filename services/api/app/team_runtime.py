@@ -80,13 +80,19 @@ class TeamRun:
     async def middleware(self, workspace=None, *, project_id=None) -> list:
         specs = []
         for name, member in self.members.items():
+            from app.resource_runtime import freeze_resource
+
             child = dict(member["snapshot"])
+            child = await freeze_resource(
+                "agent_version", member["version_id"], child.get("published_version", 1), child,
+                vault=self.models.vault,
+                snapshot={"id": child.get("id"), "published_version_id": member["version_id"],
+                          "published_version": child.get("published_version"), "role": name},
+            )
             # The conversation switch can further restrict a published team's search.
             if not self.snapshot.get("web_enabled"):
                 child["web_enabled"] = False
             config = await self.models.get(child["model_id"])
-            if config.revision != child["model_revision"]:
-                fail(409, "TEAM_MODEL_CHANGED", "成员模型已变化，请重新发布版本")
             if child.get("model_routing"):
                 from app.model_routing import resolve
 
@@ -121,12 +127,18 @@ class TeamRun:
                     else search_tool(self.database, self.models.vault, self.owner, UUID(child["id"]))
                 )
 
+            from app.model_capabilities import require_tools
+
+            if tools or child.get("skill_ids"):
+                require_tools(config)
+
             async def guard(selected=member):
                 await self.check(selected)
 
             graph = build_ask(
                 model,
                 True,
+                tool_capable=config.supports_tools is True,
                 tools=tools,
                 middleware=[RunGuard(guard), *middleware],
                 instructions=child["instructions"] + "\n本次团队角色目标：" + member["goal"],

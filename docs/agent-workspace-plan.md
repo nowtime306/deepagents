@@ -1,5 +1,7 @@
 # Agent、联网及待开放功能开发计划
 
+> 2026-11-03 资源关联语义以 [RDC需求](resource-reference-decoupling-requirements.md) 和 [实施计划](resource-reference-decoupling-development.md) 为准。下文历史记录中的“外部模型修订变化要求重发”已被替代；业务发布版仍不可变，启停/权限/实际兼容和具体操作审批继续有效。RDC是否已验收上线以独立验收记录为准。
+
 > 2026-11-01 最新状态见 [本机交付记录](final-delivery-2026-11-01.md) 和 [实现与验收记录](implementation-verification.md)；下文是按日期保留的开发历史，早期“尚未实现”不作为当前状态。
 
 本计划沿用 `development-plan.md`，保留用户现有配置与数据。真实外部模型联调按此前要求暂缓；测试使用隔离数据库和可控协议服务。

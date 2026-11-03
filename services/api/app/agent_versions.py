@@ -29,8 +29,8 @@ async def selected(request: Request, owner: UUID, agent: UUID | None, version: U
     row = rows[0]
     snapshot = {**row["snapshot"], "published_version_id": str(row["id"]), "published_version": row["version"]}
     config = await request.app.state.models.get(snapshot["model_id"])
-    if config.revision != snapshot["model_revision"]:
-        fail(409, "AGENT_MODEL_CHANGED", "已发布智能体的模型配置已变化，请发布新版本")
+    if not supports_chat(config.kind, config.protocol):
+        fail(422, "AGENT_MODEL_UNSUPPORTED", "已发布智能体的模型不支持聊天，请调整模型配置")
     return await request.app.state.capabilities.freeze(owner, snapshot)
 
 

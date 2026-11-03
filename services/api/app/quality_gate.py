@@ -150,7 +150,7 @@ def verdict(config, row, annotations, source_matches):
     if len(questions) < config["minimum_questions"]:
         reasons.append("题目数量不足")
     if not source_matches:
-        reasons.append("文档、检索配置或模型修订已变化，需重新评测")
+        reasons.append("文档、检索配置或模型行为或兼容信息已变化，需重新评测")
     targets = {"recall_at_10": "recall_target", "citation_correctness": "citation_target",
                "no_answer_retrieval": "no_answer_target", "answer_refusal_accuracy": "no_answer_target"}
     for name, target in targets.items():
@@ -167,8 +167,11 @@ def verdict(config, row, annotations, source_matches):
 async def check(db, knowledge, owner, row):
     annotations = await db.fetch("SELECT * FROM knowledge_quality_reviews WHERE experiment_id=%s AND owner_id=%s",
                                   (row["id"], owner))
-    return verdict(await policy(db, knowledge["id"], owner), row, annotations,
-                   await snapshot(db, knowledge) == row["resource_snapshot"])
+    matches = await snapshot(db, knowledge) == row["resource_snapshot"]
+    result = verdict(await policy(db, knowledge["id"], owner), row, annotations, matches)
+    result["applicability"] = {"status": "applicable" if matches else "retest_recommended",
+                               "reason": None if matches else "文档或效果配置已变化，旧结果保留，建议重新评测"}
+    return result
 
 
 @router.get("/{identifier}/quality/check/{exp}")

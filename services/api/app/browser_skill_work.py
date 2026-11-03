@@ -11,6 +11,8 @@ from langchain_core.tools import StructuredTool
 from app.browser_skill_trace import validate_draft
 from app.errors import fail
 from app.permissions import require_account
+from app.resource_runtime import current_scope
+from app.resource_tools import digest, skill_binding, used
 
 
 def resolve_target(text: str, target: dict) -> str:
@@ -63,14 +65,29 @@ def browser_skill_tool(database, runtime, backend, run: dict, selection: dict):
             rows = await database.fetch(
                 "SELECT v.trajectory,s.name FROM browser_skill_versions v JOIN skills s ON s.id=v.skill_id "
                 "WHERE v.skill_id=%s AND v.version=%s AND v.owner_id=%s AND s.owner_id=%s AND s.enabled "
-                "AND s.version=v.version",
+                "",
                 (UUID(skill_id), version, run["owner_id"], run["owner_id"]),
             )
             if not rows:
                 fail(404, "NOT_FOUND", "发布版本已不可用")
             trajectory = rows[0]["trajectory"]
+            scope = current_scope()
+            frozen = scope.values.get(("skill", str(skill_id))) if scope else None
+            if scope and not frozen:
+                fail(409, "BROWSER_SKILL_NOT_RESOLVED", "本次运行尚未固定技能内容，不能执行浏览器路径")
+            if scope:
+                await skill_binding(database, run["owner_id"], selection, skill_id)
+            if frozen:
+                if frozen["version"] != version:
+                    fail(409, "BROWSER_SKILL_VERSION_MISMATCH", "审批版本与本次运行固定技能版本不符")
+                try:
+                    pinned = json.loads(frozen["files"]["trajectory.json"])
+                except (KeyError, ValueError, TypeError):
+                    fail(409, "BROWSER_SKILL_PATH_MISSING", "本次固定技能不包含有效浏览器路径")
+                if digest(pinned) != digest(trajectory):
+                    fail(409, "BROWSER_SKILL_PATH_CHANGED", "发布路径与本次固定技能内容不符，已停止执行")
             validate_draft(trajectory)
-            if skill_name != rows[0]["name"] or step_count != len(trajectory["steps"]):
+            if skill_name != (frozen["name"] if frozen else rows[0]["name"]) or step_count != len(trajectory["steps"]):
                 fail(409, "BROWSER_APPROVAL_SUMMARY_CHANGED", "审批中的技能名称或步骤数不符合发布版本")
             names = {p["name"] for p in trajectory["parameters"]}
             if set(parameters) != names or any(
@@ -87,7 +104,8 @@ def browser_skill_tool(database, runtime, backend, run: dict, selection: dict):
                     ):
                         fail(403, "BROWSER_DOMAIN_DENIED", "路径超出任务授权域名")
             await guard(database, backend, run)
-            operation = await backend.journal.start("run_browser_skill", args)
+            operation = await backend.journal.start("run_browser_skill", args, semantic_digest=digest(trajectory))
+            await used("skill", skill_id)
             session = None
             completed = 0
             try:
@@ -98,9 +116,11 @@ def browser_skill_tool(database, runtime, backend, run: dict, selection: dict):
                 session = reply["session_id"]
                 for step in trajectory["steps"]:
                     await guard(database, backend, run)
+                    if scope:
+                        await skill_binding(database, run["owner_id"], selection, skill_id)
                     current = await database.fetch(
-                        "SELECT 1 FROM skills WHERE id=%s AND owner_id=%s AND enabled AND version=%s",
-                        (UUID(skill_id), run["owner_id"], version),
+                        "SELECT 1 FROM skills WHERE id=%s AND owner_id=%s AND enabled",
+                        (UUID(skill_id), run["owner_id"]),
                     )
                     if not current:
                         fail(403, "BROWSER_SKILL_REVOKED", "技能权限已撤销")

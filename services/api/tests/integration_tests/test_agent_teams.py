@@ -105,6 +105,11 @@ def model(app, connection):
         "SELECT %s,%s,model,base_url,api_key_ciphertext FROM model_configs WHERE id='test'",
         (identifier, identifier),
     )
+    connection.portal.call(
+        app.state.db.execute,
+        "INSERT INTO model_capability_declarations(model_id,supports_tools) VALUES(%s,true)",
+        (identifier,),
+    )
     app.state.team_test_models.append(identifier)
     return identifier
 

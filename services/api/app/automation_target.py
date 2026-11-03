@@ -28,8 +28,8 @@ async def target(state, owner: UUID, body) -> dict:
     snapshot = {**row["snapshot"], "published_version_id": str(row["id"]), "published_version": row["version"]}
     snapshot["allow_local_browser"] = False
     config = await state.models.get(snapshot["model_id"])
-    if not supports_chat(config.kind, config.protocol) or config.revision != snapshot["model_revision"]:
-        fail(409, "AGENT_MODEL_CHANGED", "发布版本的模型已变化或不支持聊天，请重新发布")
+    if not supports_chat(config.kind, config.protocol):
+        fail(409, "AGENT_MODEL_UNSUPPORTED", "发布版本的模型不支持聊天，请调整模型配置")
     if snapshot.get("workflow_version_ids"):
         fail(422, "AUTOMATION_WORKFLOW_UNSUPPORTED", "自动/批量任务暂不能绑定工作流工具，请使用独立工作流执行入口")
     if snapshot.get("web_enabled") and snapshot.get("web_mode") != "openai_native":

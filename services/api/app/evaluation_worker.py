@@ -11,6 +11,7 @@ from app.errors import APIError, fail
 from app.evaluation_metrics import question_result, summary
 from app.knowledge_pins import guard as guard_pins
 from app.permissions import require_account
+from app.resource_runtime import resource_run
 from app.resource_usage import operation
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,10 @@ class EvaluationWorker:
             )
 
     async def perform(self, run):
+        async with resource_run(self.db, run["owner_id"], "resource", run["id"]):
+            return await self._perform(run)
+
+    async def _perform(self, run):
         context, results = None, []
         try:
             async with asyncio.timeout(900):

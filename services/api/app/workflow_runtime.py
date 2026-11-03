@@ -88,7 +88,11 @@ class WorkflowRuntime:
         )
         if not rows:
             fail(403, "WORKFLOW_AGENT_UNAVAILABLE", "工作流智能体不存在、已停用或无权访问")
-        return json.loads(json.dumps(rows[0], default=str))
+        from app.resource_runtime import freeze_resource
+
+        agent = json.loads(json.dumps(rows[0], default=str))
+        return await freeze_resource("agent", identifier, agent["revision"], agent, vault=self.models.vault,
+                                     snapshot={"id": identifier, "revision": agent["revision"]})
 
     async def server(self, identifier: str, pins: dict) -> dict:
         rows = await self.database.fetch("SELECT * FROM mcp_servers WHERE id=%s AND enabled", (identifier,))
@@ -148,8 +152,6 @@ class WorkflowRuntime:
                     published = await self.published(identifier, owner)
                     child = Definition.model_validate(published["definition"])
                     child_pins = await self.pins(child, owner, published["model_id"], path=(*path, identifier))
-                    if published["resource_pins"] != child_pins:
-                        fail(409, "WORKFLOW_RESOURCE_CHANGED", "子流程资源已变化，请重新测试和发布子流程")
                     pins["workflows"][identifier] = {"digest": digest(published["definition"]), "pins": child_pins}
             elif node.kind == "llm":
                 await self.model_pin(values.get("model_id") or default_model, pins)
@@ -210,66 +212,69 @@ class WorkflowRuntime:
         execution: dict | None = None,
         prefix: str = "",
     ) -> str:
-        if definition.execution != "readonly":
-            fail(422, "WORKFLOW_WORK_REQUIRED", "任务工作流必须使用持久任务入口")
-        validate_text(text, definition.input_schema)
-        context = usage_context or {"mode": "workflow", "id": run_id, "lease_token": None}
-        execution = (
-            execution
-            if execution is not None
-            else {"remaining": definition.node_budget, "parallel": asyncio.Semaphore(2)}
-        )
+        from app.resource_runtime import resource_run
 
-        async def authority():
-            from app.permissions import require_account
-
-            await require_account(self.database, owner, "workflows.execute")
-            if guard:
-                await guard()
-            current = await self.pins(definition, owner, default_model)
-            if current != expected_pins:
-                fail(409, "WORKFLOW_RESOURCE_CHANGED", "模型或资源配置已变化，请重新测试和发布")
-
-        context = {**context, "guard": authority}
-
-        async def observe(event):
-            if event["event"] == "node.started":
-                await authority()
-                if execution["remaining"] <= 0:
-                    fail(422, "WORKFLOW_NODE_BUDGET_EXCEEDED", "根流程节点执行预算已用完")
-                execution["remaining"] -= 1
-            event = {**event, "node_id": prefix + event["node_id"]}
-            await self.database.execute(
-                "INSERT INTO workflow_node_events(run_id,node_id,event,data) VALUES(%s,%s,%s,%s)",
-                (run_id, event["node_id"], event["event"], Jsonb(event)),
+        resource_context = usage_context or {"mode": "workflow", "id": run_id}
+        async with resource_run(self.database, owner, resource_context["mode"], resource_context["id"]):
+            if definition.execution != "readonly":
+                fail(422, "WORKFLOW_WORK_REQUIRED", "任务工作流必须使用持久任务入口")
+            validate_text(text, definition.input_schema)
+            context = usage_context or {"mode": "workflow", "id": run_id, "lease_token": None}
+            execution = (
+                execution
+                if execution is not None
+                else {"remaining": definition.node_budget, "parallel": asyncio.Semaphore(2)}
             )
 
-        async def execute(node, value, values):
-            await authority()
-            if node.kind in {"subworkflow", "iteration", "parallel", "loop"}:
-                return await self.nested(
-                    node, value, owner, run_id, expected_pins, context, execution, prefix, authority, callbacks
+            async def authority():
+                from app.permissions import require_account
+
+                await require_account(self.database, owner, "workflows.execute")
+                if guard:
+                    await guard()
+                await self.pins(definition, owner, default_model)
+
+            context = {**context, "guard": authority}
+
+            async def observe(event):
+                if event["event"] == "node.started":
+                    await authority()
+                    if execution["remaining"] <= 0:
+                        fail(422, "WORKFLOW_NODE_BUDGET_EXCEEDED", "根流程节点执行预算已用完")
+                    execution["remaining"] -= 1
+                event = {**event, "node_id": prefix + event["node_id"]}
+                await self.database.execute(
+                    "INSERT INTO workflow_node_events(run_id,node_id,event,data) VALUES(%s,%s,%s,%s)",
+                    (run_id, event["node_id"], event["event"], Jsonb(event)),
                 )
-            return await self.execute(
-                node,
-                value,
-                values,
-                owner,
-                default_model,
-                instructions,
-                run_id,
-                callbacks=callbacks,
-                expected_pins=expected_pins,
-                usage_context=context,
-            )
 
-        graph = compile_workflow(definition, execute, observe)
-        result = await graph.ainvoke(
-            {"input": text, "values": {}, "output": "", "route": False}, {"recursion_limit": definition.node_budget + 2}
-        )
-        validate_text(result["output"], definition.output_schema, output=True)
-        await authority()
-        return result["output"]
+            async def execute(node, value, values):
+                await authority()
+                if node.kind in {"subworkflow", "iteration", "parallel", "loop"}:
+                    return await self.nested(
+                        node, value, owner, run_id, expected_pins, context, execution, prefix, authority, callbacks
+                    )
+                return await self.execute(
+                    node,
+                    value,
+                    values,
+                    owner,
+                    default_model,
+                    instructions,
+                    run_id,
+                    callbacks=callbacks,
+                    expected_pins=expected_pins,
+                    usage_context=context,
+                )
+
+            graph = compile_workflow(definition, execute, observe)
+            result = await graph.ainvoke(
+                {"input": text, "values": {}, "output": "", "route": False},
+                {"recursion_limit": definition.node_budget + 2}
+            )
+            validate_text(result["output"], definition.output_schema, output=True)
+            await authority()
+            return result["output"]
 
     async def nested(self, node, value, owner, run_id, pins, context, execution, prefix, guard, callbacks):
         async def child(identifier, source, index, *, parallel=False):
@@ -383,11 +388,6 @@ class WorkflowRuntime:
             ).ainvoke(arguments)
         if node.kind == "agent":
             agent = await self.agent(parameters["agent_id"], owner)
-            if expected_pins:
-                if agent["revision"] != expected_pins["agents"].get(parameters["agent_id"]):
-                    fail(409, "WORKFLOW_RESOURCE_CHANGED", "智能体已变化，请重新测试和发布")
-                agent["skill_pins"] = {key: expected_pins["skills"][key] for key in agent["skill_ids"]}
-                agent["mcp_pins"] = {key: expected_pins["mcp"][key] for key in agent["mcp_ids"]}
             tools, middleware = await self.capabilities.for_owner(owner, agent, usage_context=usage_context)
             if agent["web_enabled"]:
                 if agent["web_mode"] == "openai_native":
@@ -396,8 +396,6 @@ class WorkflowRuntime:
                     await ensure_available(self.database)
                     tools.append(search_tool(self.database, self.models.vault, owner, UUID(agent["id"])))
             config = await self.models.get(agent["model_id"])
-            if expected_pins and config.revision != expected_pins["models"].get(config.id):
-                fail(409, "WORKFLOW_RESOURCE_CHANGED", "模型已变化，请重新测试和发布")
             config = await self.routed(
                 config,
                 owner,
@@ -409,6 +407,10 @@ class WorkflowRuntime:
                 tools=True,
                 native=bool(agent.get("web_enabled") and agent["web_mode"] == "openai_native"),
             )
+            from app.model_capabilities import require_tools
+
+            if tools or agent.get("skill_ids"):
+                require_tools(config)
             model = self.model_factory(config)
             if hasattr(model, "max_retries"):
                 model.max_retries = 0
@@ -423,6 +425,7 @@ class WorkflowRuntime:
             graph = build_ask(
                 model,
                 InMemorySaver(),
+                tool_capable=config.supports_tools is True,
                 tools=tools,
                 middleware=[RunGuard(permission_guard), *middleware],
                 instructions=agent["instructions"],
@@ -440,8 +443,6 @@ class WorkflowRuntime:
             )
             return result["messages"][-1].text
         config = await self.models.get(parameters.get("model_id") or default_model)
-        if expected_pins and config.revision != expected_pins["models"].get(config.id):
-            fail(409, "WORKFLOW_RESOURCE_CHANGED", "模型已变化，请重新测试和发布")
         config = await self.routed(
             config, owner, run_id, node, parameters.get("model_routing"), expected_pins, usage_context
         )

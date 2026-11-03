@@ -3,13 +3,13 @@
 import hashlib
 import json
 from types import SimpleNamespace
-from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.configuration_history import safe_origin
 from app.errors import fail
 from app.model_capabilities import image_input, native_search_mode
 from app.model_catalog import supports_chat
@@ -43,37 +43,11 @@ class Consent(BaseModel):
 
 
 def fingerprint(route, candidates):
-    fields = {
-        key: route[key]
-        for key in (
-            "id",
-            "revision",
-            "candidates",
-            "enabled",
-            "require_images",
-            "require_tools",
-            "require_native",
-            "failures",
-            "cooldown",
-        )
-    }
-    fields["receivers"] = [
-        {
-            key: row[key]
-            for key in (
-                "id",
-                "revision",
-                "base_url",
-                "model",
-                "kind",
-                "protocol",
-                "provider",
-                "supports_images",
-                "supports_tools",
-            )
-        }
-        for row in candidates
-    ]
+    # Consent covers data receivers and scope, not health tuning or credential/name maintenance.
+    fields = {key: route[key] for key in ("id", "require_images", "require_tools", "require_native")}
+    fields["receivers"] = sorted(
+        ({"id": row["id"], "target": row["base_url"]} for row in candidates), key=lambda row: row["id"]
+    )
     return hashlib.sha256(json.dumps(fields, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -129,8 +103,6 @@ async def freeze(database, owner, selection):
     if not selection.get("model_routing"):
         return selection
     current = await pin(database, owner, selection["model_id"])
-    if selection.get("route_pin", current) != current:
-        fail(409, "ROUTE_CHANGED", "路由或候选配置已变化，请重新确认并发布智能体")
     return {**selection, "route_pin": current}
 
 
@@ -200,7 +172,37 @@ async def resolve(
                 connection=current,
             )
     await connection.execute("SELECT pg_advisory_xact_lock(710031,hashtext(%s))", (str(run) + scope,))
+    existing = await (
+        await connection.execute(
+            "SELECT * FROM model_route_selections WHERE owner_id=%s AND run_id=%s AND scope=%s", (owner, run, scope)
+        )
+    ).fetchone()
+    if existing:
+        config = await models.get(existing["model_id"])
+        await authorize_selection(
+            connection, owner, run, existing["id"], existing["model_id"], existing["model_revision"]
+        )
+        return config.model_copy(update={"route_selection_id": existing["id"]})
     route, candidates, digest = await description(connection, primary)
+    from fastapi.encoders import jsonable_encoder
+
+    from app.resource_runtime import current_scope, freeze_resource
+
+    state = current_scope()
+    if state is not None:
+        # One route's policy and receiver set remain fixed for this run/phase; keys are never in candidates.
+        frozen = await freeze_resource(
+            "route", route["id"], route["revision"], jsonable_encoder({"route": route, "candidates": candidates}),
+            vault=models.vault, snapshot={"route_revision": route["revision"],
+                                          "candidates": [item["id"] for item in candidates],
+                                          "failures": route["failures"], "cooldown": route["cooldown"]},
+        )
+        live = route
+        route, candidates = frozen["route"], frozen["candidates"]
+        route["id"] = UUID(str(route["id"]))
+        digest = fingerprint(route, candidates)
+        if not live["enabled"]:
+            fail(403, "ROUTE_PERMISSION_REVOKED", "路由已停用")
     consent = await (
         await connection.execute(
             "SELECT 1 FROM model_route_consents WHERE owner_id=%s AND route_id=%s AND digest=%s",
@@ -209,18 +211,11 @@ async def resolve(
     ).fetchone()
     if not route["enabled"] or not consent:
         fail(403, "ROUTE_CONSENT_REQUIRED", "尚未同意当前候选模型接收上下文，请先确认路由")
-    if expected and expected != {"id": str(route["id"]), "digest": digest}:
-        fail(409, "ROUTE_CHANGED", "固定的路由配置已变化，未发送模型请求")
-    existing = await (
-        await connection.execute(
-            "SELECT * FROM model_route_selections WHERE owner_id=%s AND run_id=%s AND scope=%s", (owner, run, scope)
-        )
-    ).fetchone()
-    if existing:
-        if existing["digest"] != digest:
-            fail(409, "ROUTE_CHANGED", "运行已固定的路由发生变化，请创建新运行")
-        config = await models.get(existing["model_id"])
-        return config.model_copy(update={"route_selection_id": existing["id"]})
+    from app.resource_runtime import resolved_model
+
+    # A model already used by this root run keeps its actual fields even on a later route.
+    candidates = [{**candidate, **(resolved_model(candidate["id"]) or {}), "enabled": candidate["enabled"]}
+                  for candidate in candidates]
     selected, reasons, identifier = None, [], uuid4()
     for candidate in candidates:
         config = SimpleNamespace(**candidate)
@@ -248,14 +243,16 @@ async def resolve(
         reasons.append({"model": candidate["name"], "reason": reason})
     if selected is None:
         fail(422, "ROUTE_NO_CANDIDATE", "没有符合能力和冷却条件的已同意模型，未发送请求")
-    await connection.execute(
-        "INSERT INTO model_route_selections(id,owner_id,run_id,scope,route_id,digest,model_id,model_revision,reason) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-        (identifier, owner, run, scope, route["id"], digest, selected["id"], selected["revision"], Jsonb(reasons)),
-    )
     config = await models.get(selected["id"])
-    if config.revision != selected["revision"]:
-        fail(409, "ROUTE_CHANGED", "选择期间模型配置发生变化，请重试新运行")
+    if config.base_url != selected["base_url"]:
+        fail(409, "ROUTE_TARGET_CHANGED", "选择期间服务接收目标发生变化，请核对当前接收方后重试")
+    await connection.execute(
+        "INSERT INTO model_route_selections(id,owner_id,run_id,scope,route_id,digest,model_id,model_revision,"
+        "reason,receiver_digest) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        (identifier, owner, run, scope, route["id"], digest, config.id, config.revision, Jsonb(reasons),
+         hashlib.sha256(config.base_url.encode()).hexdigest()),
+    )
     return config.model_copy(update={"route_selection_id": identifier})
 
 
@@ -271,15 +268,20 @@ async def authorize_selection(connection, owner, run, identifier, model, revisio
     ).fetchone()
     if not row:
         fail(403, "ROUTE_SELECTION_INVALID", "实际模型与运行路由不匹配")
-    route, _, digest = await description(connection, row["primary_model"])
-    consent = await (
-        await connection.execute(
-            "SELECT 1 FROM model_route_consents WHERE route_id=%s AND owner_id=%s AND digest=%s",
-            (route["id"], owner, digest),
-        )
-    ).fetchone()
-    if digest != row["digest"] or not route["enabled"] or not consent:
-        fail(409, "ROUTE_CHANGED", "候选或同意已变化，本次运行停止，不自动重新选模型")
+    route = await (await connection.execute("SELECT * FROM model_routes WHERE id=%s", (row["route_id"],))).fetchone()
+    current = await (await connection.execute("SELECT base_url,enabled FROM model_configs WHERE id=%s",
+                                              (model,))).fetchone()
+    granted = await (await connection.execute(
+        "SELECT 1 FROM model_route_consents WHERE route_id=%s AND owner_id=%s", (route["id"], owner)
+    )).fetchone()
+    if not route["enabled"] or not granted or not current or not current["enabled"]:
+        fail(403, "ROUTE_PERMISSION_REVOKED", "路由已停用或接收方授权已撤销")
+    from app.resource_runtime import resolved_model
+
+    frozen = resolved_model(model)
+    receiver_digest = hashlib.sha256((frozen or current)["base_url"].encode()).hexdigest()
+    if not row.get("receiver_digest") or row["receiver_digest"] != receiver_digest:
+        fail(409, "ROUTE_TARGET_CHANGED", "已选服务目标变化，请确认接收方后恢复；未自动改投")
 
 
 @router.get("")
@@ -305,7 +307,7 @@ async def listing(request: Request):
                     "revision": c["revision"],
                     "receiver": "已删除，无可用服务地址"
                     if c.get("removed")
-                    else f"{urlsplit(c['base_url']).scheme}://{urlsplit(c['base_url']).netloc}",
+                    else safe_origin(c["base_url"]),
                 }
                 for c in candidates
             ]

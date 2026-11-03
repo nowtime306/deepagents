@@ -17,6 +17,7 @@ from app.permissions import require_account
 from app.repository_api import owned
 from app.repository_provider import object_sha, provider, sha
 from app.repository_review import digest, read_artifact, review
+from app.repository_runs import same_identity
 from app.security import identity
 
 router = APIRouter(prefix="/api/v1", tags=["代码审阅与发布"])
@@ -246,13 +247,13 @@ async def evidence(identifier: UUID, body: EvidenceInput, request: Request) -> d
     if not current:
         fail(404, "NOT_FOUND", "此任务未绑定仓库")
     row = await owned(request, UUID(current["repository_id"]), enabled=True)
-    if row["revision"] != current["revision"]:
+    if not same_identity(row, current):
         fail(409, "REPOSITORY_CONFLICT", "仓库配置已改变，不使用新凭证读取旧任务证据")
     remote = provider(request, row)
     async def read(path):
         live = await owned(request, UUID(current["repository_id"]), enabled=True)
         await require_account(request.app.state.db, live["owner_id"], "repositories.read")
-        if live["revision"] != current["revision"]:
+        if not same_identity(live, current):
             fail(409, "REPOSITORY_CONFLICT", "仓库配置已变化，请停止本次证据读取")
         return await remote.request("GET", path)
 

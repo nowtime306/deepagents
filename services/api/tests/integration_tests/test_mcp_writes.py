@@ -167,7 +167,7 @@ def test_mcp_write_approval_unknown_outcome_and_revocation(client):
     connection.portal.call(
         app.state.db.execute, "UPDATE mcp_servers SET url='http://127.0.0.1:8792/mcp' WHERE id=%s", (server,)
     )
-    with pytest.raises(APIError, match="配置已变化"):
+    with pytest.raises(APIError, match="原审批不能执行新的目标"):
         connection.portal.call(tool.ainvoke, {"value": 3})
     connection.portal.call(
         app.state.db.execute, "UPDATE mcp_servers SET url='http://127.0.0.1:8791/mcp' WHERE id=%s", (server,)

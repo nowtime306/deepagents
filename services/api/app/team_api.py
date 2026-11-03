@@ -18,7 +18,7 @@ async def options(request: Request) -> dict:
         "SELECT v.id,v.agent_id,v.version,v.snapshot->>'name' AS name,v.snapshot->>'model_id' AS model_id,"
         "m.name AS model_name,m.kind,m.protocol FROM agent_versions v JOIN agents a ON a.id=v.agent_id "
         "JOIN model_configs m ON m.id=v.snapshot->>'model_id' AND m.enabled "
-        "AND m.revision=(v.snapshot->>'model_revision')::int WHERE v.owner_id=%s AND a.owner_id=%s "
+        "WHERE v.owner_id=%s AND a.owner_id=%s "
         "AND v.active AND a.enabled AND coalesce(v.snapshot->'team','[]'::jsonb)='[]'::jsonb "
         "AND coalesce(v.snapshot->'workflow_version_ids','[]'::jsonb)='[]'::jsonb ORDER BY v.created_at DESC LIMIT 200",
         (user["id"], user["id"]),

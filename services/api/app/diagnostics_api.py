@@ -54,6 +54,12 @@ def stopping_reason(run: dict) -> str:
         "WORK_BUDGET_EXCEEDED": "任务模型预算或执行租约不可用，停止后续调用。",
         "WORK_USAGE_UNAVAILABLE": "服务商没有返回有效用量，任务停止以避免失控消耗。",
         "MODEL_VERSION_CHANGED": "模型已修改或停用，需要创建新运行。",
+        "RESOURCE_HISTORY_MISSING": "旧运行未保存当时的资源配置，已停止自动恢复。"
+                                    "请核对原审批和成果，通过救援入口导出工作区后明确创建新运行。",
+        "RESOURCE_RECOVERY_CONFIRMATION_REQUIRED": "恢复所需的接收方或执行配置已变化。"
+                                                  "请在本次运行使用的配置中核对差异并确认；未知操作不会自动重放。",
+        "MODEL_TOOLS_UNVERIFIED": "此运行需要工具调用，但模型尚未声明该能力。请核对模型设置中的工具调用能力。",
+        "MODEL_TOOLS_UNSUPPORTED": "模型已声明不支持工具调用，请选择支持工具的模型。",
         "SERVER_RESTARTED": "API 重启中断了短对话，历史保留；不会自动重复模型请求。",
         "ASK_RESULT_UNKNOWN": "执行中断，模型或工具结果未知；不会自动重放，请核对后明确发起新一轮。",
         "TEAM_RESULT_UNKNOWN": "成员请求结果未知，团队已停止；不会自动重放，请核对后明确发起新运行。",

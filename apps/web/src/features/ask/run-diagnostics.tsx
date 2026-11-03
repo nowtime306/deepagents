@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api/platform";
 import { useRunSnapshot, useLiveSnapshot } from "./run-snapshot";
 import { TeamProgress } from "./agent-team";
+import { RunConfigurations } from "./run-configurations";
 
 type Call = {
   call_id: string;
@@ -177,6 +178,7 @@ function DiagnosticContent({
         {liveSnapshot ? active ? "实时推送" : "运行快照" : "刷新诊断"}
       </button>
       {error && <p role="alert">{error}</p>}
+      <RunConfigurations id={id} mode={mode === "work" ? "work" : "ask"}/>
       {!data && !error && <p>正在读取诊断…</p>}
       {data && (
         <>

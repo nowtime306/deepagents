@@ -15,7 +15,11 @@ from app.usage_details import count
 async def operation(
     database, owner, model, kind: str, action: str, *, resource=None, source=None, revision=None
 ) -> dict:
-    identifier, token = uuid4(), uuid4()
+    from app.resource_runtime import active_resources
+
+    active = active_resources.get()
+    identifier = active.run if active and active.mode == "resource" else uuid4()
+    token = uuid4()
     await database.execute(
         "UPDATE resource_operations SET status='UNKNOWN',error_code='RESOURCE_RESULT_UNKNOWN',finished_at=now() "
         "WHERE owner_id=%s AND status='RUNNING' AND lease_until<=now()",
@@ -61,6 +65,17 @@ async def finish_operation(database, context: dict, status: str, error: str | No
         (status, error, context["id"], context["lease_token"]),
     )
     return bool(rows)
+
+
+async def link_model_snapshot(connection, call, owner, run, model):
+    """Associate manually metered media calls with their actually resolved configuration."""
+    await connection.execute(
+        "WITH actual AS (UPDATE run_resource_snapshots SET used_at=coalesce(used_at,now()) "
+        "WHERE owner_id=%s AND mode='resource' AND run_id=%s AND resource_kind='model' AND resource_id=%s "
+        "RETURNING snapshot_id,phase) UPDATE model_usage SET resource_snapshot_id=actual.snapshot_id,"
+        "resource_phase=actual.phase FROM actual WHERE call_id=%s",
+        (owner, run, model, call),
+    )
 
 
 class EmbeddingMeter:

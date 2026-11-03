@@ -1,0 +1,20 @@
+.configuration-history { margin-top: .8rem; width: 100%; min-width: 0; color: var(--foreground, #233044); }
+.configuration-history > summary { cursor: pointer; font-size: .875rem; font-weight: 600; padding: .4rem 0; }
+.configuration-history-content { border: 1px solid var(--border, #dce2ea); border-radius: .65rem; padding: .85rem; margin-top: .4rem; background: var(--background, #fff); }
+.configuration-history-heading, .configuration-change header { display: flex; justify-content: space-between; align-items: start; gap: .6rem; flex-wrap: wrap; }
+.configuration-history-content p { margin: .4rem 0; font-size: .84rem; line-height: 1.6; overflow-wrap: anywhere; }
+.configuration-history-heading button { flex-shrink: 0; }
+.configuration-change { border-top: 1px solid var(--border, #dce2ea); padding-top: .8rem; margin-top: .8rem; min-width: 0; }
+.configuration-change header strong { font-size: .9rem; overflow-wrap: anywhere; }
+.configuration-change time { font-size: .78rem; color: var(--muted-foreground, #66758a); }
+.configuration-field { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .35rem .8rem; margin: .65rem 0; }
+.configuration-field dt { grid-column: 1 / -1; font-weight: 600; font-size: .84rem; }
+.configuration-field dd { margin: 0; padding: .5rem .65rem; border-radius: .4rem; background: var(--muted, #f3f6fa); min-width: 0; }
+.configuration-field dd > span { font-size: .75rem; color: var(--muted-foreground, #66758a); }
+.configuration-correlation { color: var(--muted-foreground, #66758a); font-size: .75rem !important; }
+@media(max-width: 520px) { .configuration-field { grid-template-columns: minmax(0,1fr); } .configuration-history-content { padding: .6rem; } }
+
+.configuration-history-card { flex-wrap: wrap; }
+.configuration-history-card > .configuration-history { flex-basis: 100%; }
+.configuration-history pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.automatic-list article[id^="notification-delivery-"] { overflow-wrap: anywhere; scroll-margin-top: 1rem; }

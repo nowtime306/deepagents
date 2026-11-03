@@ -123,13 +123,28 @@ class ModelRegistry:
 
     async def get(self, identifier: str, *, enabled_only: bool = True) -> ModelConfig:
         """Freeze a model's database configuration and key for a new invocation."""
-        rows = await self.database.fetch("SELECT * FROM model_configs WHERE id=%s", (identifier,))
+        rows = await self.database.fetch(
+            "SELECT m.*,c.supports_tools FROM model_configs m "
+            "LEFT JOIN model_capability_declarations c ON c.model_id=m.id WHERE m.id=%s", (identifier,),
+        )
         if not rows or (enabled_only and not rows[0]["enabled"]):
             fail(422, "MODEL_NOT_FOUND", "模型不存在或已停用，请重新选择")
-        declarations = await self.database.fetch(
-            "SELECT supports_tools FROM model_capability_declarations WHERE model_id=%s", (identifier,)
+        from app.resource_runtime import current_scope, freeze_model
+
+        config = self.from_row(rows[0])
+        from app.embedding_compatibility import resolve_identity
+
+        config = await resolve_identity(self.database, config)
+        from hashlib import sha256
+
+        frozen = await freeze_model(
+            config, self.vault, credential_marker=sha256(rows[0]["api_key_ciphertext"].encode()).hexdigest(),
         )
-        return self.from_row({**rows[0], "supports_tools": declarations[0]["supports_tools"] if declarations else None})
+        if current_scope() and (frozen.kind != config.kind or capability(
+            config.kind, config.protocol, config.provider
+        )["state"] in {"unsupported", "configuration_only"}):
+            fail(422, "MODEL_INCOMPATIBLE", "本次运行模型用途或协议已不兼容，请调整资源配置")
+        return frozen
 
     def from_row(self, row: dict) -> ModelConfig:
         """Build a model snapshot from a row already locked by the caller."""

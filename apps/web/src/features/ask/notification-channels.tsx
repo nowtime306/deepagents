@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { ConfigurationHistory } from "../settings/configuration-history";
 import { api } from "@/lib/api/platform";
 import "./resource-list.css";
 
@@ -14,6 +15,20 @@ type Channel = {
   allow_private: boolean;
   revision: number;
 };
+type TargetSummary = { kind: string; host: string; identity: string | null };
+function targetText(target?: TargetSummary | null) {
+  return target?.identity
+    ? `${names[target.kind] || target.kind} · ${target.host} · 目标标识 ${target.identity.slice(0, 12)}`
+    : "历史未记录接收目标";
+}
+const deliveryErrors: Record<string, string> = {
+  CHANNEL_TARGET_CHANGED_REVIEW_REQUIRED: "接收目标已变化，已暂停。请对比目标并确认后重新投递。",
+  DELIVERY_HISTORY_MISSING: "历史未记录接收目标或消息内容，请创建新通知并确认。",
+  DELIVERY_LEASE_EXPIRED: "本次投递结果未知，请先核对收件情况。",
+  CHANNEL_UNAVAILABLE: "通道不存在或已停用，请核对通道状态。",
+  NOTIFICATION_PERMISSION_REVOKED: "通知权限已撤销，请联系管理员核对。",
+  CHANNEL_PRIVATE_PERMISSION_REVOKED: "内网通知授权已撤销，请联系管理员核对。",
+};
 type Delivery = {
   id: string;
   channel_name: string | null;
@@ -21,6 +36,9 @@ type Delivery = {
   attempts: number;
   error_code: string | null;
   created_at: string;
+  retry_of?: string | null;
+  target_summary?: TargetSummary | null;
+  current_target_summary?: TargetSummary | null;
 };
 const names: Record<string, string> = {
   webhook: "签名 Webhook",
@@ -35,9 +53,10 @@ const states: Record<string, string> = {
   FAILED: "未成功",
   UNKNOWN: "结果未知，需核对",
   CANCELLED: "已取消",
+  PAUSED: "已暂停，待确认接收目标",
 };
 
-export function NotificationChannels({ isAdmin }: { isAdmin: boolean }) {
+export function NotificationChannels({ isAdmin, canManage }: { isAdmin: boolean; canManage: boolean }) {
   const [query, setQuery] = useState("");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -116,7 +135,7 @@ export function NotificationChannels({ isAdmin }: { isAdmin: boolean }) {
   }
   return (
     <section className="automatic-channel-section">
-      <header className="resource-list-heading"><h2>消息通道</h2><button className="settings-primary" onClick={() => edit(null)}>添加通知通道</button></header>
+      <header className="resource-list-heading"><h2>消息通道</h2>{canManage && <button className="settings-primary" onClick={() => edit(null)}>添加通知通道</button>}</header>
       <p>
         仅向你选中的渠道发送任务名称和状态。地址与密钥加密保存；不会发送问题、回答或文档。新建通道不会发送测试消息。
       </p>
@@ -142,7 +161,7 @@ export function NotificationChannels({ isAdmin }: { isAdmin: boolean }) {
               {names[row.kind]} · {row.host_hint}
               {row.allow_private ? " · 已授权内网" : ""}
             </p>
-            <footer>
+            {canManage && <footer>
               <button onClick={() => edit(row)}>编辑通道</button>
               {row.enabled && (
                 <button
@@ -158,7 +177,8 @@ export function NotificationChannels({ isAdmin }: { isAdmin: boolean }) {
                   停用
                 </button>
               )}
-            </footer>
+            </footer>}
+            <ConfigurationHistory kind="notification" resourceId={row.id} name={row.name}/>
           </article>
         ))}
       </div>
@@ -168,7 +188,7 @@ export function NotificationChannels({ isAdmin }: { isAdmin: boolean }) {
       </p>
       <div className="automatic-list">
         {deliveries.map((row) => (
-          <article key={row.id}>
+          <article key={row.id} id={`notification-delivery-${row.id}`}>
             <div className="automatic-row">
               <h3>{row.channel_name || "通道已移除"}</h3>
               <span>{states[row.status] || row.status}</span>
@@ -177,31 +197,36 @@ export function NotificationChannels({ isAdmin }: { isAdmin: boolean }) {
               {new Date(row.created_at).toLocaleString("zh-CN")} · 已尝试{" "}
               {row.attempts} 次
             </p>
-            {row.error_code && <p>{row.error_code}</p>}
-            {["FAILED", "UNKNOWN"].includes(row.status) && (
+            <p>原接收目标：{targetText(row.target_summary)}</p>
+            {row.target_summary?.identity !== row.current_target_summary?.identity &&
+              <p>当前接收目标：{targetText(row.current_target_summary)}</p>}
+            {row.retry_of && <p>重新投递自：{deliveries.some((item) => item.id === row.retry_of) ?
+              <a href={`#notification-delivery-${row.retry_of}`}>{row.retry_of}</a> : row.retry_of}</p>}
+            {row.error_code && <p>{deliveryErrors[row.error_code] || "投递未确认完成，请核对通道状态及收件情况。"}</p>}
+            {canManage && ["FAILED", "UNKNOWN", "PAUSED"].includes(row.status) && (
               <button
-                disabled={pending}
+                disabled={pending || !row.target_summary?.identity || !row.current_target_summary?.identity}
                 onClick={() => {
-                  if (
-                    window.confirm(
-                      "重新投递可能让收件人收到重复消息，且会使用此通道当前配置。确认重发？",
-                    )
-                  )
+                  const changed = row.target_summary?.identity !== row.current_target_summary?.identity;
+                  if (window.confirm(
+                    `原接收目标：${targetText(row.target_summary)}\n当前接收目标：${targetText(row.current_target_summary)}\n${changed ? "确认将冻结的原消息重新投递到以上当前接收目标？" : "确认向以上原接收目标重新投递？"}结果未知可能已送达，重新投递可能重复。原记录会保留。`,
+                  ))
                     void act(() =>
                       api(`/notifications/deliveries/${row.id}/retry`, {
                         method: "POST",
-                        body: JSON.stringify({ acknowledge_duplicate: true }),
+                        body: JSON.stringify({ acknowledge_duplicate: true, confirm_target: changed,
+                          expected_target: row.current_target_summary?.identity }),
                       }),
                     );
                 }}
               >
-                确认后重新投递
+                {row.target_summary?.identity && row.current_target_summary?.identity ? "核对目标并重新投递" : "历史未记录，无法自动重发"}
               </button>
             )}
           </article>
         ))}
       </div>
-      {editing !== undefined && (
+      {canManage && editing !== undefined && (
         <div className="automatic-overlay">
           <form
             role="dialog"

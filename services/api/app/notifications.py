@@ -30,7 +30,7 @@ async def notify(connection, owner, title, status, kind, target, key, pins=None)
     for pin in pins or []:
         await connection.execute(
             "INSERT INTO notification_deliveries(id,notification_id,channel_id,channel_revision) VALUES(%s,%s,%s,%s) "
-            "ON CONFLICT(notification_id,channel_id) DO NOTHING",
+            "ON CONFLICT(notification_id,channel_id) WHERE retry_of IS NULL DO NOTHING",
             (uuid4(), row["id"], pin["id"], pin["revision"]),
         )
 

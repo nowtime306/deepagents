@@ -271,6 +271,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
 
     @app.middleware("http")
+    async def configuration_context(request: Request, call_next):
+        from app.configuration_history import begin_context, end_context
+
+        tokens = begin_context()
+        try:
+            return await call_next(request)
+        finally:
+            end_context(tokens)
+
+    @app.middleware("http")
     async def origin_guard(request: Request, call_next):
         fence = getattr(app.state, "service_fence", None)
         if fence and request.url.path != "/health/live":
@@ -356,6 +366,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     register_routes(app)
+    from app.resource_configuration_api import router as configuration_router
+    from app.resource_recovery_api import router as resource_recovery_router
+    from app.resource_trace_api import router as resource_trace_router
+
+    app.include_router(configuration_router)
+    app.include_router(resource_trace_router)
+    app.include_router(resource_recovery_router)
     from app.repository_actions import router as repository_actions_router
     from app.repository_api import router as repository_router
 

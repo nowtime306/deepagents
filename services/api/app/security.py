@@ -48,6 +48,9 @@ async def identity(request: Request) -> dict:
     permission = route_permission(request.url.path, request.method)
     if permission and not user["is_admin"] and permission not in user["permissions"]:
         fail(403, "PERMISSION_REQUIRED", "当前角色没有此功能的权限")
+    from app.configuration_history import set_actor
+
+    set_actor(user["id"])
     return user
 
 

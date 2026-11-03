@@ -49,6 +49,7 @@ class ModelConfig(BaseModel):
     supports_images: bool | None = None
     supports_tools: bool | None = None
     route_selection_id: UUID | None = None
+    embedding_compatibility_key: str | None = None
 
 
 @dataclass

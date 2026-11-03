@@ -9,8 +9,8 @@ from pathlib import Path
 from langchain_core.tools import StructuredTool
 
 from app.errors import fail
-from app.mcp_service import server_pin
 from app.permissions import require_account
+from app.resource_tools import connection_identity, digest, used
 
 BRIDGE = Path(__file__).with_name("tool_protocol_bridge.py").read_text(encoding="utf-8")
 EXECUTABLES = {"/usr/local/bin/python", "/usr/bin/python3", "/usr/bin/node", "/usr/local/bin/node"}
@@ -43,17 +43,20 @@ def validate_command(command):
 
 
 def task_tool(database, backend, server, owner_id, selection, agent_id=None):
-    expected = selection.get("mcp_pins", {}).get(str(server["id"]))
-    operation_name = "isolated_" + str(server["id"]).replace("-", "")
+    bridge = server.get("bridge_digest") or digest(BRIDGE)
+    semantic = digest({"target": connection_identity(server), "bridge": bridge})
+    operation_name = "isolated_" + str(server["id"]).replace("-", "") + "_" + semantic[:16]
 
     async def isolated_protocol(**payload):
         """在已审批任务环境中发现或调用隔离MCP/ACP；不执行宿主命令。"""
+        if digest(BRIDGE) != bridge:
+            fail(409, "ISOLATED_BRIDGE_CHANGED", "隔离执行脚本已变化，原审批不能执行新脚本")
         text, operation = payload.get("text", ""), payload.get("operation", "discover")
         tool_name, arguments = payload.get("tool_name", ""), payload.get("arguments", {})
         await require_account(database, owner_id, "tools.use")
         current = await database.fetch("SELECT * FROM mcp_servers WHERE id=%s AND enabled", (server["id"],))
-        if not current or not expected or server_pin(current[0]) != expected:
-            fail(409, "ISOLATED_CONFIG_CHANGED", "工具配置已改变或停用，请创建新任务重新审批")
+        if not current:
+            fail(403, "MCP_DISABLED", "隔离工具已停用或删除")
         table, clause = (
             ("agents", "id=%s AND owner_id=%s AND enabled") if agent_id else ("capability_bindings", "owner_id=%s")
         )
@@ -61,7 +64,7 @@ def task_tool(database, backend, server, owner_id, selection, agent_id=None):
         bound = await database.fetch("SELECT mcp_ids FROM " + table + " WHERE " + clause, params)
         if not bound or str(server["id"]) not in bound[0]["mcp_ids"]:
             fail(403, "MCP_BINDING_REVOKED", "此隔离工具授权已撤销")
-        validate_command(current[0]["command_json"])
+        validate_command(server["command_json"])
         if (
             not isinstance(text, str)
             or not isinstance(tool_name, str)
@@ -71,14 +74,20 @@ def task_tool(database, backend, server, owner_id, selection, agent_id=None):
             or len(tool_name) > 200
         ):
             fail(422, "ISOLATED_INPUT_INVALID", "隔离协议输入无效或超过限制")
+        if operation == "call" and server["transport"] == "stdio":
+            if not isinstance(payload.get("tool_schema"), dict) or not isinstance(payload.get("read_only"), bool):
+                fail(422, "ISOLATED_TOOL_SCHEMA_REQUIRED", "请将发现的工具参数结构与只读声明一并提交本次审批")
         body = {
             "transport": server["transport"],
-            "command": current[0]["command_json"],
+            "command": server["command_json"],
             "text": text,
             "operation": operation,
             "tool_name": tool_name,
             "arguments": arguments or {},
+            "expected_schema": payload.get("tool_schema"),
+            "expected_read_only": payload.get("read_only"),
         }
+        await used("mcp", server["id"])
         result = await backend._execute(
             protocol_command(body), 50, operation_name, payload
         )
@@ -98,12 +107,14 @@ def task_tool(database, backend, server, owner_id, selection, agent_id=None):
                 "operation": {"type": "string", "enum": ["discover", "call"]},
                 "tool_name": {"type": "string", "maxLength": 200},
                 "arguments": {"type": "object", "description": "与容器命令合计受16000字符编码预算限制"},
+                "tool_schema": {"type": "object", "description": "call时提供发现的准确参数结构，随本次操作审批"},
+                "read_only": {"type": "boolean", "description": "call时提供发现的只读声明"},
             },
             "additionalProperties": False,
         },
     )
     tool.metadata = {
         "requires_approval": True,
-        "target": "隔离程序 " + server["name"] + "；命令：" + json.dumps(server["command_json"], ensure_ascii=False),
+        "target": "隔离程序；目标摘要 " + semantic[:16],
     }
     return tool

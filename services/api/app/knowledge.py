@@ -1,13 +1,12 @@
 """Document parsing, lexical retrieval and optional persistent Qdrant hybrid search."""
 
-import hashlib
 import io
 import math
 import re
 import zipfile
 from collections import Counter
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 from docx import Document
@@ -15,9 +14,11 @@ from pypdf import PdfReader
 from qdrant_client import AsyncQdrantClient, models
 
 from app.config import ModelConfig
+from app.embedding_compatibility import compatible_vector, fingerprint
 from app.errors import fail
 from app.model_catalog import supports_embedding
 from app.models import ModelRegistry
+from app.resource_runtime import resource_run
 from app.retrieval_evidence import coverage, guidance
 from app.spreadsheet_text import spreadsheet_sections
 from app.storage import Database
@@ -25,10 +26,10 @@ from app.storage import Database
 MAX_UPLOAD = 4 * 1024 * 1024
 
 
-def collection_name(identifier: UUID, config: ModelConfig) -> str:
-    """Do not mix vectors from different model identities or revisions."""
-    model = hashlib.sha256(config.id.encode()).hexdigest()[:12]
-    return f"kb_{identifier}_{model}_r{config.revision}"
+def collection_name(identifier: UUID, config: ModelConfig, *, dimensions: int | None = None) -> str:
+    """Separate actual embedding contracts while retaining indexes through maintenance."""
+    suffix = f"_d{dimensions}" if dimensions is not None else ""
+    return f"kb_{identifier}_{fingerprint(config)[:24]}{suffix}"
 
 
 def parse_document(name: str, data: bytes) -> list[tuple[str, str]]:
@@ -197,6 +198,18 @@ class KnowledgeService:
         return await save(self, knowledge, name, data)
 
     async def index(
+        self, knowledge: dict, document_id: UUID, chunks: list[tuple], *,
+        revision: int | None = None, acknowledge_duplicate: bool = False,
+    ) -> dict | None:
+        async with resource_run(self.database, knowledge["owner_id"], "resource", uuid4()):
+            from app.retrieval_policy import knowledge_policy
+
+            live = await self.owned(knowledge["id"], knowledge["owner_id"])
+            knowledge = await knowledge_policy(self.database, self.registry.vault, live)
+            return await self._index(knowledge, document_id, chunks, revision=revision,
+                                     acknowledge_duplicate=acknowledge_duplicate)
+
+    async def _index(
         self,
         knowledge: dict,
         document_id: UUID,
@@ -239,7 +252,7 @@ class KnowledgeService:
             active = await self.database.fetch("SELECT revision FROM documents WHERE id=%s", (document_id,))
             if not active or active[0]["revision"] != revision:
                 fail(409, "DOCUMENT_CONFLICT", "索引期间文档已更新，本次旧结果未启用")
-            collection = collection_name(knowledge["id"], config)
+            collection = collection_name(knowledge["id"], config, dimensions=len(vectors[0]))
             if not await self.vectors.collection_exists(collection):
                 await self.vectors.create_collection(
                     collection,
@@ -253,9 +266,10 @@ class KnowledgeService:
                 ],
             )
             await self.database.execute(
-                "UPDATE documents SET vector_status='READY',error=NULL,vector_model_id=%s,vector_model_revision=%s "
+                "UPDATE documents SET vector_status='READY',error=NULL,vector_model_id=%s,vector_model_revision=%s,"
+                "vector_fingerprint=%s,vector_dimensions=%s "
                 "WHERE id=%s AND revision=%s",
-                (config.id, config.revision, document_id, revision),
+                (config.id, config.revision, fingerprint(config), len(vectors[0]), document_id, revision),
             )
             await finish(self, context, own)
             return {"operation_id": context["id"], "status": "SUCCEEDED"}
@@ -269,16 +283,26 @@ class KnowledgeService:
                 raise
             return {"operation_id": context["id"] if context else None, "status": "FAILED"}
 
-    async def search(
+    async def search(self, knowledge_id, owner_id, query, limit=5, *, usage_context=None):
+        run_id = usage_context["id"] if usage_context else uuid4()
+        mode = usage_context["mode"] if usage_context else "resource"
+        async with resource_run(self.database, owner_id, mode, run_id):
+            return await self._search(knowledge_id, owner_id, query, limit, usage_context=usage_context)
+
+    async def _search(
         self, knowledge_id: UUID, owner_id: UUID, query: str, limit: int = 5, *, usage_context=None
     ) -> dict:
         """Return authorized source snippets and fuse lexical and dense ranking when available."""
         knowledge = await self.owned(knowledge_id, owner_id)
+        from app.retrieval_policy import knowledge_policy
+
+        knowledge = await knowledge_policy(self.database, self.registry.vault, knowledge)
         from app.knowledge_usage import authority, context_for, finish, meter, must_stop
 
         context, own, resource_error = usage_context, False, None
         rows = await self.database.fetch(
-            "SELECT c.*,d.name,d.vector_status,d.vector_model_id,d.vector_model_revision FROM document_chunks c "
+            "SELECT c.*,d.name,d.vector_status,d.vector_model_id,d.vector_model_revision,"
+            "d.vector_fingerprint,d.vector_dimensions FROM document_chunks c "
             "JOIN documents d ON d.id=c.document_id WHERE d.knowledge_id=%s AND d.status='READY' "
             "AND c.document_revision=d.revision",
             (knowledge_id,),
@@ -299,18 +323,23 @@ class KnowledgeService:
             try:
                 config = await self.registry.get(knowledge["embedding_model_id"])
                 if not any(
-                    row["vector_model_id"] == config.id and row["vector_model_revision"] == config.revision
+                    compatible_vector(row, config)
                     for row in rows
                 ):
-                    fail(409, "KNOWLEDGE_INDEX_CHANGED", "向量配置已变化，请重新索引当前文档")
+                    fail(409, "KNOWLEDGE_INDEX_CHANGED",
+                         "向量模型身份、维度或预处理缺少兼容证据；请核对模型版本及服务目标，或重新索引")
                 context, created = await context_for(self, knowledge, config, context)
                 own = own or created
                 vector = (await self.embedder(config, [query], meter=meter(self, knowledge, config, context)))[0]
                 await authority(self.database, owner_id, knowledge_id, context, config)
                 response = await self.vectors.query_points(
-                    collection_name(knowledge_id, config), query=vector, limit=20, score_threshold=0.2
+                    collection_name(knowledge_id, config, dimensions=len(vector)),
+                    query=vector, limit=20, score_threshold=0.2
                 )
+                eligible = {str(row["id"]) for row in rows if compatible_vector(row, config, len(vector))}
                 for rank, point in enumerate(response.points, 1):
+                    if str(point.id) not in eligible:
+                        continue
                     scores[str(point.id)] = scores.get(str(point.id), 0) + 1 / (60 + rank)
                     vector_scores[str(point.id)] = point.score
                 mode = "hybrid"
@@ -320,7 +349,7 @@ class KnowledgeService:
                 if must_stop(error):
                     raise
                 resource_error = error
-                warning = "向量检索暂不可用，本次使用关键词检索"
+                warning = "向量兼容性未确认或检索不可用，本次使用关键词检索；请核对模型版本、维度、服务目标与预处理"
         ranked = sorted(
             (row for row in rows if str(row["id"]) in scores), key=lambda row: scores[str(row["id"])], reverse=True
         )[:20]

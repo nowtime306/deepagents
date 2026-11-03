@@ -3,6 +3,7 @@
 from typing import TypedDict
 
 from deepagents.backends.protocol import BackendProtocol
+from langchain.agents import create_agent
 from langchain.agents.middleware import TodoListMiddleware
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
@@ -66,8 +67,14 @@ def build_ask(
     middleware: list | None = None,
     instructions: str = "",
     backend: BackendProtocol | None = None,
+    tool_capable: bool = True,
 ) -> CompiledStateGraph:
     """Construct an independent read-only Deep Agents Harness."""
+    if not tool_capable:
+        return create_agent(
+            model=model, tools=[], checkpointer=checkpointer, middleware=middleware or [],
+            system_prompt="你是一个严谨的中文助手。默认使用简体中文回答。" + instructions,
+        )
     return build_harness(
         mode="ask",
         model=model,

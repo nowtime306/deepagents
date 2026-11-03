@@ -64,6 +64,11 @@ def test_image_index_persistence_owner_and_model_change(client, monkeypatch):
     image = connection.post(f"{prefix}/images", files={"file": ("cat.png", b"\x89PNG\r\n\x1a\ncat")}, headers=ORIGIN)
     assert image.status_code == 201
     image_id = image.json()["id"]
+    ledger = connection.portal.call(app.state.db.fetch,
+        "SELECT model_revision,status,input_tokens,resource_snapshot_id FROM model_usage WHERE run_id=%s",
+        (image.json()["operation_id"],))
+    assert ledger[0]["model_revision"] == 1 and ledger[0]["status"] == "UNKNOWN"
+    assert ledger[0]["input_tokens"] is None and ledger[0]["resource_snapshot_id"] is not None
     assert connection.get(f"{prefix}/image-index").json()["index"]["dimensions"] == 2
     assert (
         connection.post(f"{prefix}/image-search", json={"query": "猫"}, headers=ORIGIN).json()["items"][0]["id"]
@@ -71,6 +76,25 @@ def test_image_index_persistence_owner_and_model_change(client, monkeypatch):
     )
     assert connection.get(f"{prefix}/images/{image_id}").content.endswith(b"cat")
 
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET name=name||'-maintained',revision=revision+1 WHERE id=%s", (model_id,))
+    assert connection.post(f"{prefix}/image-search", json={"query": "猫"}, headers=ORIGIN).status_code == 200
+    connection.portal.call(app.state.db.execute,
+        "UPDATE model_configs SET base_url='http://moved/api/v1',revision=revision+1 WHERE id=%s", (model_id,))
+    assert connection.post(f"{prefix}/image-search", json={"query": "猫"}, headers=ORIGIN).status_code == 409
+    owner = connection.get("/api/v1/auth/me").json()["id"]
+    connection.portal.call(app.state.db.execute, "UPDATE users SET is_admin=true WHERE id=%s", (owner,))
+    stale = connection.post(f"/api/v1/capabilities/embedding-compatibility/{model_id}/verify", headers=ORIGIN,
+        json={"expected_revision": 2, "expected_base_url": "http://unused/api/v1",
+              "previous_base_url": "http://unused/api/v1", "confirmed_model": "mm", "dimensions": 2,
+              "evidence": "Administrator saw the previous target; this stale confirmation must be rejected."})
+    assert stale.status_code == 409, stale.text
+    attested = connection.post(f"/api/v1/capabilities/embedding-compatibility/{model_id}/verify", headers=ORIGIN,
+        json={"expected_revision": 3, "expected_base_url": "http://moved/api/v1",
+              "previous_base_url": "http://unused/api/v1", "confirmed_model": "mm", "dimensions": 2,
+              "evidence": "Test administrator confirms equal model version, preprocessing and output; test double."})
+    assert attested.status_code == 200, attested.text
+    assert connection.post(f"{prefix}/image-search", json={"query": "猫"}, headers=ORIGIN).status_code == 200
     async def wrong_dimension(config, content):
         return [1.0, 0.0, 0.0]
 

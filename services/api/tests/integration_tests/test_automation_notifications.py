@@ -118,8 +118,18 @@ def test_real_loopback_signed_delivery_encryption_and_channel_revision(client, r
     assert edited.status_code == 200, edited.text
     connection.portal.call(dispatch, app.state)
     rows = connection.get("/api/v1/notifications/deliveries").json()["items"]
-    failed = next(row for row in rows if row["status"] == "FAILED")
-    assert failed["error_code"] == "CHANNEL_CHANGED_REVIEW_REQUIRED" and len(received) == 1
+    assert all(row["status"] == "SUCCEEDED" for row in rows) and len(received) == 2
+    make_notice(connection, app, owner, {"id": identifier, "revision": 2})
+    changed = connection.put(
+        f"/api/v1/notification-channels/{identifier}",
+        json={"name": "新接收目标", "kind": "webhook", "revision": 2, "allow_private": True,
+              "endpoint": url + "/changed"}, headers=ORIGIN,
+    )
+    assert changed.status_code == 200, changed.text
+    connection.portal.call(dispatch, app.state)
+    rows = connection.get("/api/v1/notifications/deliveries").json()["items"]
+    failed = next(row for row in rows if row["status"] == "PAUSED")
+    assert failed["error_code"] == "CHANNEL_TARGET_CHANGED_REVIEW_REQUIRED" and len(received) == 2
     assert (
         connection.post(f"/api/v1/notifications/deliveries/{failed['id']}/retry", json={}, headers=ORIGIN).status_code
         == 422
@@ -127,13 +137,17 @@ def test_real_loopback_signed_delivery_encryption_and_channel_revision(client, r
     assert (
         connection.post(
             f"/api/v1/notifications/deliveries/{failed['id']}/retry",
-            json={"acknowledge_duplicate": True},
+            json={"acknowledge_duplicate": True, "confirm_target": True,
+                  "expected_target": failed["current_target_summary"]["identity"]},
             headers=ORIGIN,
         ).status_code
         == 200
     )
     connection.portal.call(dispatch, app.state)
-    assert len(received) == 2
+    assert len(received) == 3
+    rows = connection.get("/api/v1/notifications/deliveries").json()["items"]
+    assert any(row["retry_of"] == failed["id"] and row["status"] == "SUCCEEDED" for row in rows)
+    assert next(row for row in rows if row["id"] == failed["id"])["status"] == "PAUSED"
 
 
 @pytest.mark.parametrize("kind", ["feishu", "wecom", "slack"])

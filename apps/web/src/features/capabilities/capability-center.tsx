@@ -11,6 +11,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { ConfigurationHistory } from "../settings/configuration-history";
 import { api } from "@/lib/api/platform";
 import { SkillResourcePreview } from "./skill-resource-preview";
 import { MemoryCenter } from "./memory-center";
@@ -550,6 +551,7 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
                   </button>
                 </div>
               )}
+              {isAdmin && <ConfigurationHistory kind="mcp" resourceId={server.id} name={server.name}/>}
             </article>
           ))}
           {!servers.length && (

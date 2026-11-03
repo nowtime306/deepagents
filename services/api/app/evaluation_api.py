@@ -253,7 +253,13 @@ async def detail(identifier: UUID, experiment: UUID, request: Request):
         fail(404, "NOT_FOUND", "实验不存在或无权访问")
     row = rows[0]
     usage = await summaries(request.app.state.db, owner, [row["operation_id"]] if row["operation_id"] else [])
-    return {**row, "usage": usage[0] if usage else None}
+    from app.knowledge_pins import snapshot
+
+    knowledge = await request.app.state.knowledge.owned(identifier, owner)
+    matches = await snapshot(request.app.state.db, knowledge) == row["resource_snapshot"]
+    return {**row, "usage": usage[0] if usage else None,
+            "applicability": {"status": "applicable" if matches else "retest_recommended",
+                              "reason": None if matches else "文档或效果配置已变化；旧实验结果保持不变，建议重新评测"}}
 
 
 @router.post("/{identifier}/experiments/{experiment}/cancel")
