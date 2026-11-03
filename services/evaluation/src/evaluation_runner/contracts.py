@@ -5,11 +5,18 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+
+    @field_validator("schema_version", "version", mode="before", check_fields=False)
+    @classmethod
+    def integer_version(cls, value):
+        if type(value) is not int:
+            raise ValueError("Version must be an integer, not a boolean/coerced number")
+        return value
 
 
 class Profile(StrictModel):
@@ -51,6 +58,13 @@ class Check(StrictModel):
     version: Literal[1] = 1
     parameters: dict[str, Any] = Field(default_factory=dict)
     required: bool = True
+
+    @model_validator(mode="after")
+    def registered_parameters(self):
+        from .check_schemas import validate_parameters
+
+        self.parameters = validate_parameters(self.registered_id, self.parameters)
+        return self
 
 
 class Budget(StrictModel):

@@ -51,6 +51,12 @@ def known_usage(evidence: dict, case: Case) -> dict:
 
 def initialize(platform, journal, attempt: dict, case: Case) -> dict:
     """Create fresh formal resources; unsupported profiles stop before any write."""
+    from .facts import REGISTERED
+
+    if any(spec.registered_id not in REGISTERED for spec in case.validators):
+        raise Blocked("A reviewed validator is not implemented; dispatch is disabled")
+    if any(spec.required and spec.registered_id != "tool_correctness" for spec in case.metrics):
+        raise Blocked("A required metric has no complete supported adapter; dispatch is disabled")
     enforce_budget(case, platform.attest())
     profile = case.fixture_profile.id
     if profile not in {"ask-plain", "work-coding", "workflow-published"} or case.fixture_profile.version != 1:
