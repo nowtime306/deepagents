@@ -19,3 +19,11 @@
 - 原数据备份沿用services/api/.local/backups；与可分享源码包分开存储。
 
 当前远端https://github.com/nowtime306/deepagents.git，当前开发分支onwer_agent。首次基线2818e6f647093a1e8ad1695139f9fdaf4ace8ab7及zhixing-v0.1.0均已推送。该基线对应此前交付系统，验证范围按各专项报告，不声明全SDK/全部外部服务均已实测。
+
+## Windows 验收摘要
+
+工作区可能同时存在旧CRLF检出文件和新增LF文件。`prepare`仅对自己的归档命令设置`core.autocrlf=false`，不改用户Git设置或重写工作区；发布清单的`source_sha256`记录归档字节摘要。
+
+最终QA JSON的`source_sha256`须与归档完整清单一致，另用`worktree_sha256`记录真正被测试和构建的每个业务文件原始字节摘要，测试前后需保持不变。两者不能互相冒充：工具先严格匹配QA原始摘要，再核对归档；只允许严格UTF-8且无NUL文本的CRLF到LF差异，正文、空白、BOM、二进制差异仍拒绝。未提供原始清单的旧QA只适用于字节与归档完全相同的工作区。
+
+这不会放宽真实页面验收、固定提交标签、完整部署/健康、文件集合或私密文件排除门槛。独立审查和反例见[Windows发布审查](windows-release-review.md)。

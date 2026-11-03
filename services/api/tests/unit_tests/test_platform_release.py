@@ -128,3 +128,70 @@ def test_archive_corruption_is_detected(repository):
         archive.write(b"tampered")
     with pytest.raises(ValueError, match="摘要"):
         release.verify(root, "0.2.0")
+
+
+def windows_prepared(repository):
+    root, command = repository
+    command("config", "core.autocrlf", "true")
+    source = root / "apps/web/src/test.ts"
+    source.write_bytes(b"export const version = 1;\nexport const ready = true;\n")
+    (root / "apps/web/src/new.ts").write_bytes(b"export const edited = true;\n")
+    binary = root / "apps/web/src/fixture.bin"
+    binary.write_bytes(b"fixture\x00\n")
+    (root / "apps/web/src/nonutf8.bin").write_bytes(b"\xff\n")
+    command("add", ".")
+    command("commit", "-m", "multiline Windows fixture")
+    command("tag", "--force", "zhixing-v0.2.0")
+    source.unlink()
+    command("checkout", "--", "apps/web/src/test.ts")
+    assert b"\r\n" in source.read_bytes()
+    assert b"\r\n" not in (root / "apps/web/src/new.ts").read_bytes()
+    root, record = prepared(repository)
+    qa, deployment, health = completion_inputs(root, record)
+    payload = json.loads(qa.read_text())
+    payload["worktree_sha256"] = {name: release.sha256(root / name) for name in record["source_sha256"]}
+    qa.write_text(json.dumps(payload))
+    return root, record, qa, deployment, health
+
+
+def test_windows_checkout_with_frozen_raw_source_can_complete(repository):
+    root, record, qa, deployment, health = windows_prepared(repository)
+    before = (root / "apps/web/src/test.ts").read_bytes()
+    with zipfile.ZipFile(root / ".local/releases/0.2.0/source.zip") as archive:
+        assert archive.read("apps/web/src/test.ts") == before.replace(b"\r\n", b"\n")
+    result = release.complete(root, "0.2.0", qa, deployment, health)
+    assert result["status"] == "deployed" and result["source_sha256"] == record["source_sha256"]
+    assert result["worktree_sha256"] == json.loads(qa.read_text())["worktree_sha256"]
+    assert (root / "apps/web/src/test.ts").read_bytes() == before
+    assert repository[1]("config", "core.autocrlf") == "true"
+
+
+@pytest.mark.parametrize("problem", [
+    "missing-raw", "partial-raw", "extra-raw", "after-qa", "body", "trailing", "bom", "binary", "nonutf8",
+])
+def test_windows_checkout_does_not_weaken_source_verification(repository, problem):
+    root, _, qa, deployment, health = windows_prepared(repository)
+    payload = json.loads(qa.read_text())
+    source = root / "apps/web/src/test.ts"
+    if problem == "missing-raw":
+        del payload["worktree_sha256"]
+    elif problem == "partial-raw":
+        del payload["worktree_sha256"]["platform-release.json"]
+    elif problem == "extra-raw":
+        payload["worktree_sha256"]["apps/extra.ts"] = "not part of the archive"
+    else:
+        if problem in {"binary", "nonutf8"}:
+            source = root / ("apps/web/src/fixture.bin" if problem == "binary" else "apps/web/src/nonutf8.bin")
+            source.write_bytes(source.read_bytes().replace(b"\n", b"\r\n"))
+        elif problem == "bom":
+            source.write_bytes(b"\xef\xbb\xbf" + source.read_bytes())
+        elif problem == "trailing":
+            source.write_bytes(source.read_bytes().replace(b";\r\n", b"; \r\n"))
+        else:
+            source.write_bytes(source.read_bytes().replace(b"version = 1", b"version = 9"))
+        if problem != "after-qa":
+            payload["worktree_sha256"][str(source.relative_to(root)).replace("\\", "/")] = release.sha256(source)
+    qa.write_text(json.dumps(payload))
+    with pytest.raises(ValueError):
+        release.complete(root, "0.2.0", qa, deployment, health)
+    assert release.verify(root, "0.2.0")["status"] == "prepared"

@@ -19,6 +19,23 @@ def sha256(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def matches_source(path: Path, archive_digest: str, worktree_digest: str) -> bool:
+    """Require frozen raw bytes, allowing only UTF-8 text checkout line endings."""
+    data = path.read_bytes()
+    current = hashlib.sha256(data).hexdigest()
+    if current != worktree_digest:
+        return False
+    if current == archive_digest:
+        return True
+    if b"\0" in data or b"\r\n" not in data:
+        return False
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest() == archive_digest
+
+
 def git(root: Path, *arguments: str) -> str:
     return subprocess.check_output(["git", *arguments], cwd=root, text=True, encoding="utf-8").strip()
 
@@ -84,7 +101,7 @@ def prepare(root: Path, version: str, commit: str, reports: list[str]) -> dict:
     directory.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".preparing-", dir=directory.parent) as staging:
         archive = Path(staging) / "source.zip"
-        subprocess.run(["git", "archive", "--format=zip", "--output=" + str(archive), identifier], cwd=root, check=True)
+        subprocess.run(["git", "-c", "core.autocrlf=false", "archive", "--format=zip", "--output=" + str(archive), identifier], cwd=root, check=True)
         files, archive_digest = source_hashes(archive), sha256(archive)
         directory.mkdir()
         archive.replace(directory / "source.zip")
@@ -126,12 +143,16 @@ def complete(root: Path, version: str, qa_path: Path, deployment_path: Path, hea
                                  *[prefix.rstrip("/") for prefix in BUSINESS], "platform-release.json").split("\0")))
     if actual != set(record["source_sha256"]):
         raise ValueError("当前业务源码文件集合与发布提交不同")
+    worktree = qa.get("worktree_sha256", qa["source_sha256"])
+    if not isinstance(worktree, dict) or set(worktree) != actual:
+        raise ValueError("已验收工作区源码文件集合与发布提交不同")
     if any(not (root / name).resolve().is_relative_to(root.resolve()) or (root / name).is_symlink()
-           or not (root / name).is_file() or sha256(root / name) != digest for name, digest in record["source_sha256"].items()):
+           or not (root / name).is_file() or not matches_source(root / name, digest, worktree[name])
+           for name, digest in record["source_sha256"].items()):
         raise ValueError("当前业务源码与发布提交不同")
     record.update(status="deployed", deployed_at=deployment["time"], backup=deployment.get("backup"),
                   build_id=(root / "apps/web/.next/BUILD_ID").read_text().strip(), health=health,
-                  qa_record=str(qa_path.relative_to(root)))
+                  qa_record=str(qa_path.relative_to(root)), worktree_sha256=worktree)
     save(release_directory(root, version), record)
     return record
 
