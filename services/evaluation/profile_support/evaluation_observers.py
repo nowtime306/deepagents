@@ -99,5 +99,7 @@ def attach_observers(app):
             except Exception:  # noqa: BLE001 -- A read-only health failure blocks readiness without leaking manager credentials.
                 manager = {"ready": False}
         return {"schema_version": 1, "fixture_profile": {"id": "controlled-v1", "version": 1},
-                "observers": ["root-model-context-v1", "owned-sandbox-states-v1", "readonly-workflow-effects-v1"],
+                "observers": ["root-model-context-v1", "owned-sandbox-states-v1", "readonly-workflow-effects-v1", "single-automation-lifecycle-v1",
+                              *(["work-consumer-rebuild-v1"] if getattr(request.app.state, "evaluation_work_consumer", None) else [])],
+                "case_limits": getattr(request.app.state, "evaluation_case_limits", None),
                 "sandbox_limits": service.capability() if service else None, "work_manager": manager}

@@ -9,7 +9,15 @@ from uuid import UUID, uuid4
 
 import httpx
 
-from . import adapters, fixed_audit, fixed_evidence, fixed_workflow_evidence, fixed_workflow_observation, network
+from . import (
+    adapters,
+    fixed_audit,
+    fixed_automation_evidence,
+    fixed_evidence,
+    fixed_workflow_evidence,
+    fixed_workflow_observation,
+    network,
+)
 from .client import Platform
 from .contracts import Dataset, Result, Target
 from .fixed_fixtures import FixedFixtures
@@ -17,7 +25,9 @@ from .journal import Journal, atomic_json, digest
 from .metrics import score
 
 RULES_ID = "controlled-a20-v1"
-IMPLEMENTED = {"AET-A02", "AET-W01", "AET-F02", "AET-F04"}
+IMPLEMENTED = {"AET-A01", "AET-A02", "AET-W01", "AET-W03", "AET-W04", "AET-F02", "AET-F04"}
+WORK_CASES = {"AET-W01", "AET-W03", "AET-W04"}
+NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01"}
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "datasets/a20-fixed.json"
 
 
@@ -28,11 +38,16 @@ def catalog():
 def evidence_module(specimen):
     if specimen.case_id == "AET-A02":
         return fixed_evidence
+    if specimen.case_id == "AET-A01":
+        return fixed_automation_evidence
     if specimen.case_id in fixed_workflow_observation.CASES:
         return fixed_workflow_evidence
     if specimen.case_id == "AET-W01":
         from . import fixed_work_evidence
         return fixed_work_evidence
+    if specimen.case_id in {"AET-W03", "AET-W04"}:
+        from . import fixed_approval_evidence
+        return fixed_approval_evidence
     raise adapters.Blocked("No fixed evidence handler")
 
 
@@ -47,6 +62,8 @@ def readiness(platform, specimen):
     needed |= ({"work.read", "work.manage", "work.execute"} if specimen.mode == "work" else
                {"workflows.read", "workflows.manage", "workflows.execute"} if specimen.mode == "workflow" else
                {"chat.read", "chat.manage", "chat.run", "agents.manage"})
+    if specimen.case_id == "AET-A01":
+        needed |= {"automation.read", "automation.manage", "automation.execute"}
     if not user.get("is_admin"):
         missing.append("Dedicated target administrator required for controlled-model initialization")
     if not needed.issubset(set(proof.get("permissions", []))):
@@ -55,6 +72,10 @@ def readiness(platform, specimen):
         capabilities = platform.get("/api/v1/agent-evaluations/profiles/capabilities")
         if "root-model-context-v1" not in capabilities.get("observers", []):
             missing.append("Trusted root context observer is unavailable")
+        if specimen.case_id == "AET-A01":
+            fixed_automation_evidence.enforce_case_budget(capabilities, specimen)
+            if "single-automation-lifecycle-v1" not in capabilities.get("observers", []):
+                missing.append("The actual controlled scheduler/occurrence observer is unavailable")
         if specimen.case_id in fixed_workflow_observation.CASES:
             if "readonly-workflow-effects-v1" not in capabilities.get("observers", []):
                 missing.append("Trusted readonly workflow effects observer is unavailable")
@@ -62,6 +83,8 @@ def readiness(platform, specimen):
             if bound.get("max_model_calls") != 0 or bound.get("max_tokens") != 0:
                 missing.append("The fixed readonly profiles require enforced zero model calls/tokens")
         if specimen.mode == "work":
+            if specimen.case_id == "AET-W04" and "work-consumer-rebuild-v1" not in capabilities.get("observers", []):
+                missing.append("The real cooperative Work consumer rebuild controller is unavailable")
             work = platform.get("/api/v1/work-capabilities")
             bound = capabilities.get("sandbox_limits") or {}
             if (not work.get("enabled") or not capabilities.get("work_manager", {}).get("ready")
@@ -84,7 +107,7 @@ def initialize(platform, journal, attempt, specimen):
     journal.save()
     if status["status"] != "READY":
         raise adapters.Blocked("Case readiness is blocked")
-    if specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES:
+    if specimen.case_id in NAMESPACE_CASES:
         namespace = str(UUID(platform.attest()["sandbox_namespace"]))
         if "sandbox_namespace" in attempt and attempt["sandbox_namespace"] != namespace:
             raise ValueError("The attested sandbox namespace changed")
@@ -96,9 +119,13 @@ def initialize(platform, journal, attempt, specimen):
     if specimen.case_id == "AET-A02":
         agent = fixtures.published_agent(specimen.case_id, model)
         attempt["fixture"] = {"model_id": model, "id": fixtures.conversation(agent), **agent}
-    elif specimen.case_id == "AET-W01":
+    elif specimen.case_id == "AET-A01":
+        agent = fixtures.maintained_agent(model)
+        selected = {key: agent[key] for key in ("agent_id", "agent_version_id")}
+        attempt["fixture"] = {"model_id": model, "id": fixtures.conversation(selected), **agent}
+    elif specimen.case_id in WORK_CASES:
         inputs = specimen.fixture_parameters["fixed_inputs"]
-        attempt["fixture"] = {"model_id": model, **fixtures.work_task(inputs["goal"], {})}
+        attempt["fixture"] = {"model_id": model, **fixtures.work_task(inputs["goal"], inputs.get("files", {}))}
     elif specimen.case_id in fixed_workflow_observation.CASES:
         inputs = specimen.fixture_parameters["fixed_inputs"]
         attempt["fixture"] = {"model_id": model, **fixtures.readonly_workflow(
@@ -108,6 +135,8 @@ def initialize(platform, journal, attempt, specimen):
     journal.save()
     if specimen.case_id in fixed_workflow_observation.CASES:
         fixed_workflow_evidence.ensure_baseline(platform, journal, attempt, specimen)
+    if specimen.case_id == "AET-A01":
+        fixed_automation_evidence.initialize(platform, journal, attempt, specimen)
 
 
 def execute(platform, journal, attempt, specimen, output):
@@ -116,12 +145,11 @@ def execute(platform, journal, attempt, specimen, output):
     inputs = specimen.fixture_parameters["fixed_inputs"]
     actual_case = specimen.model_copy(update={"fixture_parameters": {"prior_messages": inputs.get("messages", [])[:-1]}})
     module = evidence_module(specimen)
-    if specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES:
+    if specimen.case_id in NAMESPACE_CASES:
         platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
         platform.attest()
-    if specimen.case_id in fixed_workflow_observation.CASES:
-        snapshot = fixed_workflow_evidence.execute(platform, journal, attempt, specimen,
-                                                  cancelled=lambda: (output / "cancel.request").exists())
+    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W03", "AET-W04"}:
+        snapshot = module.execute(platform, journal, attempt, specimen, cancelled=lambda: (output / "cancel.request").exists())
     else:
         if not attempt.get("submission_complete"):
             adapters.submit(platform, journal, attempt, actual_case, attempt["fixture"])
@@ -159,7 +187,7 @@ def cleanup(platform, journal, attempt):
         return "CLEAN" if not attempt.get("created_resources") else "NEEDS_REVIEW"
     specimen = next(row for row in catalog().cases if row.case_id == attempt["case_id"])
     module = evidence_module(specimen)
-    if specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES:
+    if specimen.case_id in NAMESPACE_CASES:
         platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
         platform.attest()
     module.verified(journal.directory, journal.data, attempt, specimen)
@@ -170,9 +198,11 @@ def cleanup(platform, journal, attempt):
             return "NEEDS_REVIEW"
     if attempt.get("usage_completeness") != "KNOWN":
         return "NEEDS_REVIEW"
-    if specimen.case_id == "AET-W01" and not module.cleanup_ready(journal.directory, journal.data, attempt, specimen):
+    if specimen.case_id in WORK_CASES and not module.cleanup_ready(journal.directory, journal.data, attempt, specimen):
         return "NEEDS_REVIEW"
     if specimen.case_id in fixed_workflow_observation.CASES and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
+        return "NEEDS_REVIEW"
+    if specimen.case_id == "AET-A01" and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
     if root["mode"] == "work":
         receipts = platform.get(root["path"] + "/operations")["items"]
@@ -257,7 +287,7 @@ def validate_offline_report(data, specimen, dataset, *, context_path=None, targe
             if attempt.get("task_outcome") == "PASS" and any(row.status != "PASS" for row in facts):
                 raise ValueError("A failing factual snapshot cannot produce PASS")
             if (attempt.get("cleanup_status") == "CLEAN"
-                    and (specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES)
+                    and specimen.case_id in NAMESPACE_CASES
                     and not module.cleanup_ready(directory, data, attempt, specimen)):
                 raise ValueError("Stored CLEAN lacks settled retained cleanup evidence")
             metrics = [Result.model_validate(row) for row in attempt.get("metric_results", [])]

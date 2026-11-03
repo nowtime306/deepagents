@@ -87,6 +87,25 @@ class FixedFixtures:
     def conversation(self, agent):
         return self.create("conversation", "/api/v1/conversations", {"title": "AE " + self.prefix, **agent})
 
+    def maintained_agent(self, model_id):
+        agent = self.published_agent("AET-A01", model_id)
+        versions = self.platform.get(f"/api/v1/agents/{agent['agent_id']}/versions")["items"]
+        if (len(versions) != 1 or versions[0]["id"] != agent["agent_version_id"]
+                or type(versions[0]["version"]) is not int or versions[0]["version"] != 1
+                or versions[0]["snapshot"]["model_id"] != model_id
+                or type(versions[0]["snapshot"]["model_revision"]) is not int or versions[0]["snapshot"]["model_revision"] != 1):
+            raise ValueError("The original published Agent/model revision is not observed")
+        self.mutate("maintain-model", "PUT", f"/api/v1/admin/models/{model_id}", body={
+            "name": f"AE AET-A01 lead {self.prefix}", "model": "eval::AET-A01::v1", "kind": "chat", "provider": "custom",
+            "protocol": "openai", "base_url": self.platform.target.api_base_url + "/controlled-model", "enabled": True,
+            "supports_tools": True, "max_output_tokens": 4096, "temperature": 0.4, "revision": 1})
+        models = self.platform.get("/api/v1/admin/models")["items"]
+        current = next(row for row in models if row["id"] == model_id)
+        if type(current["revision"]) is not int or current["revision"] != 2 or current["temperature"] != 0.4:
+            raise ValueError("The fixed model maintenance was not observed")
+        return {**agent, "published_version": 1, "published_model_revision": 1,
+                "maintained_model_revision": 2, "temperature": 0.4}
+
     def work_task(self, goal, files):
         task = self.create("work-task", "/api/v1/work-tasks", {"title": "AE " + self.prefix, "goal": goal})
         revision = 1

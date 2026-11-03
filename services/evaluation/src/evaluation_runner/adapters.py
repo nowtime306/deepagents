@@ -111,7 +111,7 @@ def submit(platform, journal, attempt, case: Case, fixture: dict) -> dict:
         payload = {"message": case.input, "model_id": fixture["model_id"]}
     elif case.mode == "work":
         path = base + "work-tasks/" + fixture["id"] + "/runs"
-        payload = {"model_id": fixture["model_id"], "revision": 1, "environment": "coding",
+        payload = {"model_id": fixture["model_id"], "revision": fixture.get("revision", 1), "environment": "coding",
                    "token_limit": case.budgets.max_tokens, "step_limit": case.budgets.max_model_calls}
     else:
         path = base + f"workflows/{fixture['id']}/versions/{case.business_version}/runs"

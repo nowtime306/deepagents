@@ -29,6 +29,7 @@ LIMITS = MappingProxyType({case: (0 if case in {"AET-F02", "AET-F04"} else 4 if 
                                  else 0 if case in {"AET-F02", "AET-F04"} else 15 if case == "AET-A02" else 90) for case in CASES})
 COUNTER_COMMAND = ("python3 -c \"from pathlib import Path; p=Path('counter.txt'); "
                    "p.write_text(str(int(p.read_text())+1))\"")
+A01_CASE_LIMIT = {"max_model_calls": 8, "max_tokens": 120, "max_roots": 2}
 
 
 class ProfileState:
@@ -40,6 +41,7 @@ class ProfileState:
         self.observations = {}
         self.roots = {}
         self.models = {}
+        self.a01_phases = {}
         self.path = path
         self.storage_failed = False
         if path and path.exists():
@@ -47,6 +49,9 @@ class ProfileState:
                 raise ValueError("Invalid controlled budget state")
             saved = json.loads(path.read_text(encoding="utf-8"))
             self.models = saved.get("models", {})
+            self.a01_phases = saved.get("a01_phases", {})
+            if any(value not in {"draft", "occurrence"} for value in self.a01_phases.values()):
+                raise ValueError("Invalid controlled automation phase")
             for item in saved["roots"]:
                 key, value = tuple(item["key"]), item["value"]
                 if (len(key) != 3 or value["case_id"] not in CASES
@@ -62,7 +67,7 @@ class ProfileState:
         try:
             with temporary.open("w", encoding="utf-8") as stream:
                 json.dump({"roots": [{"key": key, "value": value} for key, value in self.roots.items()],
-                           "models": self.models}, stream,
+                           "models": self.models, "a01_phases": self.a01_phases}, stream,
                           allow_nan=False)
                 stream.flush()
                 os.fsync(stream.fileno())
@@ -83,6 +88,26 @@ class ProfileState:
             self.models[model_id] = binding
             self.persist()
 
+    def bind_a01_phase(self, owner, run_id, phase):
+        if phase not in {"draft", "occurrence"}:
+            raise ValueError("Unknown controlled automation phase")
+        key = f"{owner}:ask:{run_id}"
+        with self.lock:
+            if key in self.a01_phases and self.a01_phases[key] != phase:
+                raise ValueError("Controlled automation phase cannot change")
+            self.a01_phases[key] = phase
+            self.persist()
+
+    def case_summary(self, owner, case_id):
+        with self.lock:
+            roots = [(key, value) for key, value in self.roots.items() if key[0] == str(owner) and value["case_id"] == case_id]
+            return {"observed": True, "complete": not self.storage_failed and not any(
+                value["pending"] or value["unknown"] for _, value in roots),
+                "calls": sum(value["calls"] for _, value in roots), "tokens": sum(value["tokens"] for _, value in roots),
+                "pending": sum(value["pending"] for _, value in roots), "unknown_roots": sum(bool(value["unknown"]) for _, value in roots),
+                "roots": [{"mode": key[1], "run_id": key[2], "phase": self.a01_phases.get(":".join(key)),
+                           "calls": value["calls"], "tokens": value["tokens"]} for key, value in roots]}
+
     def reserve(self, case_id, role, messages, *, cost=None):
         scope = current_scope()
         if scope is None:
@@ -90,13 +115,21 @@ class ProfileState:
         key = (str(scope.owner), scope.mode, str(scope.run), case_id, role)
         human = [str(message.content) for message in messages if isinstance(message, HumanMessage)]
         encoded = json.dumps(human, ensure_ascii=False).encode()
+        cost = (15900 if case_id == "AET-W06" else 15) if cost is None else cost
+        if type(cost) is not int or cost < 0:
+            raise ValueError("Invalid controlled token reservation")
         with self.lock:
             root_key = key[:3]
+            if case_id == "AET-A01":
+                roots = [(root_id, value) for root_id, value in self.roots.items()
+                         if root_id[0] == str(scope.owner) and value["case_id"] == case_id]
+                if (any(value["unknown"] or value["pending"] for _, value in roots)
+                        or sum(value["calls"] for _, value in roots) >= A01_CASE_LIMIT["max_model_calls"]
+                        or sum(value["tokens"] for _, value in roots) + cost > A01_CASE_LIMIT["max_tokens"]
+                        or root_key not in dict(roots) and len(roots) >= A01_CASE_LIMIT["max_roots"]):
+                    raise RuntimeError("Controlled case budget blocked generation before provider effect")
             root = self.roots.setdefault(root_key, {"case_id": case_id, "calls": 0, "tokens": 0, "unknown": False, "pending": 0})
             calls, tokens = LIMITS[case_id]
-            cost = (15900 if case_id == "AET-W06" else 15) if cost is None else cost
-            if type(cost) is not int or cost < 0:
-                raise ValueError("Invalid controlled token reservation")
             if (self.storage_failed or root["case_id"] != case_id or root["unknown"] or root["calls"] >= calls
                     or root["tokens"] + cost > tokens):
                 raise RuntimeError("Controlled root budget blocked generation before provider effect")
@@ -146,6 +179,7 @@ class ProfileState:
 class ControlledModel(BaseChatModel):
     case_id: str
     role: str = "lead"
+    automation_phase: str | None = None
     _state: ProfileState = PrivateAttr()
 
     @property
@@ -176,15 +210,19 @@ class ControlledModel(BaseChatModel):
         tools = [value for value in messages[last_user + 1:] if isinstance(value, ToolMessage)]
         seen = [tool.name for tool in tools]
         if self.case_id == "AET-A01":
+            if self.automation_phase == "occurrence":
+                return AIMessage(content="虚拟日报已整理。")
             if not tools:
                 return call("list_automation_agents", {})
             if "create_automation_draft" not in seen:
                 data = json.loads(tools[0].content)
+                if len(data["items"]) != 1:
+                    raise ValueError("The fixed automation profile requires its sole published Agent")
                 selected = data["items"][0]["id"]
                 return call("create_automation_draft", {"schedule": {
                     "name": "AE 日报草稿", "agent_version_id": selected, "mode": "ask", "kind": "once",
                     "goal": "整理虚拟日报", "starts_at": (datetime.fromisoformat(data["current_time"]) - timedelta(seconds=5)).isoformat(),
-                    "missed_policy": "once"}})
+                    "missed_policy": "once", "budget": {"model_calls": 4, "token_limit": 10000}}})
             return AIMessage(content="草稿已保存，等待用户显式启用。")
         if self.case_id == "AET-A02":
             human = [str(item.content) for item in messages if isinstance(item, HumanMessage)]
@@ -249,6 +287,15 @@ def model_factory(config, state):
         if role == "embedding":
             raise ValueError("Embedding models cannot be used as chat models")
     model = ControlledModel(case_id=parts[1], role=role)
+    if parts[1] == "AET-A01":
+        with state.lock:
+            root = state.roots.get((str(scope.owner), scope.mode, str(scope.run)))
+            if root and root["unknown"]:
+                raise RuntimeError("Controlled automation budget is unknown")
+            phase = state.a01_phases.get(f"{scope.owner}:{scope.mode}:{scope.run}")
+            if phase is None:
+                raise RuntimeError("Controlled automation budget/phase proof is missing")
+            model.automation_phase = phase
     model._state = state
     return model
 
@@ -273,8 +320,8 @@ def build_app(settings, *, sandbox_config=None):
         raise ValueError("The controlled target requires a dedicated test database and data directory")
     if not settings.evaluation_instance_id or not settings.evaluation_platform_commit:
         raise ValueError("The controlled target requires explicit attestation settings")
-    from app.ask_worker import AskWorker
     from app.main import create_app
+    from evaluation_automations import ControlledAskWorker
 
     app = create_app(settings, evaluation_sandbox_connection=sandbox_config)
     original = app.router.lifespan_context
@@ -285,6 +332,8 @@ def build_app(settings, *, sandbox_config=None):
             state = ProfileState(settings.data_dir / "evaluation-provider-state.json")
             factory = lambda configuration: model_factory(configuration, state)
             application.state.evaluation_profiles = state
+            application.state.evaluation_case_limits = {"schema_version": 1, "enforcement": "controlled-case-reserve-v1",
+                "scope": "evaluation-owner-and-case", "profiles": {"AET-A01": dict(A01_CASE_LIMIT)}}
             application.state.evaluation_execution_limits = {
                 "schema_version": 1, "enforcement": "controlled-model-factory-v1", "scope": "resource-run-root",
                 "profiles": {case: {"mode": "ask" if "-A" in case else "work" if "-W" in case else "workflow",
@@ -294,9 +343,10 @@ def build_app(settings, *, sandbox_config=None):
 
             restore_embeddings = install_embeddings(application, state)
             stop = asyncio.Event()
-            ask = AskWorker(application.state.db, application.state.models, settings, model_factory=factory)
+            ask = ControlledAskWorker(application.state.db, application.state.models, settings, model_factory=factory, profile_state=state)
             tasks = [asyncio.create_task(ask.serve(stop))]
             sandboxes = None
+            work_consumer = None
             try:
                 if sandbox_config is not None:
                     from app.capabilities import CapabilityService
@@ -319,7 +369,12 @@ def build_app(settings, *, sandbox_config=None):
                                             application.state.mcp, model_registry=application.state.models),
                                         internal_api_url=settings.internal_api_url)
                     application.state.evaluation_work_engine = engine
-                    tasks.append(asyncio.create_task(engine.events.serve(stop)))
+                    from evaluation_work_consumer import ConsumerController
+
+                    work_consumer = ConsumerController(engine, state, sandboxes,
+                                                       settings.data_dir / "evaluation-work-consumers.json")
+                    application.state.evaluation_work_consumer = work_consumer
+                    work_consumer.start()
                 yield
             finally:
                 stop.set()
@@ -327,6 +382,8 @@ def build_app(settings, *, sandbox_config=None):
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
+                if work_consumer is not None:
+                    await work_consumer.close()
                 if sandboxes is not None:
                     await sandboxes.close()
                 restore_embeddings()
@@ -335,6 +392,12 @@ def build_app(settings, *, sandbox_config=None):
     from evaluation_observers import attach_observers
 
     attach_observers(app)
+    from evaluation_automations import attach_automations
+
+    attach_automations(app)
+    from evaluation_work_consumer import attach_consumers
+
+    attach_consumers(app)
 
     from app.agent_evaluation_environment import environment
     from app.errors import fail
