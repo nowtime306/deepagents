@@ -27,4 +27,12 @@
 - 实现提交：[8deb11b5e42ebf3c1ac9e9935464b8564488aa6a](https://github.com/nowtime306/deepagents/commit/8deb11b5e42ebf3c1ac9e9935464b8564488aa6a)。包含081、官方BrowserSkill适配、录制→参数→私有Skill→任务单次授权→整路径审批，及UX01/02显示修复。
 - 集成提交：[148b90922e8fdc5d5f650124c39d72adc6e5632d](https://github.com/nowtime306/deepagents/commit/148b90922e8fdc5d5f650124c39d72adc6e5632d)，合并上述工作流开发快照；保留实测上游协议与研究记录。集成后需另验，不以两个分支各自通过冒称组合通过。
 - 独立验收：BrowserSkill后端58项、真实无页面运维6项通过；前端构建和独立静态审查通过。见该分支`docs/browser-skill-qa.md`及代码审查报告。真实外部模型继续跳过。
-- 本分支仅开发快照，未打正式验收标签、未应用生产081、未部署。推送及集成后结果在后续记录追加。
+- 本分支仅开发快照，未打正式验收标签、未应用生产081、未部署。
+
+## 最终开发集成及验证补充
+
+- 测试隔离修复：[f41550ca9a531403122b8f968ad2d9b003377890](https://github.com/nowtime306/deepagents/commit/f41550ca9a531403122b8f968ad2d9b003377890)，仅清理测试显式登记的运行，未改生产队列规则。复审后组合134通过、2跳过，后续真实Coding补测2通过。
+- 组合报告及安装验证：[671c67266e4fe337ca1073157da50c7a8c027af8](https://github.com/nowtime306/deepagents/commit/671c67266e4fe337ca1073157da50c7a8c027af8)。`onwer_agent_browser_skill`已推送至该提交并保留追溯。
+- Windows发布工具：[4b818f326aaa3ba8cd001418d4d1a00b036d5bf4](https://github.com/nowtime306/deepagents/commit/4b818f326aaa3ba8cd001418d4d1a00b036d5bf4)，混合CRLF/LF场景，双摘要保持原始验收字节与归档一致性；独立审查及31项通过。
+- 合并至用户指定主开发分支：[49b23fb35b5472a8bbf83b9fec314622a5ad9e7b](https://github.com/nowtime306/deepagents/commit/49b23fb35b5472a8bbf83b9fec314622a5ad9e7b)，`onwer_agent`现包含两组实现。相对已验组合671c的业务Git内容差异仅为上述发布脚本及其单元测试，已单独验收；其它应用、前端、后端、迁移内容相同。
+- 应用页面仍受浏览器保存权限拒绝，未正式部署或新打验收标签；原基线标签不覆盖。开发提交及报告可审阅，实际部署后另追加BUILD_ID与当前数据备份记录。

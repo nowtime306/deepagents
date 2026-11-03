@@ -28,6 +28,10 @@ WVR两模块、BSK七模块、兼容九模块、Release两单元模块，在单�
 
 前端TypeScript/生产构建由根角色另行执行；页面许可仍明确拒绝，UI验收与上线状态pending。本报告仅批准当前集成源码的非界面回归层，不是正式发布批准。
 
+## 主开发分支留档
+
+源码后合并至 `onwer_agent` 的49b23fb35b5472a8bbf83b9fec314622a5ad9e7b。根以Git逐路径比较确认，相对已验功能分支671c67266，应用/后端/前端/迁移均无额外代码差异；仅发布工具及其单元测试有后续Windows修复，另有31项独立通过记录。没有把文档合并或换行检出变化冒充又一次134项运行，页面门禁继续保留。
+
 ## 真实Coding环境补测
 
 根角色独立审查私有run_real_nodes.py后代执行，测试角色读取原始日志、结果JSON并核对最终47项业务/测试摘要。仅执行原有test_durable_node_debug_approval_resume_and_publish_boundary的code与approval两个参数，不修改用例或业务源码，RUN_LOCAL_SANDBOX=1，**2 passed in65.98秒**，退出码0。它们验证真实Coding环境中的单节点执行、审批中断与freshEngine恢复，不是协议替身或浏览器页面测试；邻接模型节点被NoCalls断言保护，没有外部模型调用。
