@@ -24,9 +24,9 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 CASES = {f"AET-{mode}{number:02}" for mode, size in (("A", 5), ("W", 8), ("F", 7))
          for number in range(1, size + 1)}
-LIMITS = MappingProxyType({case: (0 if case in {"AET-F02", "AET-F04"} else 4 if case == "AET-A01" else 1 if case == "AET-A02" else 6,
+LIMITS = MappingProxyType({case: (0 if case in {"AET-F02", "AET-F04", "AET-F06"} else 4 if case == "AET-A01" else 1 if case == "AET-A02" else 6,
                                  16000 if case == "AET-W06" else 60 if case == "AET-A01"
-                                 else 0 if case in {"AET-F02", "AET-F04"} else 15 if case == "AET-A02" else 90) for case in CASES})
+                                 else 0 if case in {"AET-F02", "AET-F04", "AET-F06"} else 15 if case == "AET-A02" else 90) for case in CASES})
 COUNTER_COMMAND = ("python3 -c \"from pathlib import Path; p=Path('counter.txt'); "
                    "p.write_text(str(int(p.read_text())+1))\"")
 A01_CASE_LIMIT = {"max_model_calls": 8, "max_tokens": 120, "max_roots": 2}

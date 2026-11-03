@@ -47,7 +47,7 @@ async def workflow_effects(request, identifier):
     with state.lock:
         binding = state.models.get(row["model_id"])
         if (not binding or binding["owner_id"] != str(proof["owner_id"])
-                or binding["case_id"] not in {"AET-F02", "AET-F04"} or binding["role"] != "lead"):
+                or binding["case_id"] not in {"AET-F02", "AET-F04", "AET-F06"} or binding["role"] != "lead"):
             fail(403, "EVALUATION_WORKFLOW_NOT_REGISTERED", "仅允许固定只读评测工作流")
         roots = [value for key, value in state.roots.items() if key[0] == str(proof["owner_id"])]
         provider = {"observed": True, "complete": not state.storage_failed and not any(

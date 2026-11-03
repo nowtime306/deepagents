@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from langchain_core.messages import HumanMessage
 
 
-@pytest.mark.parametrize("case_id", ["AET-F02", "AET-F04"])
+@pytest.mark.parametrize("case_id", ["AET-F02", "AET-F04", "AET-F06"])
 def test_readonly_cases_have_hard_zero_provider_caps_across_roots_and_reconstruction(tmp_path, case_id):
     path = tmp_path / "provider.json"
     state, owner = ProfileState(path), uuid4()
@@ -72,8 +72,9 @@ def observer_app(monkeypatch, *, binding_case="AET-F04", other_owner=False, miss
     return get, state, owner, calls
 
 
-def test_formal_target_only_observer_reports_complete_registered_zero_not_missing_root_default(monkeypatch):
-    get, state, owner, calls = observer_app(monkeypatch)
+@pytest.mark.parametrize("case_id", ["AET-F04", "AET-F06"])
+def test_formal_target_only_observer_reports_complete_registered_zero_not_missing_root_default(monkeypatch, case_id):
+    get, state, owner, calls = observer_app(monkeypatch, binding_case=case_id)
     # A foreign owner's provider calls must not enter the authenticated owner's counters.
     state.roots[(str(uuid4()), "workflow", str(uuid4()))] = {"case_id": "AET-F04", "calls": 9, "tokens": 100,
                                                           "pending": 0, "unknown": False}
