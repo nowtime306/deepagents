@@ -74,3 +74,4 @@
 - 修订类型修复提交 `90dbe95f1d52959d0a077d3a0e03241f814f687b` 已正常推送。全新 A01/W03/W04 各一次实际任务 PASS，经非作者只读事实、用量、审计及精确回收核验后，累计7/20不同案例限定工程验收；W03 Docker 历史事件缺口如实保留，不能称完整事件覆盖。三套新环境回收，旧4627诊断库按原状态保留。见 [阶段验收](../agent-evaluation-acceptance.md) 及 [QA](../agent-evaluation-qa.md)。W02保护工程探针仍不计正式业务通过；没有新发布标签、迁移或生产部署。
 - 三例验收记录提交 `81ea3c59eefb7c2a9e4c6b4a3f31adf4e5521511` 已正常推送。后续 Java 签名保护 JV04 先独审关闭、独立48项工程测试，再实际单Coding八组源码及非作者只读原件核验通过，见 [Java专项审查](../agent-evaluation-java-review.md)。该范围尚非W02正式Work或新案例验收；其共享接线继续开发。
 - Java 签名保护提交 `475e8f20839782775928dae8e9b422370513e325` 已正常推送。F06固定并行评测下一增量完成独审修复、客户端353/profile71/真实PG预算契约1的分组QA，见 [并行评测审查](../agent-evaluation-parallel-review.md)。接下来固定候选后另建实际样本，不把工程测试计入已验收7/20；没有部署或正式标签。
+- F06实现候选 `8a15c8d78f022e191f53fbd6e96a1e9bb065d4dc` 已正常推送。随后单案例/一次重复正式执行PASS，经另一角色核原始四根、三分支、60事件/零用量、逐CLI审计及精确回收后，累计8/20不同案例限定验收。见 [阶段验收](../agent-evaluation-acceptance.md) 与 [并行专项](../agent-evaluation-parallel-review.md)；W01原FAIL及旧4627保留现场不回填，无生产迁移/部署/新标签。
