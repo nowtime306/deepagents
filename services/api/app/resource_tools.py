@@ -7,6 +7,7 @@ from fastapi.encoders import jsonable_encoder
 
 from app.errors import fail
 from app.resource_runtime import current_scope, freeze_resource
+from app.tool_protocol_bridge import canonical_schema
 
 
 def digest(value) -> str:
@@ -21,7 +22,7 @@ def connection_identity(server: dict) -> str:
 
 def operation_identity(server: dict, tool: dict) -> str:
     return digest({"connection": connection_identity(server), "name": tool["name"],
-                   "schema": tool["schema"], "read_only": tool["read_only"]})
+                   "schema": canonical_schema(tool["schema"]), "read_only": tool["read_only"]})
 
 
 async def frozen_server(server: dict, vault) -> dict:

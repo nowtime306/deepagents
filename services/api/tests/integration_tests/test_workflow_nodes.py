@@ -1,7 +1,10 @@
 """Visual definitions execute retrieval, model and condition nodes with source evidence."""
 
+import json
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
+from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool, ToolAnnotations
 from test_api import DATABASE, ORIGIN, TestModel, add_user, run_async
 from test_api import client as client
 
@@ -139,14 +142,29 @@ def test_agent_and_read_only_mcp_nodes_respect_current_bindings(client):
         connection.put("/api/v1/capabilities/bindings", json={"mcp_ids": [str(server_id)]}, headers=ORIGIN).status_code
         == 200
     )
-    called = []
+    called, targets = [], []
+    behavior = {"revoke_during_discovery": False}
+    owner = connection.get("/api/v1/auth/me").json()["id"]
 
-    async def invoke(server, name, arguments, *, expected_pin=None):
-        assert expected_pin
-        called.append(arguments)
-        return "tool-value:" + arguments["query"]
+    class Session:
+        async def list_tools(self):
+            if behavior["revoke_during_discovery"]:
+                await app.state.db.execute(
+                    "UPDATE capability_bindings SET mcp_ids=%s WHERE owner_id=%s", (Jsonb([]), owner))
+            return ListToolsResult(tools=[Tool(name="lookup", input_schema=metadata["schema"],
+                annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False))])
 
-    app.state.mcp.invoke = invoke
+        async def call_tool(self, name, arguments):
+            assert name == "lookup"
+            called.append(arguments)
+            return CallToolResult(content=[TextContent(type="text", text="tool-value:" + arguments["query"])])
+
+    @asynccontextmanager
+    async def session(server):
+        targets.append(server["url"])
+        yield Session()
+
+    app.state.mcp.session = session
     agent = connection.post(
         "/api/v1/agents",
         json={"name": "节点助手-" + str(uuid4()), "model_id": "test", "instructions": "只读节点助手"},
@@ -184,10 +202,31 @@ def test_agent_and_read_only_mcp_nodes_respect_current_bindings(client):
             "UPDATE mcp_servers SET url=%s WHERE id=%s",
             ("https://example.org/changed", server_id),
         )
-        assert connection.post(prefix + "/versions/1/runs", json={"text": "stale"}, headers=ORIGIN).status_code == 409
-        assert len(called) == 1
-        assert connection.put("/api/v1/capabilities/bindings", json={"mcp_ids": []}, headers=ORIGIN).status_code == 200
+        latest = connection.post(prefix + "/versions/1/runs", json={"text": "current-target"}, headers=ORIGIN)
+        assert latest.status_code == 200, latest.text
+        assert called == [{"query": "requested-value"}, {"query": "current-target"}]
+        assert targets == ["https://example.org/mcp", "https://example.org/changed"]
+        snapshots = connection.portal.call(app.state.db.fetch,
+            "SELECT run_id,execution_config,used_at FROM run_resource_snapshots "
+            "WHERE resource_kind='mcp' AND resource_id=%s AND run_id=ANY(%s::uuid[])",
+            (str(server_id), [tested.json()["id"], latest.json()["id"]]))
+        resolved = {str(row["run_id"]): app.state.models.vault.decrypt(row["execution_config"]).get_secret_value()
+                    for row in snapshots}
+        assert len(snapshots) == 2 and all(row["used_at"] for row in snapshots)
+        # Decode only in the test: each published workflow run resolved its own current target.
+        assert json.loads(resolved[tested.json()["id"]])["url"] == "https://example.org/mcp"
+        assert json.loads(resolved[latest.json()["id"]])["url"] == "https://example.org/changed"
+        behavior["revoke_during_discovery"] = True
+        blocked_run = str(uuid4())
+        blocked = connection.post(prefix + "/versions/1/runs",
+            json={"text": "revoked-in-flight", "run_id": blocked_run}, headers=ORIGIN)
+        assert blocked.status_code == 502, blocked.text
+        events = connection.get(f"{prefix}/runs/{blocked_run}/events").json()["items"]
+        assert any(item["event"] == "node.failed" and item["node_id"] == "tool"
+                   and item["data"]["error_code"] == "MCP_BINDING_REVOKED" for item in events)
+        assert len(called) == 2
         assert connection.post(prefix + "/test-runs", json={"text": "revoked"}, headers=ORIGIN).status_code == 403
+        assert len(called) == 2 and len(targets) == 3
     finally:
         connection.delete(prefix, headers=ORIGIN)
         connection.portal.call(app.state.db.execute, "DELETE FROM mcp_servers WHERE id=%s", (server_id,))

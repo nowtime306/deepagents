@@ -64,6 +64,7 @@ DECLARE
  current_data jsonb; field text; delta jsonb := '{}'; classes jsonb := '[]';
  prior_revision integer; next_revision integer; actor text; owner uuid; identifier text;
  fields text[]; item text; model_revision integer; model_label text;
+ prior_tool_permissions jsonb; next_tool_permissions jsonb; prior_tool_schemas jsonb; next_tool_schemas jsonb;
 BEGIN
  current_data := CASE WHEN TG_OP='DELETE' THEN before_data ELSE after_data END;
  fields := string_to_array(TG_ARGV[1],',');
@@ -91,7 +92,21 @@ BEGIN
          WHEN coalesce(after_data->>field,'')='' THEN '已清除'
          WHEN coalesce(before_data->>field,'')='' THEN '已设置' ELSE '已更换' END));
      END IF;
+     IF field='tools' THEN
+       SELECT jsonb_agg(jsonb_build_object('name',tool->'name','enabled',tool->'enabled',
+                'read_only',tool->'read_only') ORDER BY tool->>'name'),
+              jsonb_agg(jsonb_build_object('name',tool->'name','schema',tool->'schema') ORDER BY tool->>'name')
+        INTO prior_tool_permissions,prior_tool_schemas
+        FROM jsonb_array_elements(coalesce(before_data->'tools','[]'::jsonb)) tool;
+       SELECT jsonb_agg(jsonb_build_object('name',tool->'name','enabled',tool->'enabled',
+                'read_only',tool->'read_only') ORDER BY tool->>'name'),
+              jsonb_agg(jsonb_build_object('name',tool->'name','schema',tool->'schema') ORDER BY tool->>'name')
+        INTO next_tool_permissions,next_tool_schemas
+        FROM jsonb_array_elements(coalesce(after_data->'tools','[]'::jsonb)) tool;
+     END IF;
      item := CASE
+       WHEN field='tools' AND prior_tool_permissions IS DISTINCT FROM next_tool_permissions THEN '启停/权限变化'
+       WHEN field='tools' AND prior_tool_schemas IS DISTINCT FROM next_tool_schemas THEN '兼容性变化'
        WHEN field IN ('enabled','allow_private','oauth_required') THEN '启停/权限变化'
        WHEN field IN ('base_url','url','command_json','slug','ref','subdirectory','endpoint_ciphertext') THEN '审批目标变化'
        WHEN field IN ('kind','protocol','supports_images','supports_tools','transport','target_key','source_key','dimensions','evidence_digest') THEN '兼容性变化'

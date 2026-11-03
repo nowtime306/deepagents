@@ -31,3 +31,16 @@
 全部数据库验证使用单独随机 `_test` 库、假账号和协议替身。真实外部模型/第三方通知继续暂缓，实际执行环境只使用明确创建的测试资源并核对回收。生产数据、密钥、历史发布与用户操作均保留，不自动恢复旧备份。
 
 上一轮浏览器工具仍明确以保存权限/管理策略拒绝3131/3100。本轮不以其它浏览器、CDP、命令或代理绕过读取页面。体验与界面验收分别标注静态路径检查和实际操作，待工具真正允许后才执行真实页面验收；构建不能替代此门槛。SSE范围不扩大，语音/图片理解独立导航继续隐藏。
+
+
+## MCP JSON Schema 兼容比较的有限规范化
+
+RDC-10 的工具接口检查与具体操作审批摘要共用 `tool_protocol_bridge.canonical_schema`。HTTP 读取同一纯函数，stdio 桥接脚本直接包含该实现，避免两条路径各自删字段。原始工具 Schema 仍保留在运行配置中；这里只规范化兼容比较和 operation_identity 的输入，不替换提供方 Schema，不填默认值，也不新增工具权限。
+
+官方 [Annotations](https://json-schema.org/understanding-json-schema/reference/annotations) 将 title、description、examples 用于描述；[Comments](https://json-schema.org/understanding-json-schema/reference/comments) 说明 $comment 不承担校验行为；[Object / Properties](https://json-schema.org/understanding-json-schema/reference/object#properties) 明确 properties 的键是实际字段名，其值才是子 Schema。因此只在已知 Schema 位置移除有效的 title/description/$comment/examples，并将空 properties={} 与省略 properties 视为等价。properties 下名为 description/title/examples 的真实字段不删除。
+
+递归位置限定为 properties、patternProperties、$defs、definitions、dependentSchemas/dependencies 的子 Schema 映射，allOf/anyOf/oneOf/prefixItems 和旧版 items 数组，以及已知的单子 Schema 关键字。default、enum、const 和未知关键字的值均原样保留，不把其中的数据对象当 Schema 递归处理。required、类型、枚举、常量、附加字段策略和其他约束不删除、不排序重写。default 虽在规范中属于注释，但可能影响调用端补值，因此本期继续作为行为差异；readOnly/writeOnly/deprecated/format 等也保留。
+
+这不是通用引用解析器。只有目标存在、名称为简单 ASCII 标识的根 #/$defs/name 或 #/definitions/name 引用可以参与规范化；引用文本保持原值。外部引用、未知路径、指向注释/examples 的路径、URI/JSON Pointer 转义、动态或递归引用、改变引用基址的 id/$id/anchor 等情况整份保留原文。格式错误的注释也不通过删字段修复。复杂引用场景不承诺注释修改自动兼容，继续保守核对；改显示名称或密钥仍不参与操作身份。
+
+作者验证覆盖空 properties 的真实 MCPService.invoke 正例、真实字段/约束变化拒绝、HTTP 首次及调用前声明比较、具体操作摘要，以及通过受控 stdin/stdout JSON-RPC 替身调用实际 stdio execute 的接受/拒绝路径。替身不启动宿主命令、真实沙箱或供应商，不能替代外部协议验收。独立复审和 QA 在下一次冻结后执行。

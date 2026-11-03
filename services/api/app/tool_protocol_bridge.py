@@ -3,11 +3,79 @@
 import ctypes
 import json
 import os
+import re
 import select
 import signal
 import subprocess
 import sys
 import time
+
+_SCHEMA_ANNOTATIONS = {"title", "description", "$comment", "examples"}
+_SCHEMA_MAPS = {"properties", "patternProperties", "$defs", "definitions", "dependentSchemas", "dependencies"}
+_SCHEMA_ARRAYS = {"allOf", "anyOf", "oneOf", "prefixItems"}
+_SCHEMA_SINGLE = {"additionalProperties", "unevaluatedProperties", "propertyNames", "contains", "not",
+                  "if", "then", "else", "additionalItems", "unevaluatedItems", "contentSchema", "items"}
+
+
+def _schema_nodes(schema):
+    if not isinstance(schema, dict):
+        return
+    yield schema
+    for key, value in schema.items():
+        if key in _SCHEMA_MAPS and isinstance(value, dict):
+            children = value.values()
+        elif (key in _SCHEMA_ARRAYS or key == "items") and isinstance(value, list):
+            children = value
+        elif key in _SCHEMA_SINGLE:
+            children = [value]
+        else:
+            continue
+        for child in children:
+            yield from _schema_nodes(child)
+
+
+def _normalize_schema(schema):
+    if not isinstance(schema, dict):
+        return schema
+    result = {}
+    for key, value in schema.items():
+        if key in _SCHEMA_ANNOTATIONS or key == "properties" and value == {}:
+            continue
+        if key in _SCHEMA_MAPS and isinstance(value, dict):
+            value = {name: _normalize_schema(child) for name, child in value.items()}
+        elif (key in _SCHEMA_ARRAYS or key == "items") and isinstance(value, list):
+            value = [_normalize_schema(child) for child in value]
+        elif key in _SCHEMA_SINGLE:
+            value = _normalize_schema(value)
+        result[key] = value
+    return result
+
+
+def canonical_schema(schema: object) -> object:
+    """Normalize known decoration; preserve unproven references and all constraints."""
+    nodes = list(_schema_nodes(schema))
+    if any(set(node) & {"$dynamicRef", "$dynamicAnchor", "$recursiveRef", "$recursiveAnchor"} for node in nodes):
+        return schema
+    if any(any(key in node and not isinstance(node[key], str) for key in ("title", "description", "$comment"))
+           or "examples" in node and not isinstance(node["examples"], list) for node in nodes):
+        return schema
+    references = [node["$ref"] for node in nodes if "$ref" in node]
+    if references and any(set(node) & {"$id", "id", "$anchor"} for node in nodes):
+        return schema
+    for reference in references:
+        parts = reference.split("/") if isinstance(reference, str) else []
+        if (len(parts) != 3 or parts[0] != "#" or parts[1] not in {"$defs", "definitions"}
+                or not re.fullmatch(r"[A-Za-z0-9_.-]+", parts[2])
+                or not isinstance(schema.get(parts[1]), dict) or parts[2] not in schema[parts[1]]
+                or not isinstance(schema[parts[1]][parts[2]], (dict, bool))):
+            return schema
+    return _normalize_schema(schema)
+
+
+def canonical_schema_key(schema: object) -> str:
+    """Compare canonical JSON types without Python's bool/number equality coercion."""
+    return json.dumps(canonical_schema(schema), sort_keys=True, ensure_ascii=False,
+                      separators=(",", ":"), allow_nan=False)
 
 
 def execute(body):
@@ -120,7 +188,7 @@ def execute(body):
         annotations = (tool or {}).get("annotations") or {}
         readonly = bool(annotations.get("readOnlyHint") and not annotations.get("destructiveHint"))
         if (not tool or not isinstance(body.get("expected_schema"), dict)
-                or tool.get("inputSchema") != body["expected_schema"]
+                or canonical_schema_key(tool.get("inputSchema")) != canonical_schema_key(body["expected_schema"])
                 or readonly != body.get("expected_read_only")):
             raise RuntimeError("PROTOCOL_TOOL_INTERFACE_CHANGED")
         return request(3, "tools/call", {"name": body["tool_name"], "arguments": body["arguments"]})

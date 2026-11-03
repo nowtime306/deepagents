@@ -60,3 +60,37 @@ Ask 工具创建的 workflow_runs.snapshot 保存 `parent_ask_run`，实际执�
 - UI 的共享父运行提示与 can_recover/can_view_global_history 守卫已作静态复核。没有浏览器执行证据。
 
 最新证据：`services/api/.local/team-workspace/rdc/runtime/owner_agent_rdc_runtime_b8b3b050_test/result.log`，对应 5 项独立复现/复核检查通过；同次命令还包含作者自行编写的 ModelRegistry 原子读取回归 1 项，合计输出 6 passed。该作者测试不作为本报告的独立审查证据，原子读取修复仍须由原审查者另行复审。数据库已删除。
+
+## 第二轮：历史列表/详情契约最小改动复审
+
+冻结文件：`services/api/app/resource_configuration_api.py`，SHA256 `417fec7e6173c8a6bac831b2686904192a039778ec7b8e164a56eb0d27128587`。本轮没有修改产品实现。
+
+原 833 问题（列表返回 related_runs、详情缺失）在普通数据量下已修复。独立复现还验证，同一管理员可见全局模型历史时，related_runs 仅返回自己的运行：1 条本人证据加 2 条其他账号证据时，列表和详情均只返回本人 1 条。另两项既有 HTTP 鉴权/历史契约回归通过。
+
+### [P2，待修复] 全局关联行数截断使列表和详情仍返回不同证据
+
+位置：新 `attach_runs` 中 `ORDER BY a.id DESC,s.phase DESC LIMIT 500`，随后才对每个历史项执行 `[:10]`。
+
+同一资源的较新修改记录关联超过 500 个本人运行时，全局 LIMIT 会在查询较旧修改记录的关联行之前耗尽。列表包含这条旧历史，但 related_runs=[]；详情只查询该历史 ID，因此可以返回同一条已存在的旧运行。仅抽取公共 helper 没有修复这个随列表上下文改变结果的契约问题。
+
+真实隔离 PostgreSQL 复现：模型 revision 1 保存 1 条本人的已解析运行证据；更新至 revision 2 后保存 501 条本人的已解析运行证据。HTTP 列表中的 revision 1 记录返回 0 条 related_runs，详情返回 1 条，其余字段一致。没有真实模型请求，测试运行以“配置解析后、供应商请求前失败”标记，不虚构已调用状态。
+
+建议：按 audit_id 分组取每项最多 10 条后再合并，使用稳定排序；不能先对所有历史项统一截断，再在 Python 中分别切片。提高全局上限只能推迟同一问题。
+
+本轮结果 3 通过、1 失败；日志 `services/api/.local/team-workspace/rdc/runtime/owner_agent_rdc_runtime_a72ac4ed_test/result.log`。该失败为上面已确认的 P2，不是测试环境故障。数据库已删除，无生产、浏览器或真实供应商操作。
+
+### 第二轮复审结论：P2 已修复并独立关闭
+
+主任务提交新的冻结文件 SHA256 `02b8cb597a8acc012189452dc5b27a46e098154db5df135df2bd5278c3277469`，已独立核对吻合。attach_runs 改为按每个 audit 进行 owner 限定的 LATERAL 查询，按 resolved_at/snapshot_id 稳定排序各取最多 10 条，取消全局 500 条截断和 Python 后置切片。
+
+重放相同的 501 条新修订关联边界后，旧历史项在列表和详情均返回 1 条证据；普通列表/详情完全一致、本人关联不混入其他账号、既有私有历史/权限 HTTP 回归均通过。本轮 4 passed（6.54 秒），日志 `services/api/.local/team-workspace/rdc/runtime/owner_agent_rdc_runtime_f7d9a144_test/result.log`，独立数据库已删除。本报告当前没有未解决的已确认发现。
+
+## 第三轮：MCP 工具历史分类最小补丁独立复审
+
+冻结清单为 `services/api/.local/team-workspace/rdc/history-classification/author-evidence.json`，清单 SHA256 `e0cdfb0a8a5eef376d6a741ea3db26345f5a35292d20aefde352fac59809531c`。三项文件 SHA 全部独立吻合；082 实现 SHA256 `11276d85d10b6fd04202b648fa44c5529389a62913e1887cbc5647d95904f5c7`。
+
+独立阅读确认：比较只作用于 tools 历史分类，不改变执行、审批、真实接口校验或权限决策。工具列表按稳定工具名排序后比较权限投影和原始 schema 投影；顶层 description/title 和发现顺序变化归普通维护，name/enabled/read_only 变化优先归启停/权限，真实参数名和 schema 原始约束变化归兼容性待核对。后者是保守历史提示，不表示执行必定不兼容；没有在 SQL 中复制工具 Schema/ref 解释器。
+
+独立真实隔离 PostgreSQL 探针验证 8 项：纯顺序、顶层展示文字、enabled、read_only、工具名、实际名为 description/title 的参数名变更、minLength 约束变更，以及事务主动异常后配置修订/历史一起回滚。验证了准确 1→2 修订、服务端操作者及 tools 内容只有摘要、私密标记和 schema 明文不出现在变化内容。8 passed（6.83 秒），日志 `services/api/.local/team-workspace/rdc/runtime/owner_agent_rdc_runtime_a649c66d_test/result.log`，数据库已删除。
+
+本轮未发现新的已确认缺陷，分类补丁复审关闭。没有修改产品，也没有访问浏览器、真实 MCP 服务或供应商；本结论不是完整 QA、部署或真实 dump 恢复验收。

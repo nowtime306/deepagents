@@ -153,7 +153,8 @@ def test_ask_worker_queue_reselects_route_at_actual_consumer_start(acceptance, m
     monkeypatch.setattr(app.state.runtime, "start", lambda *args: inline_calls.append(args))
     conversation = connection.post("/api/v1/conversations", headers=ORIGIN, json={}).json()["id"]
     queued = connection.post(f"/api/v1/conversations/{conversation}/runs", headers=ORIGIN,
-                             json={"model_id": primary, "model_routing": True, "message": "持久Ask队列"})
+                             json={"model_id": primary, "model_routing": True, "native_search": False,
+                                   "message": "持久Ask队列"})
     assert queued.status_code == 202, queued.text
     run = queued.json()["run_id"]
     pending = connection.portal.call(app.state.db.fetch, "SELECT status,model_id FROM task_runs WHERE id=%s", (run,))[0]

@@ -44,6 +44,21 @@ async def require_owner(database, user: dict, kind: str, identifier: str) -> Non
             fail(404, "NOT_FOUND", "资源不存在或无权查看")
 
 
+async def attach_runs(database, owner, items):
+    """Use one safe projection for history list and detail responses."""
+    related = await database.fetch(
+        "SELECT a.id,s.mode,s.run_id,s.phase,s.revision FROM audit_events a CROSS JOIN LATERAL "
+        "(SELECT mode,run_id,phase,revision,resolved_at,snapshot_id FROM run_resource_snapshots "
+        "WHERE owner_id=%s AND resource_kind=a.resource_type AND resource_id=a.resource_id "
+        "AND revision=a.after_revision::text ORDER BY resolved_at DESC,snapshot_id DESC LIMIT 10) s "
+        "WHERE a.id=ANY(%s) ORDER BY a.id DESC,s.resolved_at DESC,s.snapshot_id DESC",
+        (owner, [item["id"] for item in items]),
+    ) if items else []
+    for item in items:
+        item["related_runs"] = [{key: row[key] for key in ("mode", "run_id", "phase", "revision")}
+                                for row in related if row["id"] == item["id"]]
+
+
 @router.get("/resource-configurations/{kind}/{identifier}/changes")
 async def changes(kind: str, identifier: str, request: Request, limit: int = Query(default=100, ge=1, le=100)) -> dict:
     user = await identity(request)
@@ -51,15 +66,7 @@ async def changes(kind: str, identifier: str, request: Request, limit: int = Que
     database = request.app.state.db
     await require_owner(database, user, kind, identifier)
     items = await list_history(database, user, kind, identifier, limit=limit)
-    related = await database.fetch(
-        "SELECT DISTINCT a.id,s.mode,s.run_id,s.phase,s.revision FROM audit_events a "
-        "JOIN run_resource_snapshots s ON s.resource_kind=a.resource_type AND s.resource_id=a.resource_id "
-        "AND s.revision=a.after_revision::text WHERE a.id=ANY(%s) AND s.owner_id=%s "
-        "ORDER BY a.id DESC,s.phase DESC LIMIT 500", ([item["id"] for item in items], user["id"]),
-    ) if items else []
-    for item in items:
-        item["related_runs"] = [{key: row[key] for key in ("mode", "run_id", "phase", "revision")}
-                                for row in related if row["id"] == item["id"]][:10]
+    await attach_runs(database, user["id"], items)
     return {"items": items}
 
 
@@ -68,4 +75,5 @@ async def detail(audit_id: int, request: Request) -> dict:
     user = await identity(request)
     row = await history_detail(request.app.state.db, user, audit_id)
     authorize(user, row["resource_type"])
+    await attach_runs(request.app.state.db, user["id"], [row])
     return row

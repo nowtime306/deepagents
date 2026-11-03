@@ -178,7 +178,7 @@ def test_real_legacy_sse_discovery_and_call(client):
     counter = app.state.settings.data_dir / ("sse-" + uuid4().hex)
     flags = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
     process = subprocess.Popen(
-        [sys._base_executable, "-c", script, str(port), str(counter), str(Path(mcp.__file__).parent.parent)],
+        [sys.executable, "-I", "-c", script, str(port), str(counter), str(Path(mcp.__file__).parent.parent)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         **flags,

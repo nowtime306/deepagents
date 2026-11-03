@@ -16,6 +16,7 @@ from mcp.client.streamable_http import streamable_http_client
 
 from app.errors import fail
 from app.operation_journal import OperationJournal
+from app.tool_protocol_bridge import canonical_schema_key
 
 
 async def validate_target(url: str, allow_private: bool) -> None:
@@ -126,7 +127,7 @@ class MCPService:
             fail(403, "MCP_DISABLED", "MCP 服务已停用或删除")
         live = rows[0]
         from app.resource_runtime import current_scope
-        from app.resource_tools import connection_identity, digest, frozen_server, used
+        from app.resource_tools import connection_identity, frozen_server, operation_identity, used
 
         server = await frozen_server(live, self.vault)
         if bool(live.get("oauth_required")) != bool(server.get("oauth_required")):
@@ -139,11 +140,10 @@ class MCPService:
             fail(403, "MCP_TOOL_DENIED", "此工具已停用或移除")
         if not allowed or (not allowed["read_only"] and before_write is None):
             fail(403, "MCP_TOOL_DENIED", "此工具未启用或需要自主任务审批")
-        if live_tool["read_only"] != allowed["read_only"] or live_tool["schema"] != allowed["schema"]:
+        if (live_tool["read_only"] != allowed["read_only"]
+                or canonical_schema_key(live_tool["schema"]) != canonical_schema_key(allowed["schema"])):
             fail(409, "MCP_TOOL_INTERFACE_CHANGED", "此工具参数结构或读写性质已变化，请核对接口与本次审批")
-        if expected_tool and digest({key: expected_tool[key] for key in ("name", "schema", "read_only")}) != digest(
-            {key: allowed[key] for key in ("name", "schema", "read_only")}
-        ):
+        if expected_tool and operation_identity(server, expected_tool) != operation_identity(server, allowed):
             fail(409, "MCP_TOOL_INTERFACE_CHANGED", "工具实例与本次固定接口不符，原审批不能执行其他接口")
         if (resolved_server and (not current_scope() or not allowed["read_only"])
                 and connection_identity(resolved_server) != connection_identity(server)):
@@ -157,7 +157,7 @@ class MCPService:
             if (
                 not tool
                 or readonly != allowed["read_only"]
-                or tool.input_schema != allowed["schema"]
+                or canonical_schema_key(tool.input_schema) != canonical_schema_key(allowed["schema"])
             ):
                 fail(403, "MCP_TOOL_DENIED", "工具权限声明或参数结构已变化，需重新发现并审核")
             if not allowed["read_only"]:
@@ -176,7 +176,8 @@ class MCPService:
                                 if item["name"] == name and item["enabled"]), None)
             if not declaration:
                 fail(403, "MCP_TOOL_DENIED", "此工具在调用前已停用或移除")
-            if declaration["schema"] != allowed["schema"] or declaration["read_only"] != allowed["read_only"]:
+            if (canonical_schema_key(declaration["schema"]) != canonical_schema_key(allowed["schema"])
+                    or declaration["read_only"] != allowed["read_only"]):
                 fail(409, "MCP_TOOL_INTERFACE_CHANGED", "工具参数结构或读写性质在调用前已变化")
             if (bool(fresh[0].get("oauth_required")) != bool(server.get("oauth_required"))
                     or server.get("allow_private") and not fresh[0].get("allow_private")):

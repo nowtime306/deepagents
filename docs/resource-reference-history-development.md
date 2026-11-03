@@ -11,6 +11,8 @@
 5. 仓库：恢复/调用按 slug、ref、subdirectory 比较身份，显示名、密钥、通用修订变化可继续。固定 source 中的提交/tree/文件证据不被覆盖。已批准动作仍绑定任务分支、源码提交、成果摘要和具体操作。
 6. 通知：新消息冻结目标 identity 与消息字段；投递同目标使用当前密钥。名称/密钥更新不误伤；目标变化进入 PAUSED，不改投。UNKNOWN 不自动重发。显式 retry 创建新的投递并通过 retry_of 指向原记录；改目标重发需 confirm_target，历史缺少冻结消息/目标不自动补造。
 
+MCP 工具历史按工具名排序比较：`name/enabled/read_only` 变化归“启停/权限变化”，否则 `name/schema` 原始结构变化归“兼容性变化”；仅工具 description/title 等顶层展示信息变化归“普通维护”。工具数组顺序不影响上述分类，历史正文仍仅保存摘要。schema 原始差异采用保守分类，表示需要核对，不等于执行不兼容或强制重新发布；实际执行与审批仍使用工具模块的约束规范化检查，SQL 不复制其 schema/ref 解析。
+
 ## 接口
 
 - `list_history(database,user,resource_type,resource_id,limit=100)`；`history_detail(database,user,id)`。
@@ -30,3 +32,5 @@
 随机 `owner_agent_rdc_history_<随机>_test` 从空库执行全部迁移，结束强制回收限定名称库；只复用本地数据库连接凭据，不连接生产业务库。使用独立临时 CredentialVault，不使用生产密钥；不访问页面。
 
 新增 `test_rdc_configuration_history.py` 六项：事务回滚/CAS、默认双侧同 ID、删除保留/跨 owner、URL/密钥脱敏、路由维护/接收方/撤销、活动运行冻结原目标、通知冻结正文/current key/目标暂停/UNKNOWN 不重发、仓库身份范围检查。首轮因 Windows 默认 Proactor loop 不支持 psycopg 出现 fixture 错误，调整测试 runner 为 Selector policy 后六项通过。现有路由/通知回归测试同步更新到新语义，真实外部供应商效果不在本次替身验证范围。
+
+2026-11-03 MCP 历史分类补丁作者自验：新增 description/title、read_only、required/schema 三类数据库用例，各自同时重排工具数组，验证分类、真实修订、受控操作者与工具内容摘要脱敏。随机 `owner_agent_rdc_history_class_a9c68a4912_test` 空库执行全部迁移，文件合计 9 passed（0.63s），测试库已回收，Ruff 通过。首轮 runner 在 pytest 前导入迁移依赖触发 anyio assertion-rewrite 警告，未进入测试；改为独立迁移子进程后通过，首轮证据保留。日志位于 `services/api/.local/team-workspace/rdc/history-classification/`。这是作者自验，等待独立审查，不替换冻结 SHA 833a4ac 的既有独立 QA 结果。

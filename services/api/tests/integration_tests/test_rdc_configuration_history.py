@@ -1,6 +1,7 @@
 """RDC configuration history, recipient and delivery boundaries; no external services."""
 import hashlib
 import os
+from copy import deepcopy
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -77,6 +78,44 @@ async def test_history_atomic_cas_default_delete_and_secret_redaction(resources)
     await db.execute("INSERT INTO repositories(id,owner_id,name,slug,ref) VALUES(%s,%s,'private','org/repo','main')",
                      (private, user["id"]))
     assert await list_history(db, {"id": uuid4(), "is_admin": True}, "repository", str(private)) == []
+
+
+@pytest.mark.parametrize("change,category", [
+    ("description", "普通维护"),
+    ("read_only", "启停/权限变化"),
+    ("schema", "兼容性变化"),
+])
+async def test_mcp_tool_history_classifies_metadata_permissions_and_schema(resources, change, category):
+    db, _, user = resources
+    identifier = uuid4()
+    tools = [
+        {"name": "z_lookup", "description": "OLD_TOOL_DESCRIPTION", "title": "original", "enabled": True,
+         "read_only": True, "schema": {"type": "object", "properties": {"query": {"type": "string"}}}},
+        {"name": "a_lookup", "description": "unchanged", "enabled": True, "read_only": True,
+         "schema": {"type": "object"}},
+    ]
+    await db.execute("INSERT INTO mcp_servers(id,name,url,tools) VALUES(%s,%s,'https://fixture.invalid/mcp',%s)",
+                     (identifier, uuid4().hex, Jsonb(tools)))
+    changed = deepcopy(tools)
+    if change == "description":
+        changed[0].update(description="NEW_TOOL_DESCRIPTION", title="new display title")
+    elif change == "read_only":
+        changed[0]["read_only"] = False
+    else:
+        changed[0]["schema"]["required"] = ["query"]
+    # Discovery order is not a permission or schema change.
+    changed.reverse()
+    await db.execute("UPDATE mcp_servers SET tools=%s WHERE id=%s", (Jsonb(changed), identifier))
+    items = await list_history(db, user, "mcp", str(identifier))
+    updated, created = items
+    assert updated["operation"] == "UPDATE" and updated["categories"] == [category]
+    assert updated["before_revision"] == 1 and updated["after_revision"] == 2
+    assert updated["actor_id"] == user["id"] and updated["change_id"] == created["change_id"]
+    assert set(updated["changes"]) == {"tools"}
+    delta = updated["changes"]["tools"]
+    assert delta["before"]["redacted"] and delta["after"]["redacted"]
+    assert delta["before"]["digest"] != delta["after"]["digest"]
+    assert all(marker not in str(updated) for marker in ("OLD_TOOL_DESCRIPTION", "NEW_TOOL_DESCRIPTION", "query"))
 
 
 def test_route_consent_changes_only_with_recipients_or_data_scope():
