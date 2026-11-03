@@ -89,3 +89,9 @@ CDP setup. Initial wrong-worker failures remain in private QA evidence directori
 never published a ready connection.
 No production/UI page, login, personal browser state, or model was used. This operational
 check is separate from the backend's toy recording/replay and pending human UI acceptance.
+
+The root additionally executed the official installer in this worktree's ignored
+`.local/browser-skill-dependencies` directory. Both pinned ZIP SHA256 checks passed,
+the upstream license was saved, and the installed CLI reported `bsk 0.4.1`. Evidence:
+`.local/browser-skill-install-validation.log`. Installation did not start a connection
+or browser and did not modify existing user environment files or credentials.
