@@ -134,3 +134,15 @@ native六计数完整且与原报告一致：calls2/reported2/unknown0/pending0/
 私有HOME/temp/DeepEval与无供应商凭据环境，父进程socket/DNS拒绝且实际事件0。fresh子进程临时loopback工程场景的audit hash匹配，execution记录本机DNS/connect及拒绝外部测试地址解析，import/metric/export各0event。仅本地真实DeepEval、CLI文件I/O与MockTransport/纯重算，未调用真实业务API、PG、Work、manager、UI或付费模型，不是OS级出站验收。
 
 证据 `services/evaluation/.local/shared-workflow-independent-qa/run_6e09861bc5e5/` 的manifest.json、summary.json、pytest.log、results.xml及probe-results.json；公共审查 `services/evaluation/.local/w01-independent-review/public-wiring-review.md`。W01/F02/F04实际任务仍未执行/未授权；本次不增加已验收A20业务数量，候选533417e那次A02限定事实验收与旧first历史REVIEW均保持。
+
+## 2026-11-04：90dbe95三例真实任务独立复算
+
+本节为新结果，不覆盖上述历史阶段。固定候选 `90dbe95f1d52959d0a077d3a0e03241f814f687b`、新批次 `.local/agent-evaluations/suite-a01-w03-w04-90dbe95-613af8e2/`：A01/W03/W04 各一个不同案例、一次重复，实际任务均 PASS。A01 两根4次调用40入/20出；W03/W04 各2次调用20入/10出。无 pending/unknown。A01 草稿、显式启用、唯一真实调度及已用配置；W03 拒绝无写；W04 同 checkpoint 重建后单次执行与原确认重复，均从封存原事实重新计算。三个根模式分别为真实 AskWorker、真实 WorkWorker/Coding；未调用真实外部模型或裁判。
+
+独立验证目录 `services/evaluation/.local/a01-approval-real-independent-review/actual_850895fc8066/`：`review.md` SHA256 `e81874463b29ac2c941aea1ef9322b3753b66f72fe0f68e7239f3e0875965db1`；`verification.json` `9e29d3ae53ffa6d6cc567a4875cb04ab6ee6ff0483ba048698c3eecf96071ea3`；`metadata-verification.json` `2502c484db60aec18926811f40fe5f9daa79a29b4a6bf691b88b453514ccf72c`；独立完成收据 `4c84a9929dd43ad535226c3e64be6ebcfb199163ab20e83a25c9689f695b50cd`。
+
+独立只读核验三例原始快照、12个逐CLI审计、当前精确 audit index/ready、三种报告与父汇总；315项来源冻结和同候选目标清单一致。另核对同一次运行的精确数据库/0会话、同环境 graceful/PID退出、两个 Work 各两个 session/sandbox/镜像4 CPU/5 GiB/namespace、管理器连续库存和最终 sandbox/sidecar0。W04 还留存12次真实 RUNNING 租约采样，只保留令牌摘要。
+
+W03 的 Docker 历史事件缺失保留为 `MISSING_NOT_CLAIMED`；连续管理器0→1→0→1→0、两个实际 inspect、原生 RELEASED:2 和最终清单0满足本次限定归属与回收要求，不宣称完整 create/start/destroy 历史。W04 两容器历史完整。执行者曾有过强的私有历史事件断言，审查者曾修正私有脚本的路径前提；两者都未改业务原件、弱化既有需求或重跑任务，原失败输出保留。
+
+本次仅新增三个限定案例验收，累计7/20；旧4627隔离库是停止且保留的诊断现场，非 CLEAN，旧失败报告不改。没有实际页面、OS/worker出网、完整原生轨迹或生产部署结论。原始执行完成收据 SHA256 `580acfc43662d78259cab43ab3647fc1b9a58fabb1538d5bed458bd5e237b49a`；源码闭合收据 `e69ebd997018e1b18a644c3f118d6fb8ef2030f6d7ee972f96af1395f8700049`。

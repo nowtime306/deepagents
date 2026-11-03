@@ -65,3 +65,15 @@ CLEAN、合作stop和只读reader/精确删库均成功；库不存在/会话0�
 A01 与 W03/W04 共享链路随后完成独审修复及独立客户端 310 项/API profile 69 项工程 QA，范围见 `agent-evaluation-a01-shared-review.md`。Java 验证器另有独立 47 项工程测试和真实 Coding 的五组固定源码保护探针通过，收据、两次私有脚本失败和范围见 `agent-evaluation-java-review.md`；不是 W02 正式任务，尚未接入 READY。上述进展仍不增加已实际验收的 4/20；A01/W03/W04 等固定候选后的真实执行和独立复算。
 
 候选4627实际A01在正确创建暂停草稿后被客户端引用修订类型错误阻断，未启用/调度，其他两例未派发；已停止实例、保留隔离诊断库，不称CLEAN。修复后独立客户端328项及真实PG/API投影契约1场景通过（旧310/69不混加），准备新候选/全新环境复验。原失败报告和旧ready拒绝不改写，详见共享审查记录。
+
+## 候选90dbe95：自动任务与审批恢复限定验收
+
+修复提交 `90dbe95f1d52959d0a077d3a0e03241f814f687b` 已正常推送。新批次 `.local/agent-evaluations/suite-a01-w03-w04-90dbe95-613af8e2/` 在三个全新隔离目标实际运行 A01/W03/W04 各一次，均 PASS；执行者封存后由另一角色只读重算同次证据，不重新运行任务或导出报告。
+
+- A01：正式 Ask 工具创建 disabled 草稿，启用前发生次数为0；显式启用后真实 scheduler/AskWorker 只执行一次。源/发生两根均实际调用维护后的模型，快照引用 TEXT `"2"` 与原生整数修订2分别严格核对。共4次 KNOWN 调用，输入40/输出20 Token，与跨根 provider 账本一致；没有 Work 或沙箱。
+- W03：正式 Work 上传修订2，审批前计数0/操作0；拒绝后同根恢复，最终计数0/操作0。W04：WAITING 时合作重建消费者，保留原根与同一 checkpoint，批准后计数1/成功执行回执1；显式重复原已确认决定没有新增执行。两例各2次 KNOWN 调用、输入20/输出10 Token，各两个真实 Coding 会话均 RELEASED。消费者对象重建不称为 OS 进程重启。
+- 12次 CLI 审计 SEALED/COMPLETE，最后收据覆盖当前完整审计索引；原始事实、JSON/JUnit/Markdown、父子报告及门禁一致。无指标用例仅 execution/export，不伪造 DeepEval 评分阶段。315项源码集合及候选 HEAD 在冻结期间匹配。
+- 三例正式 CLEAN、合作 stop、只读 reader/精确自有库回收均成功；三个新库不存在/会话0、三个 PID 已退出、同环境 graceful、每个 namespace 及四个 sandbox/egress 侧车清单为0。旧4627诊断库仍按原状态保留，不能称它已 CLEAN 或用新收据回填旧失败。
+- **留证限制**：W03 Docker 历史事件在批次末读取时缺失，未补造 create/start/destroy；其实际管理器连续0→1→0→1→0、两个精确容器 inspect/镜像4 CPU/5 GiB/namespace/session/root、原生 RELEASED:2 与末次库存0相互吻合，支持限定的资源归属与回收验收。W04两个容器的历史事件完整。此限制保持可见，不靠重跑覆盖。
+
+完成收据 SHA256 `580acfc43662d78259cab43ab3647fc1b9a58fabb1538d5bed458bd5e237b49a`；独立完成收据 `4c84a9929dd43ad535226c3e64be6ebcfb199163ab20e83a25c9689f695b50cd`，详见 QA 记录。现在有 **7/20 个不同案例完成限定工程验收，各1次独立重复**：其中6个任务 PASS，W01原任务 FAIL 被正确检出。真实外部模型效果、完整轨迹、OS/worker出网、页面和生产部署仍未验收。其余13个案例及B/C/D继续按原门禁开发；W02保护工程验证不计作正式任务通过。
