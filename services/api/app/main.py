@@ -15,13 +15,16 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from opensandbox.config import ConnectionConfig
 from psycopg import AsyncConnection
+from psycopg.conninfo import conninfo_to_dict
 from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 
 from app.account_api import router as account_router
 from app.account_api import throttle
 from app.agent_api import router as agent_router
+from app.agent_evaluation_environment import router as agent_evaluation_environment_router
 from app.agent_versions import router as agent_version_router
 from app.agent_versions import selected as selected_agent_version
 from app.ask_automations import router as ask_automations_router
@@ -117,9 +120,17 @@ async def owned_run(request: Request, run_id: UUID) -> dict:
     return rows[0]
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, *, evaluation_sandbox_connection: ConnectionConfig | None = None
+) -> FastAPI:
     """Create the local application with explicitly managed PostgreSQL connections."""
     settings = settings or Settings.from_env()
+    if evaluation_sandbox_connection and (
+        not settings.evaluation_instance_id
+        or not conninfo_to_dict(settings.database_url).get("dbname", "").endswith("_test")
+        or not settings.data_dir.name.endswith("_test")
+    ):
+        raise ValueError("Dedicated evaluation sandbox configuration requires an isolated test instance")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -174,18 +185,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "updated_at=now() WHERE status='STARTED'"
                 )
                 browser = None
+                connection = evaluation_sandbox_connection if settings.evaluation_instance_id else None
                 key_path = Path(__file__).parents[2] / "sandbox/.local/manager.key"
-                if settings.work_enabled and key_path.is_file():
-                    from opensandbox.config import ConnectionConfig
-
+                if not settings.evaluation_instance_id and settings.work_enabled and key_path.is_file():
+                    connection = ConnectionConfig(
+                        domain="127.0.0.1:18180", api_key=key_path.read_text().strip(), use_server_proxy=True
+                    )
+                if settings.work_enabled and connection:
                     from app.work_artifacts import WorkArtifacts
 
                     browser = BrowserWorkbench(
                         database,
                         vault,
-                        ConnectionConfig(
-                            domain="127.0.0.1:18180", api_key=key_path.read_text().strip(), use_server_proxy=True
-                        ),
+                        connection,
                         WorkArtifacts(database, settings.data_dir / "work-artifacts"),
                     )
                 app.state.browser_workbench = browser
@@ -436,6 +448,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(knowledge_documents_router)
     app.include_router(knowledge_ocr_router)
     app.include_router(evaluation_router)
+    app.include_router(agent_evaluation_environment_router)
     app.include_router(message_feedback_router)
     app.include_router(search_router)
     app.include_router(workflow_router)

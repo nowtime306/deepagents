@@ -5,6 +5,9 @@ from uuid import UUID
 from app.errors import fail
 
 PERMISSIONS = {
+    "evaluation.read": "查看本人Agent评测",
+    "evaluation.manage": "管理本人Agent评测集",
+    "evaluation.run": "执行本人Agent评测",
     "monitoring.read": "查看系统匿名监测汇总",
     "monitoring.manage": "配置系统监测告警",
     "repositories.read": "查看本人仓库与差异",
@@ -50,6 +53,8 @@ def route_permission(path: str, method: str) -> str | None:
     reading = method in {"GET", "HEAD", "OPTIONS"}
     if path.startswith(("auth/", "admin/", "internal/")):
         return None
+    if path.startswith("agent-evaluations"):
+        return "evaluation.read" if reading else "evaluation.manage"
     if path.startswith("operations/monitoring"):
         return None if "/alerts/" in path else "monitoring.read"
     if path.startswith("tool-oauth/"):

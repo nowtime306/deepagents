@@ -67,6 +67,8 @@ class Settings:
     evaluation_enabled: bool = False
     media_worker_enabled: bool = False
     internal_api_url: str = DEFAULT_INTERNAL_API_URL
+    evaluation_instance_id: str | None = None
+    evaluation_platform_commit: str | None = None
 
     def __post_init__(self) -> None:
         self.internal_api_url = validate_internal_api_url(self.internal_api_url)
@@ -86,6 +88,8 @@ class Settings:
             evaluation_enabled=os.getenv("EVALUATION_ENABLED", "true").lower() == "true",
             media_worker_enabled=os.getenv("MEDIA_WORKER_ENABLED", "true").lower() == "true",
             cookie_secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+            evaluation_instance_id=os.getenv("EVALUATION_INSTANCE_ID"),
+            evaluation_platform_commit=os.getenv("EVALUATION_PLATFORM_COMMIT"),
         )
 
 
