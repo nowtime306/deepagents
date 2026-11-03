@@ -45,3 +45,17 @@ CLEAN、合作stop和只读reader/精确删库均成功；库不存在/会话0�
 下一批 W01/F02/F04 已完成开发及独立代码审查，清理与 namespace 三项审查问题修复后关闭。完整客户端独立工程测试 204 通过、0 跳过（包含此前 124、Work 39 及新增修复，不累加）；profile 独立 29 项通过，另以真实 PostgreSQL/HTTP 验证 1 个观察投影场景、230 条断言。投影场景没有运行 Agent 业务，测试库均按精确身份回收。能力清单仅放行这三个新增固定处理器，实际任务数仍为 A02 的 1/20，等待固定候选后的真实三例。详见 `agent-evaluation-workflow-review.md`、`agent-evaluation-profile-review.md` 和 `agent-evaluation-qa.md`。
 
 不付费、不登录/上传Confident AI，真实外部模型效果仍未验证。Python socket约束不是OS级完全离线保证。生产业务、凭据和既有数据保留；实际页面访问的最近明确拒绝仍有效，界面验收未执行，不换通道获取被拒页面。没有新正式标签或本批生产发布。
+
+## 候选 f8ca28d：三例真实工程验收
+
+源码 `f8ca28d2e3ec4dff7952e8a2f4ce6805514c9bdd` 已正常推送。全新批次 `.local/agent-evaluations/suite-three-f8ca28d-8f61b2c9/` 运行 W01/F02/F04 各一次，每例独立库、账号、目录和 namespace。
+
+- W01 正式 Work worker/Deep Agents/Coding 执行后为 COMPLETED，但最新完整 snapshot 没有 `/report.txt`；独立事实正确判 FAIL，原 task/gate FAIL 保留。工程负控制验收通过不改写任务结果。原生调用 1 次，输入 10/输出 5 Token，provider 一致。
+- F02 正式已发布只读流程通过；初始化和实际执行的节点输入输出、转换、条件分支及版本摘要均可重算。F04 先取得非法类型输入的 422 与零副作用证据，再运行同一发布版合法对照；两例 PASS，原生六项用量计数均为已知 0。此处是正式 HTTP 同步流程，不称为队列或 LLM 节点验证。
+- 父门禁保持 FAIL、退出 1；三份父子报告与最后收据一致。12 次 CLI 审计均 SEALED/COMPLETE；这些无指标用例只有 execution/export 阶段，不伪造 DeepEval 评分。冻结的 305 项来源摘要一致。
+- Work 实际沙箱 `ed1cd1df-1567-432c-bfd8-ece2225fc576` 与本次 namespace/session/run 关联；镜像 ID `sha256:459420e199a24347bed6091ca0683cc570e7fd4c3737f086c3b43533c89c7ce9`、4 CPU/5 GiB。管理器观察 0→1→0、Docker 创建/启动/退出/销毁及封存的 RELEASED:1 相互吻合；未建立第二管理器。
+- 三例 CLEAN、合作 stop、只读 reader 和精确删库均退出 0。三个库不存在且会话 0、PID 已退出、同环境 graceful 收据及各 namespace 的管理器/Docker/侧车清单 0。未知状态没有强制清除。
+
+执行者封存后，另一角色实际只读核验同次事实/审计/生命周期及回收，没有重跑业务或重导出报告。完成收据 SHA256 `f048f511dab3397cafcd7181fe3958e1602b6c56eb26f25ec4e3ac2df7b44e13`；独立结果 `services/evaluation/.local/three-case-independent-review/run_6e004cba171e/verification/verification.json` SHA256 `65517a5c5c3977bc4c5c2e93c71595fe45ff57fed01f06d93ab4382586684ad4`。
+
+目前 A20 有 **4 个不同案例完成限定工程验收、各 1 次实际重复**：A02/F02/F04 的任务结果 PASS，W01 的预期负控制正确检出原任务 FAIL。不是 4 个任务全部成功，不含真实模型质量、界面、完整 SSE、OS/worker 出网或生产发布。其他 16 个案例与 B/C/D 继续按原门槛开发；旧 A02 缺证据记录保持原结论。
