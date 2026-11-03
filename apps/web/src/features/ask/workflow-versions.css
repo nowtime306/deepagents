@@ -1,0 +1,17 @@
+.workflow-version-panel { min-width: 0; }
+.workflow-version-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.workflow-version-panel > header button { font-size: 11px; text-decoration: underline; }
+.workflow-version-list { display: grid; gap: 8px; max-height: 31vh; overflow: auto; padding: 2px; }
+.workflow-version-list > button { display: grid; gap: 5px; text-align: left; border: 1px solid #e5e3df; padding: 12px; border-radius: 8px; background: #fff; }
+.workflow-version-list > button[aria-pressed=true] { border-color: #b83e2d; background: #fff8f5; }
+.workflow-version-list span { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.workflow-version-list b { font-size: 10px; color: #377a53; font-weight: 500; }
+.workflow-version-detail { margin-top: 20px; border-top: 1px solid #e5e3df; padding-top: 18px; }
+.workflow-version-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; max-height: 280px; overflow: auto; background: #f6f6f6; padding: 10px; }
+.workflow-version-detail details { margin: 14px 0; }
+.workflow-version-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.workflow-version-actions button { padding: 8px 10px; border: 1px solid #ddd9d4; border-radius: 7px; background: #fff; }
+.workflow-version-actions button:first-child { background: #b83e2d; color: #fff; border-color: #b83e2d; }
+.workflow-version-linked { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 8px 20px; background: #f3f6f2; font-size: 12px; }
+.workflow-version-linked button { text-decoration: underline; }
+.workflow-version-unsupported { padding: 30px; flex: 1; overflow: auto; }

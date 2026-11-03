@@ -2,7 +2,7 @@
 
 后续实现/真实专项的最新状态以 [后端接口与运维交接](browser-skill-backend-contract.md) 为准。本文保留初研方案背景；bundle路径和v3 redact行为已依据实际扩展录制更正，原“待验证”清单是初研时点，不能用于替代最新验收记录。
 
-状态：2026-11-03 技术调查与依赖准备完成；正式 API、UI、migration 尚未实现。工作流版本功能使用 migration 080，本功能暂预留 081，须由集成负责人确认后才能落库。所有现有账号、数据、配置和密钥保留。
+当前状态：实现位于独立开发分支 `onwer_agent_browser_skill`，后端及运维已通过独立非界面验收，界面代码已构建并静态审查，实际页面验收受浏览器保存权限阻挡，未部署。本篇其余内容保留2026-11-03初研背景；最新接口、生命周期与验收见该分支 `browser-skill-backend-contract.md`、`browser-skill-qa.md`。工作流迁移080与本功能081仍未应用到生产；所有现有账号、数据、配置和密钥保留。
 
 ## 最小交付及验收
 
@@ -93,4 +93,3 @@ Wire v3 envelope：`version:3, purpose?, started_at?, recorded_at, stopped_by, e
 ## 实际限制
 
 BrowserSkill 不是现成的“演示一次就可靠生成任意网站自动化”编译器；没有通用已验证的 trace replay 子命令。语义目标可能歧义、VOM截断、动态列表复用节点，scroll无距离、switch_tab无持久身份，canvas/原生对话框/受限制页/复杂跨域 iframe 也不能仅凭现有语义数据承诺稳定重放。MVP 对这些明确报 unsupported/review_required，不生成看似成功的 Skill。新增定位器、复杂条件/循环、多 tab、上传下载和后台网站调试不属于此次最小交付。
-

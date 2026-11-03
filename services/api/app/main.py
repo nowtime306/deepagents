@@ -422,6 +422,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(message_feedback_router)
     app.include_router(search_router)
     app.include_router(workflow_router)
+    from app.workflow_versions import router as workflow_version_router
+
+    app.include_router(workflow_version_router)
     app.include_router(workflow_tasks_router)
     app.include_router(speech_router)
     app.include_router(vision_router)
