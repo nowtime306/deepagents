@@ -4,6 +4,7 @@ import json
 import os
 import re
 import stat
+from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
@@ -62,7 +63,7 @@ class ExecutionLimits(BaseModel):
         return value
 
 
-def read_marker(data):
+def read_marker(data: Path) -> InstanceMarker:
     """Read a bounded regular file without accepting directory aliases or link ancestors."""
     path = data / "evaluation-instance.json"
     for part in (path, *path.parents):
