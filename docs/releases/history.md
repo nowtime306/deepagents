@@ -47,3 +47,9 @@
 - 验证：独立后端 401 passed/21 skipped、66 passed/2 skipped；单元 282 passed；根执行者真实 Coding 专项 6 passed，另一执行者真实补测 18 passed。原跳过基线保留，补测另列。组间有重叠，不合并成总数；补充分组、审查与边界见 [验收汇总](../resource-reference-acceptance.md)。
 - 实际新页面尚未验收，生产未应用 082～084、未发布 RDC。没有新正式标签。
 - 已发布 Web 恢复记录：开发误写默认 `.next` 后，从 `zhixing-v0.1.0` 的 `2818e6f647093a1e8ad1695139f9fdaf4ace8ab7` 在独立目录重建恢复，现 BUILD_ID `Z9Xjn2GY4sh3N_OwxqLbU`、进程64396；原基线二进制 ID `0VM-F40sjLHOkgIlT5ZSe` 不再作为当前构建声明。744个非缓存文件摘要及进程监听已核验，数据库/API未因此迁移或重启，见 [事件记录](../resource-reference-build-isolation.md)。
+
+## RDC 后续测试提交
+
+- 分支 `onwer_agent`；测试提交 `efd2db683`，新增三类配置投影的HTTP边界回归。无产品、迁移或依赖修改，根角色先复审，独立测试角色在随机库执行，9项新增及6项原接口回归通过。
+- 原备份工具另完成独立容器内真实导出/恢复、错密钥与文件篡改专项；使用私有测试定位脚本，未使用生产源或完整生产源码包。见 [后续验收](../resource-reference-followup-qa.md)。
+- 本次只是测试与验收记录提交，没有新发布标签或部署，不与历史通过数混加；用户未跟踪的 DeepEval 文档保持原状。

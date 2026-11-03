@@ -2,6 +2,8 @@
 
 适用范围：`082_resource_configuration_history.sql`、`083_run_resource_snapshots.sql`、`084_vector_compatibility.sql` 及配套 API/后台/Web。本文是操作方案和作者验证记录，不是生产发布记录或部署授权。生产数据库、主密钥、用户运行和真实服务均未在本专项中操作。
 
+后续验证补充：已使用独立一次性 PostgreSQL 容器、随机密钥与微型测试源码根，实际执行原工具的 Docker pg_dump/pg_restore；成功恢复及错误密钥、文件篡改负例通过。只覆盖该隔离实例和测试资料，不等于完整生产源码包/配置恢复或切换演练。证据、清理和首次测试脚本断言错误见 [后续验收记录](resource-reference-followup-qa.md)，原作者 fixture 克隆的范围说明保留。
+
 ## 发布入口与前提
 
 继续使用 `scripts/deploy-platform.ps1`，不新增第二套部署或生产恢复脚本。本次同时修改前后端和数据库，应走完整部署，不能只发布后端。生产页面访问的既有拒绝仍然有效；未完成独立审查、QA 和允许的界面验收前不执行发布。维护窗口与实际生产变更仍由主任务按授权安排。

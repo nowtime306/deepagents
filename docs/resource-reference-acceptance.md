@@ -2,6 +2,8 @@
 
 本记录对应 [需求 RDC-01～14](resource-reference-decoupling-requirements.md)，分支 `onwer_agent`。开发、独立审查和隔离后端测试已完成；实际新页面未验收，生产未应用 082～084，也未发布本批功能。不能将本文视为整系统无缺陷或上线批准。
 
+后续补验见 [后续验收记录](resource-reference-followup-qa.md)：三类当前投影 HTTP 专项 15 项通过，以及独立实例内真实 Docker 备份恢复与两个负例通过。下文原批次中的“三类 HTTP 未补齐”和“完整 Docker dump/restore 未执行”为当时范围限制；已由后续专项在其声明范围内补齐。实际页面、完整生产灾备切换及发布仍未完成；其他验收库的迁移不代表生产发布。
+
 ## 实现及源码边界
 
 开发提交 `833a4ac212b2103d05e3a73e352d27af74d52e07`；独立审查后的修复提交 `fcdc1dd1ef8022dfe80a4d20f4ebd972578b0a0b`。后续仅测试观察层和交付记录的提交另见 [版本记录](releases/history.md)。
