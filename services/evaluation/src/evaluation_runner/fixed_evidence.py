@@ -140,7 +140,7 @@ def verified(directory: Path, data: dict, attempt: dict, specimen) -> dict:
     for reference in references:
         snapshot = load(directory, reference, "a02-facts")
         if (type(snapshot.get("schema_version")) is not int or snapshot["schema_version"] != 1
-                or snapshot.get("kind") != "a02-facts" or snapshot.get("binding") != expected):
+                or snapshot.get("kind") != "a02-facts" or digest(snapshot.get("binding")) != digest(expected)):
             raise ValueError("Fact snapshot identity changed")
         validate_projection(snapshot)
     # Recompute from the last immutable observation; all earlier observations remain verified.

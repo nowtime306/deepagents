@@ -93,3 +93,44 @@ R02事实证据复审及R03-01当前audit-index/ready闭合复审后，根明确
 覆盖包括消息/输出/context/终态/nativeusage从已留存事实重算、缺失/篡改/跨scope/保存失败不能新导出PASS、完整事实先于cleanup、三报告hash/ready/current-index闭合、最后session/全身份/旧引用/错误或pending后继/reader锁等反例，以及此前预算、未知提交、事实优先、严格类型和Windows中文CLI回归。仍仅MockTransport正式API形状、真实本地CLI文件I/O/DeepEval与上述临时loopback测试；无真实target业务、PG、Coding沙箱、页面或付费。
 
 证据 `services/evaluation/.local/a02-complete-client-independent-qa/run_e1604e09040e/{manifest.json,summary.json,pytest.log,results.xml}`。summary包含逐文件实际数量及临时网络场景hash/phase摘要；初次摘要未匹配pytest缩短目录名，随后只读定位原audit补入summary，未重跑测试。root另行开发/审查suite消费checked-ready及相同bytes导出绑定，不在本客户端35文件范围。真实新A02仍须完整ops消费复审及新开始门禁；首次旧A02的NEEDS_REVIEW_R02历史结论不变。
+
+
+## 新候选533417e：此次A02受控工程事实验收通过
+
+候选 `533417e396e93282324d1381d904e52b4ff14eee` 的全新隔离suite仅AET-A02、1case/1repeat，经正式平台HTTP与持久Ask队列执行。**此次A02受控工程事实验收PASS**：非作者ops实际执行，独立QA随后只读核验同一执行的封存字节，没有重POST、再执行、调用report重新导出或追加审计。它证明一个A20任务，不是A20全部完成；不将两root计作两个任务，不与旧失败证据或124工程测试相加。
+
+31项只读核验全通过：`validate_ready`验证最新ready/index/三文件摘要；两次不同run `76677c29-0968-4277-b99a-7a7133d925f7`→`b9959326-3013-41da-a593-4c616e4652bc` 的保留正式终态均SUCCEEDED。直接根据固定case输入重新计算两个user text SHA，按run逐一匹配；最后declared_output为`{"project":"星桥","people":3}`，people保持整数，规范JSON摘要与封存输出一致。final-root服务context的两轮内容摘要、human_turns=2、项目与更新标记可独立重算，3项required事实与原记录均PASS。原4条消息完整且无工具；保存的实际本地DeepEval空工具约束score1/PASS及judge.generate=0记录与该证据一致，不代替真实模型语义质量。
+
+native六计数完整且与原报告一致：calls2/reported2/unknown0/pending0/input20/output10。另独立核归档provider账本，两root各1call/15tokens、pending0/unknownfalse。native usage是conversation aggregate，provider账本是受控root计数，两者用途分开，不声称保留了每root原生usage行。
+
+网络索引完整覆盖本次preflight/init/run/cleanup四个CLI，均SEALED/COMPLETE、引用顺序与journal/report/ready一致，最后ready绑定cleanup当前session。各CLI恰2个execution allowed事件（DNS/connect各1）；run包含execution/import/metric/export四phase，import/metric/export为0event，其他CLI的execution/export亦完整。全部引用hash匹配，无denied事件。此为Python evaluator的受控origin策略及审计，不含平台worker/native进程或OS级出站证明，也不是全SSE/完整Agent轨迹。
+
+父JSON/JUnit/中文MD与子JSON/JUnit/MD均1样本PASS，三报告摘要与report-ready相符，suite/candidate/catalog/case/owner/environment绑定一致，301个source_sha256与冻结文件MATCHED。核验前后17项原artifact摘要未变；没有修改事实、原报告或审计索引来获得通过。
+
+回收证据齐全后才给出本结论：ops completion receipt只读PG记录精确owned库 `owner_agent_evaluation_810fa813c667439093efb51314c44943_test` 不存在、pg_stat_activity0，CIM PID49504gone/进程数0；stopped同environment且graceful=true；正式CLEAN、stop、target reader/drop退出码均0。无ManagerKeyFile配置，本次Ask无沙箱创建；Docker只读exact opensandbox.io/id标签容器计数0，不是一次真实manager/sandbox释放验收。成本保持external_models NOT_EXECUTED、infrastructure NOT_PRICED、total/cost null/UNKNOWN；不把未知费用记0。
+
+原始证据目录 `.local/agent-evaluations/suite-a02-evidence-533417e-6e8e4b3c/`。fact快照SHA `ec8c4a0a685be09a8ccff55a11479190f83331e51bf3c59025c58cfa27322f7b`；completion receipt SHA `e6a1c00882de16214513893b68e089ea58abeb956a2b0f439770323d00cf9181`；ops verification receipt SHA `dc59be057ea1f28d449f2f4233409976febdc877966d57fa298800ca9ed58273`。本角色独立核验程序/日志/结果在 `services/evaluation/.local/a02-real-evidence-independent-review/review_7673976faeb4/`，verification.json SHA `581751078dac857c2861e3e7dbd7cd4449a1aa139d7fbff6b3104b7de78db692`。回收元数据是对ops收据交叉核验，本角色没有另查DB/manager。
+
+首次3f1f680旧A02依然保留其原code gate PASS与独立事实验收NEEDS_REVIEW_R02的历史结论，本次新证据不回填旧运行。真实外部模型/裁判、付费、语言能力效果、完整SSE、Work/沙箱、实际UI、生产部署、其余19任务及B/C/D均不在此次通过范围。
+
+
+## W01观察及留证层冻结工程QA（非实际W01）
+
+2026-11-04。W01留证层独审发现E01/P1“artifact BLOCKED仍允许cleanup”、E02/P2“binding true与1相等”；新freeze f8258b4b32b872ce04468e83bf33250a23b2f63b8a23298c8c789b49bb1ffab1叠加base7e2后两项均复审CLOSED。现在仅已证artifact_exists FAIL且其余事实全PASS可清理，outer binding以规范JSON digest保留严格JSON类型差异。
+
+根授权独立完整工程 **39passed/0failed/0skipped，0.46秒**（observation20、留证19）；另6个原边界探针通过：完整缺文件、清单未完整、文件意外存在、boolean repeat、float repeat及integer repeat对照。39包含前序20，6为复审探针，不累加为45/59或业务任务。4个冻结文件及6个直接依赖hash前后不变，私有无供应商凭据环境，socket/DNS拒绝且事件0。
+
+证据 `services/evaluation/.local/w01-evidence-independent-qa/run_550b3116c92c/`；私有审查 `services/evaluation/.local/w01-independent-review/retained-evidence-review.md`。只验MockTransport正式GET形状、保存/hash/身份/全部旧refs与纯事实重算/cleanup门禁；公共runner/reader接线尚未独审/READY，无真实Work、PG、manager或UI。本批不改变此前仅A02实际受控工程事实通过的覆盖，真实W01还须另获开始信号。
+
+
+## 公共/W01接线与Workflow修复后的完整客户端204工程QA
+
+2026-11-04。base freeze `7d427a2221221b5a6dff101ad681f6c965128925082ae4d9b8c8ed242590968b` 与fix `4da73561fc4a182afb2731c620c7a9b726e3e5b2e18115cde2772a1bb7392908` 的公共/W01独审问题已关闭：离线stored CLEAN调用同cleanup_ready；初始化namespace持久后绑定Platform，提交前最内层attest也比较，变化0POST。A02旧默认None兼容、严格binding、immutable snapshot和四phase要求保留，空metrics只需execution/export。
+
+根授权先跑9个最小独立复审探针（3处namespace漂移0POST；4类旧CLEAN不成立拒绝；合法负控制CLEAN及待核验标记对照），全部通过。之后独立完整客户端 **204passed/0failed/0skipped，10.52秒**，17文件：原core54、fixed profiles4、report identity8、retention34、network3、ready21、WF17、binding3、W01集成1、root观察20/留证19、cleanup修复20。204含root39，不再加39；旧184/124/66及9探针都是重叠历史或复审，不累加为任务覆盖。
+
+46个选定源码/测试/契约及依赖hash前后不变；root四Work helper保持原冻结字节。根已另复审WF cleanup的未决计数/provider/sandbox预约及offline同校helper修复，静态关闭；本204包括其新增回归，无需重复跑20。profile/ASGI29并非本次独立执行，实际SQL与目标业务仍待后续独立门禁。
+
+私有HOME/temp/DeepEval与无供应商凭据环境，父进程socket/DNS拒绝且实际事件0。fresh子进程临时loopback工程场景的audit hash匹配，execution记录本机DNS/connect及拒绝外部测试地址解析，import/metric/export各0event。仅本地真实DeepEval、CLI文件I/O与MockTransport/纯重算，未调用真实业务API、PG、Work、manager、UI或付费模型，不是OS级出站验收。
+
+证据 `services/evaluation/.local/shared-workflow-independent-qa/run_6e09861bc5e5/` 的manifest.json、summary.json、pytest.log、results.xml及probe-results.json；公共审查 `services/evaluation/.local/w01-independent-review/public-wiring-review.md`。W01/F02/F04实际任务仍未执行/未授权；本次不增加已验收A20业务数量，候选533417e那次A02限定事实验收与旧first历史REVIEW均保持。

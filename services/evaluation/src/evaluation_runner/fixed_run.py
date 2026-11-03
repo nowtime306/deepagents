@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import httpx
 
-from . import adapters, fixed_audit, fixed_evidence, network
+from . import adapters, fixed_audit, fixed_evidence, fixed_workflow_evidence, fixed_workflow_observation, network
 from .client import Platform
 from .contracts import Dataset, Result, Target
 from .fixed_fixtures import FixedFixtures
@@ -17,12 +17,23 @@ from .journal import Journal, atomic_json, digest
 from .metrics import score
 
 RULES_ID = "controlled-a20-v1"
-IMPLEMENTED = {"AET-A02"}
+IMPLEMENTED = {"AET-A02", "AET-W01", "AET-F02", "AET-F04"}
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "datasets/a20-fixed.json"
 
 
 def catalog():
     return Dataset.model_validate_json(CATALOG_PATH.read_text(encoding="utf-8"))
+
+
+def evidence_module(specimen):
+    if specimen.case_id == "AET-A02":
+        return fixed_evidence
+    if specimen.case_id in fixed_workflow_observation.CASES:
+        return fixed_workflow_evidence
+    if specimen.case_id == "AET-W01":
+        from . import fixed_work_evidence
+        return fixed_work_evidence
+    raise adapters.Blocked("No fixed evidence handler")
 
 
 def readiness(platform, specimen):
@@ -32,8 +43,10 @@ def readiness(platform, specimen):
     if specimen.case_id not in IMPLEMENTED:
         missing.append("Fixed init/observe/cleanup handler is still being implemented")
     user = platform.get("/api/v1/auth/me")
-    needed = {"evaluation.read", "evaluation.manage", "evaluation.run", "agents.manage"}
-    needed |= {"work.read", "work.manage", "work.execute"} if specimen.mode == "work" else {"chat.read", "chat.manage", "chat.run"}
+    needed = {"evaluation.read", "evaluation.manage", "evaluation.run"}
+    needed |= ({"work.read", "work.manage", "work.execute"} if specimen.mode == "work" else
+               {"workflows.read", "workflows.manage", "workflows.execute"} if specimen.mode == "workflow" else
+               {"chat.read", "chat.manage", "chat.run", "agents.manage"})
     if not user.get("is_admin"):
         missing.append("Dedicated target administrator required for controlled-model initialization")
     if not needed.issubset(set(proof.get("permissions", []))):
@@ -42,6 +55,12 @@ def readiness(platform, specimen):
         capabilities = platform.get("/api/v1/agent-evaluations/profiles/capabilities")
         if "root-model-context-v1" not in capabilities.get("observers", []):
             missing.append("Trusted root context observer is unavailable")
+        if specimen.case_id in fixed_workflow_observation.CASES:
+            if "readonly-workflow-effects-v1" not in capabilities.get("observers", []):
+                missing.append("Trusted readonly workflow effects observer is unavailable")
+            bound = proof.get("execution_limits", {}).get("profiles", {}).get(specimen.case_id, {})
+            if bound.get("max_model_calls") != 0 or bound.get("max_tokens") != 0:
+                missing.append("The fixed readonly profiles require enforced zero model calls/tokens")
         if specimen.mode == "work":
             work = platform.get("/api/v1/work-capabilities")
             bound = capabilities.get("sandbox_limits") or {}
@@ -65,6 +84,13 @@ def initialize(platform, journal, attempt, specimen):
     journal.save()
     if status["status"] != "READY":
         raise adapters.Blocked("Case readiness is blocked")
+    if specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES:
+        namespace = str(UUID(platform.attest()["sandbox_namespace"]))
+        if "sandbox_namespace" in attempt and attempt["sandbox_namespace"] != namespace:
+            raise ValueError("The attested sandbox namespace changed")
+        attempt["sandbox_namespace"] = namespace
+        journal.save()
+        platform.expected_sandbox_namespace = namespace
     fixtures = FixedFixtures(platform, journal, attempt)
     model = fixtures.model(specimen.case_id)
     if specimen.case_id == "AET-A02":
@@ -73,9 +99,15 @@ def initialize(platform, journal, attempt, specimen):
     elif specimen.case_id == "AET-W01":
         inputs = specimen.fixture_parameters["fixed_inputs"]
         attempt["fixture"] = {"model_id": model, **fixtures.work_task(inputs["goal"], {})}
+    elif specimen.case_id in fixed_workflow_observation.CASES:
+        inputs = specimen.fixture_parameters["fixed_inputs"]
+        attempt["fixture"] = {"model_id": model, **fixtures.readonly_workflow(
+            specimen.case_id, model, fixed_workflow_observation.definition(specimen.case_id), inputs.get("valid_contrast", specimen.input))}
     else:
         raise adapters.Blocked("No fixed initialization handler")
     journal.save()
+    if specimen.case_id in fixed_workflow_observation.CASES:
+        fixed_workflow_evidence.ensure_baseline(platform, journal, attempt, specimen)
 
 
 def execute(platform, journal, attempt, specimen, output):
@@ -83,19 +115,24 @@ def execute(platform, journal, attempt, specimen, output):
         raise adapters.Blocked("A confirmed fixed fixture initialization is required")
     inputs = specimen.fixture_parameters["fixed_inputs"]
     actual_case = specimen.model_copy(update={"fixture_parameters": {"prior_messages": inputs.get("messages", [])[:-1]}})
-    if not attempt.get("submission_complete"):
-        adapters.submit(platform, journal, attempt, actual_case, attempt["fixture"])
-    evidence = adapters.observe(platform, journal, attempt, actual_case,
-                                cancelled=lambda: (output / "cancel.request").exists())
-    facts = []
-    if specimen.case_id == "AET-A02":
-        snapshot = fixed_evidence.capture(platform, journal, attempt, specimen, evidence)
-        facts, evidence = fixed_evidence.evaluate(snapshot, specimen, attempt)
+    module = evidence_module(specimen)
+    if specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES:
+        platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
+        platform.attest()
+    if specimen.case_id in fixed_workflow_observation.CASES:
+        snapshot = fixed_workflow_evidence.execute(platform, journal, attempt, specimen,
+                                                  cancelled=lambda: (output / "cancel.request").exists())
     else:
-        from .facts import verify
-        facts = [verify(check, evidence, platform) for check in specimen.validators]
+        if not attempt.get("submission_complete"):
+            adapters.submit(platform, journal, attempt, actual_case, attempt["fixture"])
+        evidence = adapters.observe(platform, journal, attempt, actual_case,
+                                    cancelled=lambda: (output / "cancel.request").exists())
+        snapshot = module.capture(platform, journal, attempt, specimen, evidence)
+    facts, evidence = module.evaluate(snapshot, specimen, attempt)
     attempt["fact_results"] = [fact.model_dump() for fact in facts]
     attempt["platform_status"] = evidence["run"]["status"]
+    if "business_outcomes" in evidence:
+        attempt["business_outcomes"] = evidence["business_outcomes"]
     attempt["task_outcome"] = "FAIL" if any(row.status == "FAIL" for row in facts) else "NEEDS_REVIEW"
     journal.save()
     attempt["usage"] = adapters.known_usage(evidence, specimen)
@@ -121,13 +158,21 @@ def cleanup(platform, journal, attempt):
     if not root:
         return "CLEAN" if not attempt.get("created_resources") else "NEEDS_REVIEW"
     specimen = next(row for row in catalog().cases if row.case_id == attempt["case_id"])
-    fixed_evidence.verified(journal.directory, journal.data, attempt, specimen)
+    module = evidence_module(specimen)
+    if specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES:
+        platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
+        platform.attest()
+    module.verified(journal.directory, journal.data, attempt, specimen)
     pending = network.ACTIVE.data["session_id"] if network.ACTIVE else None
     fixed_audit.validate(journal.directory, journal.data, pending_session=pending)
     for reference in [*attempt.get("prior_run_refs", {}).values(), root]:
         if adapters.read_run(platform, reference).get("status") not in {"SUCCEEDED", "COMPLETED", "FAILED", "CANCELLED"}:
             return "NEEDS_REVIEW"
     if attempt.get("usage_completeness") != "KNOWN":
+        return "NEEDS_REVIEW"
+    if specimen.case_id == "AET-W01" and not module.cleanup_ready(journal.directory, journal.data, attempt, specimen):
+        return "NEEDS_REVIEW"
+    if specimen.case_id in fixed_workflow_observation.CASES and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
     if root["mode"] == "work":
         receipts = platform.get(root["path"] + "/operations")["items"]
@@ -194,23 +239,30 @@ def validate_offline_report(data, specimen, dataset, *, context_path=None, targe
     if not data["attempts"]:
         raise ValueError("No recorded fixed execution")
     for attempt in data["attempts"]:
-        if (attempt.get("case_id") != specimen.case_id or attempt.get("repeat_index") != context["repeat_index"]
+        if (attempt.get("case_id") != specimen.case_id or type(attempt.get("repeat_index")) is not int
+                or attempt.get("repeat_index") != context["repeat_index"]
                 or attempt.get("owner_id") != data["owner_id"] or attempt.get("environment_id") != data["environment_id"]
                 or digest(attempt.get("case_snapshot")) != expected["case_definition_digest"]):
             raise ValueError("Attempt identity or immutable snapshot differs")
         if attempt.get("started"):
             if directory is None:
                 raise ValueError("A retained evidence directory is required")
-            snapshot = fixed_evidence.verified(directory, data, attempt, specimen)
-            facts, evidence = fixed_evidence.evaluate(snapshot, specimen, attempt)
+            module = evidence_module(specimen)
+            snapshot = module.verified(directory, data, attempt, specimen)
+            facts, evidence = module.evaluate(snapshot, specimen, attempt)
             if ([row.model_dump() for row in facts] != attempt.get("fact_results")
-                    or snapshot["usage"] != attempt.get("usage")):
+                    or snapshot["usage"] != attempt.get("usage")
+                    or "business_outcomes" in evidence and evidence["business_outcomes"] != attempt.get("business_outcomes")):
                 raise ValueError("Stored verdict differs from independently recomputed facts")
             if attempt.get("task_outcome") == "PASS" and any(row.status != "PASS" for row in facts):
                 raise ValueError("A failing factual snapshot cannot produce PASS")
+            if (attempt.get("cleanup_status") == "CLEAN"
+                    and (specimen.case_id == "AET-W01" or specimen.case_id in fixed_workflow_observation.CASES)
+                    and not module.cleanup_ready(directory, data, attempt, specimen)):
+                raise ValueError("Stored CLEAN lacks settled retained cleanup evidence")
             metrics = [Result.model_validate(row) for row in attempt.get("metric_results", [])]
             if any(row.registered_id == "tool_correctness" and row.status == "PASS"
-                   and not evidence["tools_complete"] for row in metrics):
+                   and not evidence.get("tools_complete") for row in metrics):
                 raise ValueError("Saved tool score lacks complete retained no-tool evidence")
             if ([row.registered_id for row in metrics] != [check.registered_id for check in specimen.metrics]
                     or any(row.required != check.required for row, check in zip(metrics, specimen.metrics, strict=True))

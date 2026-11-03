@@ -75,6 +75,7 @@ def test_a02_formal_initialization_two_turn_observation_metric_and_retained_hist
     specimen = next(row for row in catalog().cases if row.case_id == "AET-A02")
     journal = Journal(tmp_path)
     attempt = {"attempt_id": str(uuid4()), "case_id": specimen.case_id, "fact_results": [], "metric_results": []}
+    attempt["case_snapshot"] = specimen.model_dump(mode="json")
     context = suite_context(None, specimen, catalog(), value)
     from evaluation_runner.journal import digest
     journal.data.update(suite_context=context, environment_id=value.environment_id, owner_id=value.owner_id,

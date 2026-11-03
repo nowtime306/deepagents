@@ -130,3 +130,35 @@ profile扩展PF1/PF2由本角色非作者独审发现并关闭：精确4冻结�
 最小suite-capabilities.json已生成，只登记A02及fixed_run d51f529...，保守sandbox上界2与A02无沙箱创建步骤分开记录；SHA3abdab11f794347dcd2efccba54d9077b084a141c35cf588f18bcd6d9ef4f8b4。等待root核对并提交所有已审source形成固定HEAD，再全局短暂停更源、生成新目标，才进行正式A02单例。原两个旧自有目标尚未回收，依root后续授权按身份/namespace/unknown用量/真实进程条件处理；未触及其他用户服务。
 
 旧预检目标回收补记：root核读父MD及29项独立工程测试后授权，已回收f7d21a9c、693ecbe1两个精确自有测试库。先核每库真实namespace、0业务任务/用量/沙箱会话、PENDING/UNKNOWN0及该namespace Docker清单为空；F7实际无PID/匹配serve进程且数据库连接0，用有CIM/SQL/原WinError日志摘要来源的startup_failed收据，明确graceful=false；693只发本目标合作停止请求，真实shutdown留下graceful=true。随后原cleanup两次退出0，无FORCE；后核两库不存在/会话0、scope进程及namespace容器空。数据目录、私有密钥文件和原失败日志保留，不回补旧A02业务事实。总收据`.local/team-workspace/agent-evaluation/old-target-cleanup-summary.json`引用各final-cleanup-receipt.json；未接管用户8100/3131、未改或重启原manager、未重发任务。
+
+## W01/F02/F04 执行前运维准备（2026-11-04，只读）
+
+此前 A02 新候选533417e的一次真实受控运行已由另一角色独立复算31项并核对回收收据，结论仅覆盖该一个案例一次执行。下一批 W01（Work/Coding）、F02/F04（Workflow）的实现和能力描述仍待冻结及审查；本节不表示它们已启动、已通过或已获无限批次额度。
+
+本轮只读核查原受管 `127.0.0.1:18180`：认证 GET `/v1/sandboxes` 返回200，分页总数0，Docker精确 `opensandbox.io/id` 标签包含停止对象的清单亦为0。监听PID49356的父PID24320、祖先启动器PID66656均匹配原 `services/sandbox/windows.toml`；server.pid记录启动器66656，不能把监听PID不同误判为旧文件过期。服务未重启、未改配置，也未启第二个管理器。PID和健康是此时快照，真正执行前须重新核对。
+
+原受管密钥仅使用显式路径 `services/sandbox/.local/manager.key`，子进程临时读取，不能复制值到用例、manifest、收据或新配置。管理器仍与用户共享Docker daemon；原loopback端口40000–40100、bridge网络、能力删除、no_new_privileges、pids_limit及egress配置均保持不变，不因测试另改权限或网络。现有Coding资源申请为4CPU/5Gi，不因资源不足放宽准入或假造成功。
+
+已存在镜像 `owner-agent/coding:dev` 的精确ID为 `sha256:459420e199a24347bed6091ca0683cc570e7fd4c3737f086c3b43533c89c7ce9`，Linux/amd64。Dockerfile SHA256 `6d61bb38616a60244a3660d0123bbd84b07b8eff076cf3cd00cb402771b3bb20`，固定基础镜像并安装 `openjdk-21-jdk-headless`；镜像构建历史也包含该安装步骤。本轮仅inspect/源码核查，未执行java/javac或创建容器，不能代替后续真实Coding命令/产物验收。执行前后再次核tag所指ID，实际登记容器的镜像ID也须匹配，不能仅记可变tag。
+
+现有suite串行派发、最多一个未回收目标；profile只启动一个Work消费者，Work队列和sandbox预约保留原租约/准入。BoundedSandboxes按目标持久限制最多2次Coding预约：已知本地未创建才退款，创建异常、UNKNOWN或重建状态不退款，browser早拒绝。父预算须按已审descriptor的上界预留，含保护verifier；未知目标占住容量停止派发。以上是现有源码核查，新三例仍须以冻结实现/describe/能力契约实际一致为准，不把2次额度说成2个并行Work或跨daemon全局限制。
+
+正式授权后的收据顺序：
+
+1. 每个案例/repeat创建全新DB/owner/data/Vault/namespace；记录冻结HEAD、完整source集合、题集/规则/case摘要、父预算与精确镜像ID。只有审核注册的三例可派发，不从dataset接受命令或Python路径。
+2. 在自有业务执行期间留存正式HTTP事实、两类根/嵌套运行引用及原生用量。Work另存本namespace/purpose关联的sessionID、sandboxID、实际镜像ID、创建/释放结果与命令/产物摘要；只核自己登记的对象，不以全局空列表替代归属核验。F02/F04的事实投影和预期故障控制以独审后的固定实现为准，实际FAIL/REVIEW不得改绿。
+3. CLEAN之前先核事实封存可独立重算。每CLI审计独立SEALED并保留完整index，run的import/metric/export包括0events；使用validate_ready核JSON/JUnit/MD三摘要、当前完整审计和作用域，父层再绑定实际target/case/repeat。Python审计不等于OS、平台worker或沙箱完整出网证明。
+4. 正式cleanup须确认已知运行终态、无PENDING/UNKNOWN用量或操作、登记sandbox session均RELEASED，再通过受管API按本namespace+purpose分页确认inventory为0。若出现未知或远端不明，保留DB/目录/沙箱证据，不重POST，不强删或prune。
+5. 合作stop并核同environment的真实stopped收据；独立reader再次核ready/事实/审计、state/manifest身份及CLEAN后，只DROP精确自有库。追加只读pg_database不存在、连接0、PIDgone及namespace清单0收据，保留所有报告、失败日志和原证据摘要，交非作者按同次执行交叉核验，不为补证重建旧库。
+
+私有准备快照：`.local/team-workspace/agent-evaluation/work-readiness-ff0682c978de4c768e71d3020836da4f/readiness.json`，SHA256 `122f61631a9d305690e6ed4741b0ccb4b58aa4c27581a4f99b590ac093d5f917`。不含密钥值，仅管理器路径/元数据和受查源码摘要；未创建新目标、业务任务或容器。
+
+### 三例候选修复的运维兼容性静态复核
+
+叠加清单`fixed-workflow-review-fix/manifest.json` SHA256 `4da73561fc4a182afb2731c620c7a9b726e3e5b2e18115cde2772a1bb7392908`的20项修改/未改依赖摘要均吻合。Platform新增可选expected_sandbox_namespace，默认None保持普通CLI/A02兼容；固定W01/F02/F04初始化记录实际namespace，run/cleanup恢复它，真正POST前的内层attest也必须一致。只读get本身不追加凭据或更改APIorigin；固定F04直接拒绝输入请求也先attest，不可借外围旧核验跨namespace提交。
+
+ready→validate_offline_report新增同等CLEAN验证：W01必须有已结清的保留事实，F02/F04必须无活动/未知操作、用量或沙箱且预约有会话登记。已知业务FAIL但结清可CLEAN，不会因FAIL无法回收，也不能只改cleanup_status字符串借旧报告删库。suite和独立reader沿用同一validate_ready入口，仍核目标身份及三份报告摘要；离线reader不需要新建Platform或访问manager。audit阶段按不可变Case的metrics决定：有指标的A02仍强制import/metric，没有指标的三例只要求execution/export，不应把不存在的评分伪造为0分或0调用。上述是静态接线核查，公共修复反例的独立重放由root/history分工，不重复冒作本角色QA。profile三文件未变，原29工程和PG/HTTP投影专项范围不变。
+
+已准备未执行的私有调用脚本`.local/team-workspace/agent-evaluation/planned-w01-f02-f04.ps1`，候选必须显式输入并等于实际HEAD，执行源须全部已提交，Coding镜像ID须仍为459420e...。拟每例一次、顺序W01/F02/F04、并发1；父预算建议1200秒、50calls、60000tokens、6次保守沙箱预约。这对应题集声明10+20+20calls、三例各20000tokens，以及describe目前每例最多2次的上界；不是说两个Workflow实际需沙箱。固定profile另有W01每root6calls/90tokens和F02/F04硬0/0，不启付费fallback。6是整批保守预约，单目标仍最多2次，未决目标继续占唯一容量且停派，时间截止为合作取消而非强杀承诺。
+
+这组额度尚待root正式执行授权；当前capabilities仍只登记A02及旧initializer，协调器会在创建目标前阻断三例，这是预期门禁。全部独审/工程关闭后才能改能力清单、提交固定候选并重新核基础设施。W01预设虚假文件完成声明，应保留实际任务FAIL并单列故障控制是否正确识别；F02/F04的业务事实结果同样按原样入JSON/JUnit/MD，不将预期故障捕获改写为任务PASS。

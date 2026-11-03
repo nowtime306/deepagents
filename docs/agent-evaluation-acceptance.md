@@ -42,4 +42,6 @@ CLEAN、合作stop和只读reader/精确删库均成功；库不存在/会话0�
 
 ## 保留的门禁
 
+下一批 W01/F02/F04 已完成开发及独立代码审查，清理与 namespace 三项审查问题修复后关闭。完整客户端独立工程测试 204 通过、0 跳过（包含此前 124、Work 39 及新增修复，不累加）；profile 独立 29 项通过，另以真实 PostgreSQL/HTTP 验证 1 个观察投影场景、230 条断言。投影场景没有运行 Agent 业务，测试库均按精确身份回收。能力清单仅放行这三个新增固定处理器，实际任务数仍为 A02 的 1/20，等待固定候选后的真实三例。详见 `agent-evaluation-workflow-review.md`、`agent-evaluation-profile-review.md` 和 `agent-evaluation-qa.md`。
+
 不付费、不登录/上传Confident AI，真实外部模型效果仍未验证。Python socket约束不是OS级完全离线保证。生产业务、凭据和既有数据保留；实际页面访问的最近明确拒绝仍有效，界面验收未执行，不换通道获取被拒页面。没有新正式标签或本批生产发布。

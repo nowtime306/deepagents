@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from . import network
+from .contracts import Case
 from .fixed_evidence import artifact_path, file_digest, load, store
 from .journal import Journal, atomic_json, digest
 from .reports import write_report
@@ -70,7 +71,8 @@ def validate(directory: Path, data: dict, *, pending_session: str | None = None)
             continue
         value = values.get(identifier)
         identity = value["identity"] if value else {}
-        required = {"execution", "import", "metric", "export"}
+        specimen = Case.model_validate(attempt["case_snapshot"])
+        required = {"execution", "export"} | ({"import", "metric"} if specimen.metrics else set())
         phases = {row["name"] for row in value["phases"] if row["status"] == "COMPLETE"} if value else set()
         if (not value or value["action"] != "run" or value["status"] != "COMPLETE"
                 or not required.issubset(phases) or any(not event["allowed"] for event in value["events"])
@@ -82,7 +84,7 @@ def validate(directory: Path, data: dict, *, pending_session: str | None = None)
                 or identity.get("case_definition_digest") != data["case_definition_digest"]
                 or identity.get("candidate_commit") != data["suite_context"]["candidate_commit"]
                 or identity.get("suite_id") != data["suite_context"]["suite_id"]
-                or identity.get("repeat_index") != attempt["repeat_index"]):
+                or type(identity.get("repeat_index")) is not int or identity.get("repeat_index") != attempt["repeat_index"]):
             raise ValueError("Complete identity-bound run/import/metric/export audit is required")
     if any(reference not in references for reference in data.get("network_audit_refs", [])):
         raise ValueError("A previously referenced audit disappeared")

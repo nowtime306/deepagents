@@ -109,13 +109,16 @@ class FixedFixtures:
         identifier = self.create("workflow-" + slot,
                                  "/api/v1/workflows", {"name": f"AE {case_id} {self.prefix} {slot}",
                                                        "model_id": model_id, "definition": definition})
-        self.mutate("test-workflow-" + identifier, "POST", f"/api/v1/workflows/{identifier}/test-runs",
-                    body={"text": successful_input, "revision": 1})
+        tested = self.mutate("test-workflow-" + identifier, "POST", f"/api/v1/workflows/{identifier}/test-runs",
+                             body={"text": successful_input, "revision": 1})
+        if tested.get("status") != "SUCCEEDED":
+            raise ValueError("The fixed initialization test did not succeed")
         version = self.mutate("publish-workflow-" + identifier, "POST", f"/api/v1/workflows/{identifier}/publish",
                               body={"revision": 1})
         versions = self.platform.get(f"/api/v1/workflows/{identifier}/versions")["items"]
         published = next(row for row in versions if row["version"] == version["version"])
-        return {"id": identifier, "version": version["version"], "version_id": published["id"]}
+        return {"id": identifier, "version": version["version"], "version_id": published["id"],
+                "version_digest": published["digest"], "init_run_id": tested["id"]}
 
 
 def transform(operation="upper", **parameters):
