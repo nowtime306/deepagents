@@ -1,0 +1,467 @@
+{
+  "description": "合成回归语料，非用户真实知识库质量验收；无真实模型调用。",
+  "documents": [
+    {
+      "id": "product",
+      "name": "产品规格.md",
+      "text": "星河助手 A1：最大上下文 32000 tokens，离线模式不支持联网。A2 最大上下文 128000 tokens，支持联网。A1 支持中文、英文。"
+    },
+    {
+      "id": "warranty",
+      "name": "售后保修.md",
+      "text": "星河 A1 保修期限为三年，起算日为签收次日。进水和人为损坏不在免费保修范围。报修须提供订单编号和故障照片。"
+    },
+    {
+      "id": "shipping",
+      "name": "配送规则.md",
+      "text": "现货订单付款后两个工作日内发货。中国大陆标准运费 12 元，单笔订单满 199 元包邮。新疆和西藏不参与包邮，运费按承运商报价。"
+    },
+    {
+      "id": "refund",
+      "name": "退款政策.md",
+      "text": "未拆封产品在签收七天内可申请无理由退货。质量问题退货由商家承担运费；非质量原因退货由买家承担运费。退款原路返回，审核通过后三个工作日到账。"
+    },
+    {
+      "id": "prices",
+      "name": "服务价格表.md",
+      "text": "服务价格（2026-10-01 生效）：基础版每月 29 元，含 100 次任务；专业版每月 99 元，含 500 次任务；团队版每月 299 元，含 2000 次任务。超额任务每次 0.2 元。"
+    },
+    {
+      "id": "security",
+      "name": "账户安全.md",
+      "text": "API Key 只在创建时完整显示。忘记密钥需撤销旧 Key 并创建新 Key，不支持找回明文。离职员工应立即移除成员资格并撤销相关凭证。管理员不得索取用户密码。"
+    },
+    {
+      "id": "old",
+      "name": "历史限流-已失效.md",
+      "text": "历史政策，已失效：2026-01-01 至 2026-09-30，基础版每分钟最多 10 次 API 请求。2026-10-01 起应以新版限流政策为准。"
+    },
+    {
+      "id": "new",
+      "name": "新版限流-当前.md",
+      "text": "当前限流政策，2026-10-01 生效并替代旧版：基础版每分钟最多 20 次 API 请求，专业版每分钟 60 次，团队版每分钟 120 次。超过上限返回 429，应等待下个窗口重试。"
+    },
+    {
+      "id": "backup",
+      "name": "备份恢复.md",
+      "text": "平台每周日 02:00 创建数据库与文件的离线备份，保留最近四份。恢复必须同时使用数据库、附件和原加密主密钥；缺失主密钥无法解密已保存凭证。每月在隔离数据库执行恢复演练。"
+    },
+    {
+      "id": "support",
+      "name": "支持时间.md",
+      "text": "人工支持时间为周一至周五 09:00–18:00（北京时间），法定节假日除外。支持邮箱 support@example.invalid。紧急工单须填写任务运行编号。"
+    },
+    {
+      "id": "storage",
+      "name": "文件限制.md",
+      "text": "单个文档附件最大 4 MB，每次提问最多附加 5 个文档。支持 TXT、Markdown、PDF、DOCX。扫描 PDF 需要先 OCR；不直接提取扫描图像中的文字。任务成果单文件最大 1 MB，单次快照总量最大 20 MB。"
+    },
+    {
+      "id": "roles",
+      "name": "组织角色.md",
+      "text": "所有者管理组织和管理员；管理员管理普通成员；编辑者可发布自己的流程；查看者只能查看已授权的资源。成员退出后应停止其新操作，不删除其他人的私有会话。"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "category": "exact",
+      "question": "A1 的最大上下文是多少？",
+      "expected_documents": [
+        "product"
+      ]
+    },
+    {
+      "id": "q02",
+      "category": "exact",
+      "question": "星河 A1 保修几年？",
+      "expected_documents": [
+        "warranty"
+      ]
+    },
+    {
+      "id": "q03",
+      "category": "exact",
+      "question": "大陆标准运费多少钱？",
+      "expected_documents": [
+        "shipping"
+      ]
+    },
+    {
+      "id": "q04",
+      "category": "exact",
+      "question": "退款审核通过后几天到账？",
+      "expected_documents": [
+        "refund"
+      ]
+    },
+    {
+      "id": "q05",
+      "category": "exact",
+      "question": "专业版每月价格是多少？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q06",
+      "category": "exact",
+      "question": "API Key 创建后还能查看明文吗？",
+      "expected_documents": [
+        "security"
+      ]
+    },
+    {
+      "id": "q07",
+      "category": "exact",
+      "question": "基础版当前每分钟请求上限多少？",
+      "expected_documents": [
+        "new"
+      ]
+    },
+    {
+      "id": "q08",
+      "category": "exact",
+      "question": "备份每周什么时候执行？",
+      "expected_documents": [
+        "backup"
+      ]
+    },
+    {
+      "id": "q09",
+      "category": "exact",
+      "question": "人工支持时间是什么？",
+      "expected_documents": [
+        "support"
+      ]
+    },
+    {
+      "id": "q10",
+      "category": "exact",
+      "question": "文档附件最大多大？",
+      "expected_documents": [
+        "storage"
+      ]
+    },
+    {
+      "id": "q11",
+      "category": "semantic",
+      "question": "机器坏了能免费修多久？",
+      "expected_documents": [
+        "warranty"
+      ]
+    },
+    {
+      "id": "q12",
+      "category": "semantic",
+      "question": "付款后多久寄出？",
+      "expected_documents": [
+        "shipping"
+      ]
+    },
+    {
+      "id": "q13",
+      "category": "semantic",
+      "question": "买错了没打开可以退吗？",
+      "expected_documents": [
+        "refund"
+      ]
+    },
+    {
+      "id": "q14",
+      "category": "semantic",
+      "question": "忘记访问令牌怎么找回？",
+      "expected_documents": [
+        "security"
+      ]
+    },
+    {
+      "id": "q15",
+      "category": "semantic",
+      "question": "打算让五百个任务一个月跑完该选哪个套餐？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q16",
+      "category": "semantic",
+      "question": "请求太频繁被挡住了怎么办？",
+      "expected_documents": [
+        "new"
+      ]
+    },
+    {
+      "id": "q17",
+      "category": "semantic",
+      "question": "图片型的电子书无法读字如何处理？",
+      "expected_documents": [
+        "storage"
+      ]
+    },
+    {
+      "id": "q18",
+      "category": "semantic",
+      "question": "员工离职后如何防止他继续访问？",
+      "expected_documents": [
+        "security"
+      ]
+    },
+    {
+      "id": "q19",
+      "category": "semantic",
+      "question": "凭证的加密钥匙丢了还能还原吗？",
+      "expected_documents": [
+        "backup"
+      ]
+    },
+    {
+      "id": "q20",
+      "category": "semantic",
+      "question": "周末有人处理咨询吗？",
+      "expected_documents": [
+        "support"
+      ]
+    },
+    {
+      "id": "q21",
+      "category": "table",
+      "question": "基础版包含多少次任务？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q22",
+      "category": "table",
+      "question": "专业版包含多少次任务？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q23",
+      "category": "table",
+      "question": "团队版包含多少次任务？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q24",
+      "category": "table",
+      "question": "超额任务每次多少钱？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q25",
+      "category": "table",
+      "question": "基础版和专业版月费差多少？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q26",
+      "category": "table",
+      "question": "团队版月费是多少？",
+      "expected_documents": [
+        "prices"
+      ]
+    },
+    {
+      "id": "q27",
+      "category": "table",
+      "question": "专业版当前每分钟 API 上限是多少？",
+      "expected_documents": [
+        "new"
+      ]
+    },
+    {
+      "id": "q28",
+      "category": "table",
+      "question": "团队版当前每分钟 API 上限是多少？",
+      "expected_documents": [
+        "new"
+      ]
+    },
+    {
+      "id": "q29",
+      "category": "table",
+      "question": "A2 上下文长度是多少？",
+      "expected_documents": [
+        "product"
+      ]
+    },
+    {
+      "id": "q30",
+      "category": "table",
+      "question": "A1 和 A2 哪个支持联网？",
+      "expected_documents": [
+        "product"
+      ]
+    },
+    {
+      "id": "q31",
+      "category": "cross_document",
+      "question": "A1 的上下文与保修期分别是多少？",
+      "expected_documents": [
+        "product",
+        "warranty"
+      ]
+    },
+    {
+      "id": "q32",
+      "category": "cross_document",
+      "question": "基础版月费以及当前请求上限分别是多少？",
+      "expected_documents": [
+        "prices",
+        "new"
+      ]
+    },
+    {
+      "id": "q33",
+      "category": "cross_document",
+      "question": "退货时质量问题运费谁承担，正常配送运费多少？",
+      "expected_documents": [
+        "refund",
+        "shipping"
+      ]
+    },
+    {
+      "id": "q34",
+      "category": "cross_document",
+      "question": "API Key 忘记怎么处理，恢复凭证需什么密钥？",
+      "expected_documents": [
+        "security",
+        "backup"
+      ]
+    },
+    {
+      "id": "q35",
+      "category": "cross_document",
+      "question": "文档附件与任务成果的文件大小上限分别是多少？",
+      "expected_documents": [
+        "storage"
+      ]
+    },
+    {
+      "id": "q36",
+      "category": "cross_document",
+      "question": "报修需要哪些材料，人工支持几点结束？",
+      "expected_documents": [
+        "warranty",
+        "support"
+      ]
+    },
+    {
+      "id": "q37",
+      "category": "cross_document",
+      "question": "基础版和团队版的月费、每分钟限流分别是多少？",
+      "expected_documents": [
+        "prices",
+        "new"
+      ]
+    },
+    {
+      "id": "q38",
+      "category": "cross_document",
+      "question": "退货期限和 A1 保修期限各是多少？",
+      "expected_documents": [
+        "refund",
+        "warranty"
+      ]
+    },
+    {
+      "id": "q39",
+      "category": "cross_document",
+      "question": "组织查看者能做什么，员工离职如何撤销访问？",
+      "expected_documents": [
+        "roles",
+        "security"
+      ]
+    },
+    {
+      "id": "q40",
+      "category": "cross_document",
+      "question": "备份保留几份，扫描 PDF 如何处理？",
+      "expected_documents": [
+        "backup",
+        "storage"
+      ]
+    },
+    {
+      "id": "q41",
+      "category": "version_conflict",
+      "question": "2026 年 10 月基础版每分钟最多请求几次？",
+      "expected_documents": [
+        "new"
+      ]
+    },
+    {
+      "id": "q42",
+      "category": "version_conflict",
+      "question": "基础版旧版限流和新版限流何时切换？",
+      "expected_documents": [
+        "old",
+        "new"
+      ]
+    },
+    {
+      "id": "q43",
+      "category": "version_conflict",
+      "question": "2026 年 9 月基础版限流是多少？",
+      "expected_documents": [
+        "old"
+      ]
+    },
+    {
+      "id": "q44",
+      "category": "version_conflict",
+      "question": "基础版当前有效政策是否仍是每分钟 10 次？",
+      "expected_documents": [
+        "new"
+      ]
+    },
+    {
+      "id": "q45",
+      "category": "version_conflict",
+      "question": "哪份限流文件覆盖了旧政策？",
+      "expected_documents": [
+        "new"
+      ]
+    },
+    {
+      "id": "q46",
+      "category": "no_answer",
+      "question": "火星基地量子通信延迟是多少？",
+      "expected_documents": []
+    },
+    {
+      "id": "q47",
+      "category": "no_answer",
+      "question": "平台创始人的身高是多少？",
+      "expected_documents": []
+    },
+    {
+      "id": "q48",
+      "category": "no_answer",
+      "question": "商品的医疗诊断准确率是多少？",
+      "expected_documents": []
+    },
+    {
+      "id": "q49",
+      "category": "no_answer",
+      "question": "股票明天收盘价格是多少？",
+      "expected_documents": []
+    },
+    {
+      "id": "q50",
+      "category": "no_answer",
+      "question": "木星探测器的燃料容量是多少？",
+      "expected_documents": []
+    }
+  ]
+}

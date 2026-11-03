@@ -1,0 +1,42 @@
+# BUG-EXP007固定服务控制profile独立审查
+
+2026-11-02。作者expansion_ops，独立审查expansion_review_tools。范围：managed_services.py、operations_worker.py的准入增量、两组测试、operations-backups.tsx单reason映射及修复文档；另静态复核root一次性原生备份执行器与已审spec副本。未修改业务源码，未启停生产或QA站点，未执行真实备份job、生产恢复或修改用户.env/资源绑定。
+
+**结论：007独立代码审查通过，可交QA负向profile回归。一次性执行器的已指出profile预检缺口修复后静态通过；实际生产原生验收仍须等待007的QA和部署，并由root另行检查idle执行，不能将本报告视为已完成该闭环。**
+
+## Guard与准入核验
+
+- snapshot/command/control/stop/start在自身入口先require_profile，包括空services。snapshot读取manifest、start读取人工stop标记、command创建目录/control.log及control启动Popen之前均校验；command调用control时再次校验。未发现显式Settings匹配而继承环境另profile时可越过检查。
+- 固定scripts所属services/api/.env通过dotenv_values(interpolate=False)读取，不覆盖进程环境。DATABASE_URL要求显式host/port/dbname/user，以完整conninfo字典比较；数据目录须绝对，比较resolve后归属；内部URL使用通用安全校验且持久端点必须是固定脚本支持的默认127.0.0.1:8100。Settings、持久文件和实际继承的三项配置同时一致才控制该部署。
+- 缺失/非法/不匹配只返回固定SERVICE_CONTROL_PROFILE_MISMATCH，不把DSN解析异常/凭证放入异常。相对目录拒绝，未为独立profile猜测默认服务目录、PID或端口。
+- OperationsWorker.claim只捕获ServiceControlProfileError，将已排队job在原事务内落FAILED/ADMISSION及固定reason后返回；未设置maintenance/resume_services，也不会因异常回滚让该job永远PENDING。其它数据库/manifest/脚本异常没有被宽泛归成profile错误。
+- ready沿settings.internal_api_url进行无凭证健康探测，trust_env=false、follow_redirects=false，302不转向另站。该无租约探测不授予控制能力。原人工stop保护、owner标记与默认Windows控制器行为保持。
+- app.backup的owner_agent数据库限制及离线围栏未改动/放宽；不能把独立_test库控制拒绝当作允许在线备份测试库的依据。
+
+## 独立实际验证
+
+创建新随机`owner_agent_review_profile_<8hex>_test`及独立TEST_DATA_DIR，运行test_managed_services.py与test_operations_jobs.py，后者另有自己的随机*_test/临时目录fixture：**18 passed in11.27s，无跳过**。外层及fixture测试库均按精确名称清理，未复用作者库。
+
+独立证据覆盖五入口/空列表副作用前拒绝、DB/目录/端点各自不匹配、显式Settings与继承env不一致、人工stop保留、受控Windows临时脚本/自建子进程句柄，以及非默认ready的本机内存HTTP替身。原生控制器正向单测只启动临时目录中的自建等待进程，不调用真实生产服务启停。
+
+隔离FastAPI管理员POST备份job仍202；真实ManagedServices的worker.claim随后使job成为FAILED/ADMISSION/SERVICE_CONTROL_PROFILE_MISMATCH，maintenance=false、Popen sentinel=0、目录无新增/无stop标记，第二次claim不重复领取。旧协调器注入替身的成功、DISK_FULL、恢复和调度回归保留；不拿替身通过冒充生产实际启停。
+
+## 一次性原生执行器二审（仅静态，未执行）
+
+`.local/team-workspace/platform-expansion/qa/run_production_native_backup.py`原问题是load_dotenv默认不覆盖继承环境，而仅检查数据库名字不能证明固定profile。当前preflight已在任何数据库连接和Chrome访问前调用ManagedServices(settings,None).snapshot，复用007三方guard；不匹配会以固定类名拒绝。之后限制为原spec硬编码的ROOT/services/api/.local，再查current_database=owner_agent和maintenance.idle，未长期占维护锁。最终jobclaim仍须权威准入。
+
+执行器只启动受审的原生Chrome测试副本，完整DBURL和管理员密码从日志逐行动态脱敏，trace/video关闭；没有额外settings/admin资源写入或restore live。预检异常只打印异常类型，未把DSN打印到控制台。未执行本执行器，因此不声明当前生产idle或已成功备份。
+
+副本与`apps/web/tests/operations-backup-native.spec.ts`的git no-index diff严格只有两处：metadata和截图输出改至本轮QA目录。180秒test、150秒poll、真实唯一备份job POST、GET轮询、归档/source-info核对和四后台断言均未改。Chrome配置仅该spec、单worker、trace/video off。测试登录和备份job是原spec既有业务操作，不存在恢复用户已删除工作流/绑定的代码。
+
+## 交接
+
+QA先部署007并在独立8139profile确认明确拒绝且无生产控制；中文reason映射须生产构建后实际页面核对。本报告不替代该页面/部署验证，也不授权测试擅自修改生产profile来让验收通过。
+
+root待QA及部署完成后，才可按已授权流程确认默认profile/idle，再执行已审原生副本。真实备份闭环、归档验证、受控恢复到隔离库以及原后台恢复结果需另留证据，不以此次18项隔离通过替代。用户手动删除和修改的数据保持不恢复。
+
+## 一次性执行器Windows事件循环兼容修正
+
+root首次执行在preflight连接前被Psycopg的Proactor不兼容检查拒绝，未产生备份POST；该次结果为root报告，本审查者未执行原生脚本。独立只读复核新增一行：asyncio.run在Windows显式使用SelectorEventLoop，其它平台默认，当前项目Python的实际signature包含loop_factory；已装psycopg/connection_async.py明确拒绝Windows Proactor，项目operations_worker也采用Selector方案。preflight只做文件/profile核对和异步数据库查询，不依赖Windows Proactor子进程API；后续Chrome为同步Popen，不受该局部事件循环选择影响。
+
+这处增量静态审查通过，允许root在既定QA/部署及每次profile/idle预检条件下重试。guard snapshot仍在任何DB连接/Chrome之前，默认data路径、owner_agent、idle拒绝、异常仅类名与日志脱敏未改。再次diff确认原spec副本仍仅两处输出路径差异，150/180秒和业务断言未改。未由本审查者访问生产、运行备份或放宽失败条件。

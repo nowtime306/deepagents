@@ -1,0 +1,249 @@
+.automatic-check {
+  flex-direction: row !important;
+  align-items: center;
+}
+.automatic-check input {
+  width: auto;
+}
+.automatic-channel-title {
+  margin-top: 28px !important;
+}
+.automatic-channel-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e5e5;
+}
+.automatic-event-key {
+  padding: 20px;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  margin: 14px 0;
+}
+.automatic-event-key code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  padding: 8px;
+}
+.automatic-dialog fieldset {
+  border: 1px solid #dedede;
+  border-radius: 10px;
+  padding: 8px 14px;
+  margin-top: 16px;
+}
+.automatic-page {
+  width: 100%;
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 32px;
+  color: #262626;
+  overflow-y: auto;
+  height: calc(100dvh - 76px);
+}
+.automatic-heading,
+.automatic-row,
+.automatic-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.automatic-page h1 {
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+.automatic-page h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.automatic-page p,
+.automatic-page time,
+.automatic-page small {
+  font-size: 13px;
+  color: #737373;
+  line-height: 1.6;
+}
+.automatic-page button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #dedede;
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #262626;
+}
+.automatic-page button:hover {
+  background: #f3f3f3;
+}
+.automatic-page button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.automatic-page .automatic-primary {
+  background: #262626;
+  color: #fff;
+  border-color: #262626;
+}
+.automatic-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 24px 0;
+  border-bottom: 1px solid #e9e9e9;
+  padding-bottom: 12px;
+}
+.automatic-tabs button {
+  border-color: transparent;
+  white-space: nowrap;
+  padding: 8px 9px;
+  gap: 5px;
+}
+.automatic-tabs button[aria-pressed="true"] {
+  background: #eee;
+}
+.automatic-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+.automatic-list article,
+.automatic-dialog article {
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 20px;
+  background: #fff;
+}
+.automatic-page footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.automatic-status {
+  font-size: 12px;
+  background: #f1f1f1;
+  border-radius: 20px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+.automatic-page .automatic-goal {
+  white-space: pre-wrap;
+  color: #404040;
+  max-height: 120px;
+  overflow: auto;
+}
+.automatic-empty {
+  padding: 64px 20px;
+  text-align: center;
+}
+.automatic-page .automatic-error {
+  color: #a82727;
+  background: #fff4f4;
+  border-radius: 8px;
+  padding: 10px;
+}
+.automatic-list ol {
+  padding-left: 20px;
+}
+.automatic-list li {
+  padding: 8px 0;
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  align-items: center;
+}
+.automatic-list li > span:first-child {
+  flex: 1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.automatic-list li > span:nth-child(2) {
+  color: #737373;
+}
+.automatic-page .automatic-unread {
+  border-left: 3px solid #404040;
+}
+.automatic-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0005;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.automatic-dialog {
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  width: min(640px, 100%);
+  max-height: 92dvh;
+  overflow-y: auto;
+  box-shadow: 0 16px 60px #0002;
+}
+.automatic-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 14px 0;
+  font-size: 13px;
+}
+.automatic-dialog input,
+.automatic-dialog textarea,
+.automatic-dialog select {
+  font: inherit;
+  color: #262626;
+  width: 100%;
+  border: 1px solid #d6d6d6;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.automatic-dialog textarea {
+  resize: vertical;
+}
+.automatic-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.automatic-page :focus-visible {
+  outline: 2px solid #555;
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .automatic-page {
+    padding: 20px 14px;
+  }
+  .automatic-heading {
+    align-items: flex-start;
+  }
+  .automatic-heading > button {
+    flex-shrink: 0;
+  }
+  .automatic-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .automatic-overlay {
+    padding: 10px;
+  }
+  .automatic-dialog {
+    padding: 18px;
+  }
+  .automatic-list article {
+    padding: 14px;
+  }
+  .automatic-row {
+    align-items: flex-start;
+  }
+  .automatic-list li {
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,25 @@
+.habit-learning { margin: 0 0 24px; padding: 20px; border: 1px solid #e5e3df; border-radius: 12px; background: #fff; color: #292929; }
+.habit-learning > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.habit-learning h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+.habit-learning p { font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.habit-learning > header p { color: #82796f; margin: 0; }
+.habit-learning button { font-size: 12px; padding: 7px 10px; border: 1px solid #e5e3df; border-radius: 7px; background: #fff; }
+.habit-learning button:hover:not(:disabled) { background: #f6f4f1; }
+.habit-learning button:disabled { opacity: .5; cursor: not-allowed; }
+.habit-learning-settings { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px; border-radius: 8px; background: #f8f8f8; }
+.habit-learning-settings label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.habit-learning-settings span { font-size: 11px; color: #82796f; }
+.habit-learning-help { color: #82796f; margin: 12px 0; font-size: 11px; line-height: 1.8; }
+.habit-learning-help summary { cursor: pointer; }
+.habit-learning-empty { padding: 28px 12px; text-align: center; font-size: 12px; color: #82796f; background: #fafafa; border: 1px dashed #e5e3df; border-radius: 8px; }
+.habit-preferences { display: grid; gap: 0; }
+.habit-preference { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid #efeeeb; }
+.habit-preference strong { font-size: 13px; }
+.habit-preference p { margin: 5px 0; }
+.habit-preference small { font-size: 11px; color: #82796f; }
+.habit-preference-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.habit-source { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid #efeeeb; }
+.habit-source code { font-size: 11px; overflow-wrap: anywhere; }
+.habit-source button { justify-self: start; }
+.habit-skill-preview { padding: 14px; max-height: 60dvh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.8; background: #f8f8f8; border-radius: 8px; }
+@media (max-width: 640px) { .habit-learning { padding: 14px; } .habit-preference { flex-direction: column; align-items: stretch; } .habit-preference-actions { justify-content: flex-start; } .habit-learning > header { flex-wrap: wrap; } }

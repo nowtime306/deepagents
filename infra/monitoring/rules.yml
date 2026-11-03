@@ -1,0 +1,46 @@
+groups:
+  - name: owner-agent-platform
+    rules:
+      - alert: PlatformMetricsUnavailable
+        expr: up{job="owner-agent"} == 0 or absent(up{job="owner-agent"})
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 平台指标无法采集
+          description: 指标不可达或认证失败，不能据此判定业务健康。请检查API和采集配置。
+      - alert: PlatformSnapshotStale
+        expr: time() - owner_agent_sample_timestamp_seconds > 120 or absent(owner_agent_sample_timestamp_seconds)
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: 平台观测样本已过期
+      - alert: PlatformServiceOffline
+        expr: owner_agent_service_online == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: 平台后台没有在线实例
+      - alert: PlatformObservationUnavailable
+        expr: owner_agent_sample_available == 0 or absent(owner_agent_sample_available)
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: 主机或数据库观测不可用
+      - alert: PlatformMemoryLow
+        expr: owner_agent_host_memory_available_bytes < 536870912
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: 主机可用内存低于512MiB
+      - alert: PlatformDiskLow
+        expr: owner_agent_host_disk_free_bytes / owner_agent_host_disk_total_bytes < 0.05
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: 主机磁盘剩余低于5%
+      - alert: PlatformQueueWaiting
+        expr: owner_agent_queue_oldest_seconds > 600
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 队列有等待超过10分钟的任务

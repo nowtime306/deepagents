@@ -1,0 +1,73 @@
+{
+  "date": "2026-11-01",
+  "branch": "onwer_agent",
+  "migration_count": 70,
+  "local_engineering_phases_completed": [1, 2, 3, 4, 5, 6, 7, 8],
+  "backend": {
+    "passed": 417,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 744.35,
+    "native_local_execution_enabled": true,
+    "real_external_model_requests": false,
+    "database_isolated": true
+  },
+  "chrome": {
+    "full_suite_passed": 37,
+    "native_backup_passed": 1,
+    "native_backup_duration_seconds": 39.6,
+    "after_restart_passed": 3,
+    "after_restart_duration_seconds": 23.4,
+    "desktop_and_390px_checked": true
+  },
+  "checks": {
+    "production_build": "passed_and_deployed",
+    "typescript": "passed",
+    "ruff_app_and_tests": "passed",
+    "new_page_eslint": "passed",
+    "existing_lint_findings_preserved": true
+  },
+  "backup": {
+    "job_id": "ac585a1a-3d54-40af-825a-8a4f4f54f41d",
+    "status": "SUCCEEDED",
+    "directory": "20261101T064543Z-15c30341",
+    "records_match": true,
+    "files_verified": 40,
+    "credentials_decryptable": 6,
+    "referenced_files_verified": 12,
+    "uncommitted_source_archived": true,
+    "native_git_restored": true,
+    "deleted_files_remain_deleted": true,
+    "local_commit_preserved": true,
+    "script_execution_counter": 1,
+    "model_calls": 0,
+    "restored_platform_services_started": false,
+    "verification_database_removed": true,
+    "protected_restore_files_preserved": true,
+    "first_interrupted_job_preserved": true
+  },
+  "final_state": {
+    "api_online": 1,
+    "ask_online": 1,
+    "work_online": 1,
+    "ops_online": 1,
+    "maintenance_active": false,
+    "registration_mode": "approval",
+    "web_http_status": 200,
+    "api_ready_http_status": 200
+  },
+  "original_data_and_vault_preserved": {
+    "users": true,
+    "model_configs": true,
+    "conversations": true,
+    "conversation_messages": true,
+    "task_runs": true,
+    "model_usage": true,
+    "vault": true
+  },
+  "real_external_acceptance": "pending_U01_to_U16",
+  "real_rag_quality": "not_accepted",
+  "capacity_claim": "observed_local_environment_only_not_a_production_limit",
+  "committed": false,
+  "pushed": false
+}

@@ -1,0 +1,5 @@
+.workflow-approval-body { min-width: 0; }
+.workflow-approval-body pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; background: #f6f6f6; border: 1px solid #e7e7e7; border-radius: 10px; padding: 12px; font-size: 12px; line-height: 1.65; }
+.workflow-approval-body details { margin: 10px 0; }
+.workflow-approval-body summary { cursor: pointer; }
+.workflow-approval-body small { display: block; overflow-wrap: anywhere; line-height: 1.7; }

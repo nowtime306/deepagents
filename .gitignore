@@ -16,6 +16,7 @@ eggs/
 .eggs/
 lib/
 !libs/cli/frontend/src/lib/
+!apps/web/src/lib/
 lib64/
 parts/
 sdist/
@@ -139,6 +140,8 @@ celerybeat.pid
 # Environments
 .env
 .env.*
+!.env.example
+!.env.test.example
 .envrc
 env.local
 *.env.local
@@ -259,6 +262,10 @@ libs/cli/TEXTUAL_PROGRESS.md
 
 CLAUDE.md
 .worktrees/
+.local/
+.upstream-agent-chat-ui/
+apps/web/test-results/
+apps/web/playwright-report/
 
 # Frontend build artifacts (source tree; package data under libs/cli/deepagents_cli/deploy/frontend_dist/ is tracked)
 libs/cli/frontend/node_modules/

@@ -1,0 +1,271 @@
+.knowledge-processing {
+  margin: 22px 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+.knowledge-processing summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.knowledge-processing p,
+.document-revision-actions p,
+.knowledge-revision-dialog p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #737373;
+  overflow-wrap: anywhere;
+}
+.knowledge-processing-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin: 15px 0;
+}
+.knowledge-processing-form label,
+.knowledge-revision-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  min-width: 0;
+}
+.knowledge-processing-form input,
+.knowledge-revision-dialog select {
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px;
+  color: #262626;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.knowledge-processing-form input {
+  width: 130px;
+}
+.knowledge-processing button,
+.document-revision-actions button,
+.knowledge-upload,
+.knowledge-revision-dialog button {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #262626;
+}
+.knowledge-operation {
+  border-top: 1px solid #eee;
+  padding: 14px 0;
+  font-size: 13px;
+}
+.knowledge-documents article {
+  flex-wrap: wrap;
+}
+.knowledge-documents article .document-revision-actions {
+  flex: 0 1 auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.document-revision-actions p {
+  flex-basis: 100%;
+}
+.knowledge-upload {
+  position: relative;
+}
+.workspace-dialog.knowledge-revision-dialog {
+  width: min(760px, calc(100vw - 32px));
+}
+.knowledge-revision-dialog select {
+  width: 100%;
+}
+.knowledge-chunk-list {
+  max-height: 42dvh;
+  overflow: auto;
+  margin: 16px 0;
+}
+.knowledge-chunk-list article {
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.knowledge-chunk-list pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.7;
+}
+.knowledge-revision-dialog footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.workspace-dialog.knowledge-ocr-dialog {
+  width: min(1000px, calc(100vw - 32px));
+}
+.knowledge-ocr-dialog p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #737373;
+}
+.knowledge-ocr-pages {
+  max-height: 60dvh;
+  overflow: auto;
+}
+.knowledge-ocr-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.knowledge-ocr-comparison img {
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+.knowledge-ocr-comparison label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+.knowledge-ocr-comparison textarea {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  resize: vertical;
+}
+.knowledge-ocr-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.knowledge-processing-form select {
+  max-width: 100%;
+  min-width: 0;
+  width: 220px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 9px;
+  background: #fff;
+}
+.knowledge-processing-form input[type="file"] {
+  width: 260px;
+  max-width: 100%;
+}
+.knowledge-processing-form .knowledge-ocr-ack {
+  flex-direction: row;
+  align-items: start;
+}
+.knowledge-ocr-ack input {
+  width: auto;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+@media (max-width: 640px) {
+  .knowledge-ocr-comparison {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .knowledge-processing-form label {
+    max-width: 100%;
+  }
+}
+.evaluation-editor {
+  padding: 16px 0;
+}
+.evaluation-question {
+  min-width: 0;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.evaluation-question label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.evaluation-question textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+}
+.evaluation-question select {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+.knowledge-processing .evaluation-checkbox {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.evaluation-checkbox input {
+  width: auto;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.evaluation-evidence {
+  max-height: 240px;
+  overflow: auto;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+.evaluation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.evaluation-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.evaluation-metrics p {
+  background: #f7f7f7;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 0;
+}
+.evaluation-metrics strong {
+  display: block;
+  color: #262626;
+  font-size: 16px;
+}
+.evaluation-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .evaluation-comparison,
+  .evaluation-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

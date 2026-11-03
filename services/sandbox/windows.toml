@@ -1,0 +1,40 @@
+[server]
+host = "127.0.0.1"
+port = 18180
+max_sandbox_timeout_seconds = 3600
+
+[proxy]
+resolve_internal = false
+
+[log]
+level = "INFO"
+
+[runtime]
+type = "docker"
+execd_image = "opensandbox/execd:v1.1.0"
+
+[storage]
+allowed_host_paths = ["C:/owner-agent-sandbox-no-mounts"]
+
+[store]
+type = "sqlite"
+path = ".local/opensandbox.db"
+
+[docker]
+network_mode = "bridge"
+host_ip = "127.0.0.1"
+publish_host = "127.0.0.1"
+port_range_min = 40000
+port_range_max = 40100
+drop_capabilities = ["AUDIT_WRITE", "MKNOD", "NET_ADMIN", "NET_RAW", "SYS_ADMIN", "SYS_MODULE", "SYS_PTRACE", "SYS_TIME", "SYS_TTY_CONFIG"]
+no_new_privileges = true
+pids_limit = 512
+
+[egress]
+image = "opensandbox/egress:v1.1.7"
+mode = "dns+nft"
+disable_ipv6 = true
+readiness_timeout_seconds = 30.0
+
+[ingress]
+mode = "direct"

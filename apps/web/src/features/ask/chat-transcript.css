@@ -1,0 +1,14 @@
+.chat-turn { min-width: 0; margin: 22px 0 34px; }
+.chat-process { margin: 0 0 18px; color: #827c76; font-size: 12px; }
+.chat-process > summary { display: flex; align-items: center; gap: 5px; width: fit-content; cursor: pointer; list-style: none; padding: 5px 0; user-select: none; }
+.chat-process > summary::-webkit-details-marker { display: none; }
+.chat-process > summary > svg { transition: transform .15s ease; }
+.chat-process[open] > summary > svg { transform: rotate(90deg); }
+.chat-process-body { margin-top: 5px; padding: 8px 0 4px 14px; border-top: 1px solid #e8e5e1; border-left: 2px solid #ebe7e2; overflow-wrap: anywhere; }
+.chat-process-body .platform-message { margin: 10px 0 16px; font-size: 13px; line-height: 1.9; color: #716b65; }
+.chat-process-body .chat-tool-result { margin: 10px 0; }
+.chat-process-body .run-diagnostics { margin-top: 16px; }
+.chat-process-empty { margin: 6px 0 12px; color: #938b82; }
+.chat-turn > .platform-message.assistant { margin-top: 12px; }
+.chat-turn > .token-usage { margin-top: 14px; }
+@media (max-width: 600px) { .chat-process-body { padding-left: 9px; } .chat-turn { margin-bottom: 25px; } }

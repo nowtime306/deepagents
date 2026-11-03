@@ -1,0 +1,12 @@
+.conversation-references { margin: 8px 0; font-size: 12px; color: var(--muted-foreground, #666); }
+.conversation-references summary { cursor: pointer; padding: 5px 0; }
+.new-reference-conversation { border: 1px solid #dedede; border-radius: 16px; background: white; color: #555; padding: 6px 12px; margin: 5px 0; font-size: 12px; cursor: pointer; }
+.conversation-references p { line-height: 1.6; overflow-wrap: anywhere; }
+.conversation-references button, .conversation-references input, .conversation-references select { border: 1px solid #dedede; border-radius: 9px; padding: 6px 9px; background: white; color: #333; min-width: 0; max-width: 100%; }
+.conversation-references button { cursor: pointer; }
+.conversation-references button:disabled { cursor: default; opacity: .45; }
+.reference-source { display: flex; align-items: center; gap: 7px; padding: 7px 0; }
+.reference-source > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.reference-source small { display: block; margin-top: 3px; }
+.reference-search { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.reference-search label { display: grid; flex: 1 1 180px; gap: 5px; min-width: 0; }

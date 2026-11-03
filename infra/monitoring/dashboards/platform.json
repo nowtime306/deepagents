@@ -1,0 +1,708 @@
+{
+  "uid": "owner-agent-platform",
+  "title": "知行 · 系统监测大盘",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "timezone": "browser",
+  "refresh": "30s",
+  "tags": [
+    "知行",
+    "平台观测"
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "采集连接（1正常／0失败）",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"owner-agent\"}",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "采样距今（秒，超过120需检查）",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "time() - owner_agent_sample_timestamp_seconds",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "后台在线实例",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_service_online",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "排队与运行状态",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_queue_runs",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "最久排队时间",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_queue_oldest_seconds",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "主机CPU（无数据表示尚未可测）",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_host_cpu_percent",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "主机可用内存",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_host_memory_available_bytes",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "主机剩余磁盘",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_host_disk_free_bytes",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "输入／输出Token记录总和",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_model_tokens_sum",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "模型调用结果记录总和",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_model_calls_sum",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "已知费用估算（币种不合并）",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_cost_estimate_sum",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "费用未知调用数（不计为免费）",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_cost_unknown_calls",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "采样来源可用性",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "owner_agent_sample_available",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "当前触发告警（无数据时也检查采集连接）",
+      "description": "观测值来自平台采样；总和按当前保留记录计算，清理或修订后可能下降，不能用rate当成严格counter。缺失数据不填零。",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "owner-agent-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "refId": "A",
+          "legendFormat": "{{kind}}{{mode}}{{status}}{{direction}}{{result}}{{currency}}{{signal}}{{alertname}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "无数据",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    }
+  ],
+  "annotations": {
+    "list": []
+  }
+}

@@ -1,0 +1,48 @@
+[project]
+name = "owner-agent-platform"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "deepagents",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "psycopg[binary,pool]>=3.2,<4",
+  "langgraph-checkpoint-postgres>=3,<4",
+  "langchain-openai>=1,<2",
+  "python-dotenv>=1,<2",
+  "cryptography>=50.0.2",
+  "mcp>=2.3.0",
+  "python-multipart>=0.0.32",
+  "pypdf>=6.21.4",
+  "python-docx>=1.2.0",
+  "qdrant-client>=1.20.0",
+  "httpx2>=2.16.0",
+  "langchain-anthropic>=1,<2",
+  "opensandbox==1.2.0",
+  "openpyxl>=3.1.5,<4",
+  "defusedxml>=0.7.1,<1",
+  "pillow>=12,<13",
+  "tzdata>=2025.2 ; sys_platform == 'win32'",
+  "pypdfium2>=5,<6",
+  "jsonschema>=4.26,<5",
+  "tiktoken>=0.14,<1",
+]
+
+[tool.uv.sources]
+deepagents = { path = "../../libs/deepagents", editable = true }
+
+[dependency-groups]
+test = ["pytest>=8", "pytest-asyncio>=1", "httpx>=0.28", "ruff>=0.15"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["error"]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]

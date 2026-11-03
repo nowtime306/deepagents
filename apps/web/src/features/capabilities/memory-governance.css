@@ -1,0 +1,149 @@
+.memory-governance {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border-top: 1px solid #e4e4e4;
+  margin-top: 28px;
+  padding-top: 24px;
+  color: #303030;
+}
+.memory-governance h2 {
+  font-size: 18px;
+}
+.memory-governance h3 {
+  font-size: 15px;
+  margin: 0;
+}
+.memory-governance p,
+.memory-governance small,
+.memory-scope-editor p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #737373;
+}
+.memory-extraction-form {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+  min-width: 0;
+  width: 100%;
+  margin: 20px 0;
+}
+.memory-extraction-form label,
+.memory-review-dialog label,
+.memory-scope-editor label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.memory-extraction-form select,
+.memory-extraction-form input:not([type="checkbox"]),
+.memory-review-dialog input,
+.memory-review-dialog textarea,
+.memory-scope-editor select,
+.memory-scope-editor input {
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  color: #262626;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+.memory-extraction-form fieldset {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 12px;
+  max-height: 260px;
+  overflow: auto;
+}
+.memory-extraction-form .memory-message-choice {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.memory-message-choice input {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.memory-candidate-list {
+  display: grid;
+  gap: 12px;
+}
+.memory-candidate-list article,
+.memory-job-history article {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 18px;
+  margin: 12px 0;
+}
+.memory-candidate-list header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.memory-preserve {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.memory-candidate-list blockquote {
+  padding: 12px;
+  border-left: 2px solid #ddd;
+  color: #666;
+  font-size: 13px;
+}
+.memory-candidate-list footer,
+.memory-review-dialog footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.memory-governance button {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #262626;
+}
+.memory-governance .settings-primary,
+.memory-review-dialog .settings-primary {
+  background: #262626;
+  color: #fff;
+  border-color: #262626;
+}
+.memory-review-dialog label input,
+.memory-review-dialog label textarea,
+.memory-review-dialog label select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.memory-review-dialog footer button {
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+.memory-job-history {
+  margin-top: 20px;
+}
+.memory-job-history summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+@media (max-width: 640px) {
+  .memory-extraction-form {
+    max-width: 100%;
+  }
+  .memory-candidate-list article {
+    padding: 14px;
+  }
+  .memory-candidate-list header {
+    flex-wrap: wrap;
+  }
+}

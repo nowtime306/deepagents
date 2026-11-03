@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: 知行平台
+    folder: 知行系统监测
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

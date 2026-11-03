@@ -1,0 +1,154 @@
+/* OpenClaw-inspired light workspace; local styles and existing component contracts. */
+.platform-shell,
+.login-page {
+  --workspace-bg: #f8f8f8;
+  --workspace-surface: #fff;
+  --workspace-ink: #202020;
+  --workspace-muted: #656565;
+  --workspace-border: #e7e5e2;
+  --workspace-accent: #b83e2d;
+  --workspace-tint: #f9ece8;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+  color: var(--workspace-ink);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.platform-shell { background: var(--workspace-bg); }
+.platform-shell *, .login-page * { box-sizing: border-box; }
+.platform-shell :is(button, input, select, textarea), .login-page :is(button, input) { font-family: inherit; }
+.platform-shell :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--workspace-accent); outline-offset: 3px; }
+.platform-shell input[type=checkbox] { accent-color: var(--workspace-accent); }
+.platform-shell .platform-sidebar { width: 246px; padding: 20px 12px 12px; background: #f2f1ef; border-color: var(--workspace-border); overflow: hidden; }
+.platform-shell .platform-brand { flex-shrink: 0; padding: 0 10px 18px; font-size: 22px; letter-spacing: -.6px; }
+.platform-shell .brand-symbol { background: var(--workspace-accent); border-radius: 11px; padding: 9px; box-shadow: 0 2px 5px #86322418; }
+.platform-shell .brand-caption { font-size: 10px; color: var(--workspace-muted); letter-spacing: 1px; }
+.platform-shell .new-conversation { flex-shrink: 0; min-height: 41px; background: #fff; border-color: var(--workspace-border); border-radius: 9px; font-weight: 550; }
+.platform-shell .new-conversation:hover { border-color: #d3b6ae; background: #fffaf8; }
+.platform-shell .new-conversation > span { color: var(--workspace-muted); }
+.sidebar-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #d6d2cc transparent; padding: 0 2px 14px; }
+.platform-shell .platform-sidebar nav { max-height: none; overflow: visible; margin: 8px 0 20px; gap: 3px; }
+.nav-group-title { padding: 17px 10px 6px; color: #746b65; font-size: 10px; font-weight: 600; letter-spacing: 1px; }
+.platform-shell .platform-sidebar nav > button { min-height: 34px; padding: 7px 10px; border-radius: 7px; color: #5c5752; font-size: 13px; gap: 10px; }
+.platform-shell .platform-sidebar nav > button:hover { background: #e9e7e3; }
+.platform-shell .platform-sidebar nav > button.active { color: #a33323; background: #f6e5df; font-weight: 600; box-shadow: inset 2px 0 #b83e2d; }
+.platform-shell .platform-sidebar nav > button svg { width: 16px; height: 16px; flex-shrink: 0; }
+.platform-shell .conversation-workspace { min-height: 160px; }
+.platform-shell .conversation-list { overflow: visible; flex: none; }
+.platform-shell .sidebar-label { padding: 0 8px; font-size: 10px; }
+.platform-shell .sidebar-search { margin: 0 0 12px; border-color: var(--workspace-border); border-radius: 8px; }
+.platform-shell .conversation button { font-size: 12px; }
+.platform-shell .profile { flex-shrink: 0; gap: 8px; padding: 14px 5px 0; border-color: #dfdcd7; }
+.platform-shell .profile button { color: #6a635d; padding: 5px; border-radius: 7px; }
+.platform-shell .profile button:hover { background: #e6e3de; }
+.platform-shell .avatar { background: #e5dcd4; color: #79513c; }
+.platform-shell .platform-header { min-height: 62px; height: 62px; padding: 0 32px; background: #fcfcfc; border-bottom: 1px solid var(--workspace-border); }
+.platform-shell .platform-header strong { font-size: 14px; }
+.platform-shell .platform-header .local-badge { display: inline-flex; align-items: center; gap: 5px; border-color: var(--workspace-border); background: #fff; color: #666; padding: 4px 9px; font-size: 10px; }
+.platform-shell .platform-main { min-height: 0; }
+.platform-shell :is(.run-history, .model-settings, .accounts-page) { padding: 30px max(28px, calc((100% - 1240px) / 2)); background: var(--workspace-bg); min-height: 0; }
+.platform-shell :is(.run-history, .model-settings, .accounts-page) h1 { font-size: 25px; letter-spacing: -.7px; font-weight: 650; color: var(--workspace-ink); }
+.platform-shell :is(.run-history, .model-settings, .accounts-page) > p { color: var(--workspace-muted); font-size: 13px; }
+.platform-shell :is(.run-history-card, .agent-form, .model-card, .account-card, .repository-card) { border-color: var(--workspace-border); border-radius: 12px; background: #fff; box-shadow: 0 1px 2px #201a1403; }
+.platform-shell :is(.run-history-card p, .model-availability, .model-protocol, .model-filters small) { color: var(--workspace-muted); }
+.platform-shell :is(.settings-primary, .account-primary), .login-page .login-submit { color: #fff; background: var(--workspace-accent); border-color: var(--workspace-accent); border-radius: 8px; }
+.platform-shell :is(.settings-primary, .account-primary):hover:not(:disabled), .login-page .login-submit:hover:not(:disabled) { background: #a33323; }
+.platform-shell :is(.agent-form, .model-filters) :is(input, select, textarea) { border-color: var(--workspace-border); border-radius: 8px; color: var(--workspace-ink); }
+.platform-shell .model-card > header, .platform-shell .model-card > footer { border-color: var(--workspace-border); }
+.platform-shell .model-card h2 { color: var(--workspace-ink); }
+.platform-shell .provider-icon { color: #8c5a48; background: #f6ede7; }
+.platform-shell .default-badge { background: var(--workspace-tint); color: var(--workspace-accent); }
+.platform-shell :is(.settings-heading p, .settings-kicker, .model-summary, .model-card-header small, .model-endpoint, .model-meta, .model-params) { color: var(--workspace-muted); }
+.platform-shell .settings-security { color: #736458; background: #f2efea; border-color: var(--workspace-border); }
+.platform-shell .model-summary b { color: var(--workspace-ink); }
+.platform-shell .protocol-tag { color: #8c5a48; background: #f6ede7; }
+.platform-shell .model-card-actions { border-color: var(--workspace-border); }
+.platform-shell .model-card-actions button { color: #71645d; }
+.platform-shell .model-card-actions .model-delete { color: #b44132; }
+.platform-shell .model-dialog { border-color: var(--workspace-border); border-radius: 16px; color: var(--workspace-ink); }
+.platform-shell .model-dialog :is(label, small), .platform-shell .settings-subtitle { color: var(--workspace-muted); }
+.platform-shell .model-dialog :is(input, select) { border-color: var(--workspace-border); }
+.platform-shell .account-tabs > button[aria-pressed=true] { color: var(--workspace-accent); border-color: var(--workspace-accent); }
+.platform-shell .chat-toolbar { background: var(--workspace-bg); padding-top: 12px; }
+.platform-shell .chat-scroll { background: var(--workspace-bg); }
+.platform-shell .composer-area { background: linear-gradient(transparent, var(--workspace-bg) 20%); }
+.platform-shell .composer { border-color: #dedbd7; box-shadow: 0 4px 20px #24201808; }
+.platform-shell .send-button { background: var(--workspace-accent); }
+.platform-shell .platform-message.user { background: #edeae6; }
+.platform-shell .welcome h1 { letter-spacing: -1px; font-weight: 600; }
+.platform-shell .welcome > p { color: var(--workspace-muted); }
+.platform-shell .suggestions button { background: white; border-color: var(--workspace-border); color: #625951; }
+.platform-shell .model-routing-settings { margin-inline: max(28px, calc((100% - 1240px) / 2)); }
+
+/* Operations: readable summaries, compact records, independently scrolling tables. */
+.operations-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.operations-heading h1 { margin: 3px 0 8px; }
+.operations-heading p { font-size: 12px; color: var(--workspace-muted); margin: 0; }
+.operations-eyebrow { color: #9a6755; font-size: 10px; font-weight: 600; letter-spacing: 2px; }
+.operations-heading > button { flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; padding: 9px 14px; }
+.operations-jump { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px; background: #eeece9; border: 1px solid var(--workspace-border); border-radius: 10px; margin: 0 0 24px; }
+.operations-jump a { padding: 6px 13px; border-radius: 6px; font-size: 12px; color: #67605a; text-decoration: none; }
+.operations-jump a:hover { background: white; color: var(--workspace-accent); box-shadow: 0 1px 4px #00000006; }
+.operations-page [id] { scroll-margin-top: 18px; }
+.operations-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 18px 0; }
+.operations-metric { padding: 20px 22px; border: 1px solid var(--workspace-border); background: #fff; border-radius: 12px; }
+.operations-metric > span { color: var(--workspace-muted); font-size: 12px; }
+.operations-metric strong { display: block; margin: 8px 0 5px; font-size: 30px; line-height: 1.2; font-weight: 600; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.operations-metric small { color: #746b65; font-size: 10px; }
+.operations-page .operations-section-title { display: flex; align-items: center; gap: 10px; margin: 30px 0 12px; font-size: 16px; }
+.operations-section-title > span { color: #746b65; border: 1px solid var(--workspace-border); background: white; padding: 1px 7px; font-size: 10px; font-weight: 400; border-radius: 5px; }
+.operations-page .operations-note { font-size: 11px; color: var(--workspace-muted); margin: 8px 0 14px; }
+.operations-price-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.operations-price-summary > span { padding: 5px 9px; background: #f0eeeb; color: #74675d; font-size: 11px; border-radius: 6px; }
+.operations-records { overflow: auto; max-height: 480px; border: 1px solid var(--workspace-border); background: #fff; border-radius: 12px; scrollbar-width: thin; }
+.operations-records table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+.operations-records th { position: sticky; top: 0; z-index: 1; padding: 12px 18px; font-weight: 500; color: #746b65; background: #faf9f7; border-bottom: 1px solid var(--workspace-border); white-space: nowrap; }
+.operations-records td { padding: 16px 18px; border-bottom: 1px solid #f1efec; vertical-align: top; color: #57514c; }
+.operations-records tbody tr:last-child td { border-bottom: 0; }
+.operations-records tbody tr:hover { background: #fcfbf9; }
+.operations-records td strong { color: var(--workspace-ink); font-weight: 550; }
+.operations-records td small { display: block; color: #746b65; margin-top: 5px; font-size: 10px; }
+.operations-records td :is(details, p) { font-size: 11px; line-height: 1.8; margin: 0; }
+.operations-records td details { min-width: 100px; max-width: 240px; }
+.operations-records td summary { cursor: pointer; color: #8d5141; white-space: nowrap; }
+.operations-records td code { display: block; font-family: "Cascadia Code", Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; max-width: 470px; color: #746b65; margin-top: 5px; }
+.operations-method { display: inline-block; padding: 2px 7px; border-radius: 5px; background: #f1f0ee; color: #756252; font-family: Consolas, monospace; font-size: 10px; }
+.operations-result { color: #217253; background: #edf6ef; border-radius: 5px; padding: 3px 7px; font-size: 10px; white-space: nowrap; }
+.operations-result[data-failed=true] { color: #b33d2c; background: #fcece8; }
+.operations-service-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 18px; margin: 26px 0; align-items: start; }
+.operations-service-grid > section { min-width: 0; padding: 22px; border: 1px solid var(--workspace-border); border-radius: 12px; background: white; }
+.operations-page .operations-service-grid h2 { font-size: 16px; margin: 0 0 12px; }
+.operations-service-grid .repository-panel > p { font-size: 12px; color: var(--workspace-muted); line-height: 1.8; }
+.operations-service-grid .service-status-panel .repository-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; padding: 16px; background: #faf9f7; font-size: 12px; }
+.operations-service-grid .repository-card { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.operations-page .phase-eight-settings { margin-block: 24px; }
+.operations-service-grid > section > .phase-eight-settings { padding: 0; margin: 0; border: 0; }
+.operations-page > .run-diagnostics { margin-top: 16px; }
+.operations-page .operations-empty { padding: 30px; text-align: center; color: var(--workspace-muted); font-size: 12px; }
+.operations-page .operations-pagination { margin-top: 12px; }
+@media (min-width: 721px) {
+  .platform-shell.sidebar-collapsed .platform-sidebar { width: 72px; padding-inline: 9px; }
+  .sidebar-collapsed .nav-group-title { display: none; }
+  .sidebar-collapsed .sidebar-body { padding-inline: 0; }
+  .platform-shell.sidebar-collapsed .platform-sidebar nav > button { justify-content: center; padding: 9px; }
+}
+@media (max-width: 1100px) { .operations-service-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .platform-shell .platform-sidebar { width: 62px; padding: 18px 7px; }
+  .platform-shell.sidebar-open .platform-sidebar { width: 264px; padding: 20px 12px 12px; background: #f2f1ef; }
+  .platform-shell:not(.sidebar-open) .sidebar-body { display: none; }
+  .platform-shell .platform-header { height: 54px; min-height: 54px; padding: 0 14px; }
+  .platform-shell .platform-header .local-badge { display: none; }
+  .platform-shell :is(.run-history, .model-settings, .accounts-page) { padding: 22px 16px; }
+  .platform-shell .model-routing-settings { margin-inline: 16px; }
+  .operations-heading { align-items: flex-start; gap: 10px; }
+  .operations-heading > button { font-size: 0; padding: 9px; }
+  .operations-heading > button svg { width: 16px; }
+  .operations-metrics { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .operations-metric { padding: 15px 18px; }
+  .operations-metric strong { font-size: 26px; }
+  .operations-records table { min-width: 650px; }
+  .operations-jump { gap: 1px; padding: 4px; }
+  .operations-jump a { padding: 7px; font-size: 11px; }
+  .operations-service-grid > section { padding: 16px; }
+}

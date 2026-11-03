@@ -1,0 +1,26 @@
+.repository-panel { color: #252525; min-width: 0; }
+.repository-panel h1, .repository-panel h2, .repository-panel h3 { color: #171717; }
+.repository-panel p, .repository-panel small { overflow-wrap: anywhere; }
+.repository-form { display: grid; gap: 14px; padding: 22px; margin: 18px 0; border: 1px solid #e5e5e5; border-radius: 16px; background: #fff; }
+.repository-form label { display: grid; gap: 7px; font-size: 14px; color: #444; }
+.repository-form label:has(input[type=checkbox]) { display: flex; align-items: center; }
+.repository-form input:not([type=checkbox]), .repository-form textarea { width: 100%; min-width: 0; padding: 10px 12px; box-sizing: border-box; border: 1px solid #dedede; border-radius: 9px; background: #fff; color: #222; }
+.repository-panel button { padding: 8px 13px; margin: 3px; border: 1px solid #dedede; border-radius: 9px; background: #fff; color: #242424; cursor: pointer; }
+.repository-panel button:hover:not(:disabled) { background: #f4f4f4; }
+.repository-panel button:disabled { opacity: .45; cursor: default; }
+.repository-panel button:focus-visible, .repository-panel summary:focus-visible { outline: 2px solid #777; outline-offset: 3px; }
+.repository-card { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 18px; margin: 12px 0; border: 1px solid #e5e5e5; border-radius: 13px; background: #fff; }
+.repository-panel details { padding: 12px 0; border-bottom: 1px solid #eee; min-width: 0; }
+.repository-panel summary { cursor: pointer; overflow-wrap: anywhere; }
+.repository-panel pre { padding: 14px; max-height: 420px; overflow: auto; background: #f6f6f6; border-radius: 9px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+.repository-panel code { overflow-wrap: anywhere; white-space: pre-wrap; }
+.repository-action { display: block; }
+.repository-action > a { display: block; margin-top: 10px; }
+@media(max-width: 640px) { .repository-form { padding: 14px; } .repository-card { flex-direction: column; align-items: stretch; } }
+.model-settings-page { flex: 1; min-height: 0; overflow: auto; }
+.phase-eight-settings { min-width: 0; margin: 24px 0; padding: 20px; border: 1px solid #e5e5e5; border-radius: 16px; background: #fff; overflow-wrap: anywhere; }
+.model-routing-settings { margin: 24px 40px; }
+.phase-eight-settings .repository-card { display: block; min-width: 0; }
+.phase-eight-settings select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #dedede; border-radius: 9px; background: #fff; color: #222; }
+.phase-eight-settings label, .phase-eight-settings li { min-width: 0; overflow-wrap: anywhere; }
+@media(max-width: 640px) { .phase-eight-settings { padding: 14px; } .model-routing-settings { margin: 16px; } }

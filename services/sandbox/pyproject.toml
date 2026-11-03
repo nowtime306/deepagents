@@ -1,0 +1,5 @@
+[project]
+name = "owner-agent-sandbox-server"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["opensandbox-server==1.2.0", "pywin32==312; sys_platform == 'win32'"]

@@ -1,0 +1,15 @@
+{
+  "case": "actual_api_restart_with_independent_worker",
+  "passed": true,
+  "local_double_calls": 1,
+  "usage": {
+    "calls": 1,
+    "reported_calls": 1,
+    "unknown_calls": 0,
+    "pending_calls": 0,
+    "input_tokens": 10,
+    "output_tokens": 3
+  },
+  "api_process_changed": true,
+  "external_providers_called": false
+}

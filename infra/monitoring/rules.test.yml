@@ -1,0 +1,54 @@
+rule_files:
+  - rules.yml
+evaluation_interval: 30s
+tests:
+  - interval: 30s
+    input_series:
+      - series: owner_agent_service_online{kind="api"}
+        values: 0x8
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PlatformServiceOffline
+        exp_alerts:
+          - exp_labels: {kind: api, severity: critical}
+            exp_annotations: {summary: 平台后台没有在线实例}
+  - interval: 30s
+    input_series: []
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PlatformMetricsUnavailable
+        exp_alerts:
+          - exp_labels: {job: owner-agent, severity: critical}
+            exp_annotations:
+              summary: 平台指标无法采集
+              description: 指标不可达或认证失败，不能据此判定业务健康。请检查API和采集配置。
+  - interval: 30s
+    input_series:
+      - series: owner_agent_host_memory_available_bytes
+        values: 268435456x8
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PlatformMemoryLow
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: 主机可用内存低于512MiB}
+  - interval: 30s
+    input_series:
+      - series: owner_agent_sample_available{signal="host"}
+        values: 0x8
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PlatformObservationUnavailable
+        exp_alerts:
+          - exp_labels: {signal: host, severity: warning}
+            exp_annotations: {summary: 主机或数据库观测不可用}
+  - interval: 30s
+    input_series:
+      - series: owner_agent_sample_timestamp_seconds
+        values: 0x12
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PlatformSnapshotStale
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: 平台观测样本已过期}
