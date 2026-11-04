@@ -15,14 +15,20 @@ from app.errors import fail
 from app.external_workflows import InvokeInput, admit
 from app.security import token_digest
 from app.storage import Database
+from app.team_context import active_member
+from app.team_resource_context import member_context
 
 router = APIRouter(prefix="/api/v1/internal/work-runs", tags=["任务内部检索"])
+
+
+TEAM_RESOURCE_CONTEXT_VERSION = 'work-member-resource-v1'
 
 
 class SearchInput(BaseModel):
     token: UUID
     knowledge_id: UUID
     query: str = Field(min_length=1, max_length=4000)
+    team_call_id: UUID | None = None
 
 
 @router.post("/{identifier}/knowledge")
@@ -47,10 +53,12 @@ async def search(identifier: UUID, body: SearchInput, request: Request) -> dict:
     identifier_string = str(body.knowledge_id)
     if identifier_string not in selection.get("knowledge_ids", []) or identifier_string not in current["knowledge_ids"]:
         fail(403, "KNOWLEDGE_REVOKED", "此任务无权检索所选知识库")
-    return await request.app.state.knowledge.search(
-        body.knowledge_id, run["owner_id"], body.query,
-        usage_context={"id": identifier, "mode": "work", "lease_token": body.token},
-    )
+    async with member_context(request.app.state.db, run["owner_id"], identifier, body.token,
+                              selection, body.team_call_id, body.knowledge_id) as member_authority:
+        return await request.app.state.knowledge.search(
+            body.knowledge_id, run["owner_id"], body.query,
+            usage_context={"id": identifier, "mode": "work", "lease_token": body.token, "guard": member_authority},
+        )
 
 
 class WorkKnowledge:
@@ -75,7 +83,8 @@ class WorkKnowledge:
             response = await client.post(
                 f"{self.internal_api_url}/api/v1/internal/work-runs/{self.run['id']}/knowledge",
                 headers={"Origin": self.origin},
-                json={"token": str(self.run["lease_token"]), "knowledge_id": str(knowledge_id), "query": query},
+                json={"token": str(self.run["lease_token"]), "knowledge_id": str(knowledge_id), "query": query,
+                      "team_call_id": str(active_member.get()["id"]) if active_member.get() else None},
             )
             if response.status_code != 200:
                 raise RuntimeError("Work knowledge retrieval unavailable or permission revoked")

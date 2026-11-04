@@ -19,6 +19,7 @@ from . import (
     fixed_versioned_workflow,
     fixed_workflow_evidence,
     fixed_workflow_observation,
+    fixed_team_evidence,
     network,
 )
 from .client import Platform
@@ -29,7 +30,9 @@ from .metrics import score
 
 RULES_ID = "controlled-a20-v1"
 IMPLEMENTED = {"AET-F01", "AET-F03", "AET-A01", "AET-A02", "AET-A03", "AET-A04", "AET-W01", "AET-W02", "AET-W03", "AET-W04", "AET-F02", "AET-F04", "AET-F06"}
-WORK_CASES = {"AET-W01", "AET-W02", "AET-W03", "AET-W04"}
+TEAM_CASES = fixed_team_evidence.CASES
+WORK_CASES = {"AET-W01", "AET-W02", "AET-W03", "AET-W04"} | TEAM_CASES
+IMPLEMENTED |= TEAM_CASES
 KNOWLEDGE_CASES = {"AET-A03", "AET-A04"}
 NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01", "AET-F06"} | fixed_versioned_workflow.CASES | KNOWLEDGE_CASES
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "datasets/a20-fixed.json"
@@ -40,6 +43,8 @@ def catalog():
 
 
 def evidence_module(specimen):
+    if specimen.case_id in TEAM_CASES:
+        return fixed_team_evidence
     if specimen.case_id in fixed_versioned_workflow.CASES:
         return fixed_versioned_workflow
     if specimen.case_id in KNOWLEDGE_CASES:
@@ -75,7 +80,9 @@ def readiness(platform, specimen):
     needed |= ({"work.read", "work.manage", "work.execute"} if specimen.mode == "work" else
                {"workflows.read", "workflows.manage", "workflows.execute"} if specimen.mode == "workflow" else
                {"chat.read", "chat.manage", "chat.run", "agents.manage"})
-    if specimen.case_id in KNOWLEDGE_CASES:
+    if specimen.case_id in TEAM_CASES:
+        needed |= {"agents.manage"}
+    if specimen.case_id in KNOWLEDGE_CASES or specimen.case_id == "AET-W06":
         needed |= {"knowledge.read", "knowledge.manage", "knowledge.search"}
     if specimen.case_id == "AET-A01":
         needed |= {"automation.read", "automation.manage", "automation.execute"}
@@ -87,6 +94,8 @@ def readiness(platform, specimen):
         capabilities = platform.get("/api/v1/agent-evaluations/profiles/capabilities")
         if "root-model-context-v1" not in capabilities.get("observers", []):
             missing.append("Trusted root context observer is unavailable")
+        if specimen.case_id in TEAM_CASES:
+            fixed_team_evidence.readiness(platform, specimen, capabilities)
         if specimen.case_id in fixed_versioned_workflow.CASES:
             fixed_versioned_workflow.readiness(platform, specimen, capabilities)
         if specimen.case_id in KNOWLEDGE_CASES:
@@ -137,7 +146,9 @@ def initialize(platform, journal, attempt, specimen):
         platform.expected_sandbox_namespace = namespace
     fixtures = FixedFixtures(platform, journal, attempt)
     model = fixtures.model(specimen.case_id)
-    if specimen.case_id in fixed_versioned_workflow.CASES:
+    if specimen.case_id in TEAM_CASES:
+        attempt["fixture"] = fixed_team_evidence.initialize(fixtures, model, specimen)
+    elif specimen.case_id in fixed_versioned_workflow.CASES:
         attempt["fixture"] = fixed_versioned_workflow.initialize(fixtures, model, specimen)
     elif specimen.case_id in KNOWLEDGE_CASES:
         attempt["fixture"] = fixed_knowledge_evidence.initialize(fixtures, model, specimen)
@@ -168,6 +179,8 @@ def initialize(platform, journal, attempt, specimen):
         fixed_parallel_evidence.baseline(platform, journal, attempt, specimen)
     if specimen.case_id in fixed_versioned_workflow.CASES:
         fixed_versioned_workflow.baseline(platform, journal, attempt, specimen)
+    if specimen.case_id in TEAM_CASES:
+        fixed_team_evidence.baseline(platform, journal, attempt, specimen)
     if specimen.case_id in KNOWLEDGE_CASES:
         fixed_knowledge_evidence.baseline(platform, journal, attempt, specimen)
 
@@ -181,7 +194,7 @@ def execute(platform, journal, attempt, specimen, output):
     if specimen.case_id in NAMESPACE_CASES:
         platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
         platform.attest()
-    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W02", "AET-W03", "AET-W04", "AET-F06"} | KNOWLEDGE_CASES | fixed_versioned_workflow.CASES:
+    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W02", "AET-W03", "AET-W04", "AET-F06"} | KNOWLEDGE_CASES | fixed_versioned_workflow.CASES | TEAM_CASES:
         snapshot = module.execute(platform, journal, attempt, specimen, cancelled=lambda: (output / "cancel.request").exists())
     else:
         if not attempt.get("submission_complete"):
@@ -196,8 +209,8 @@ def execute(platform, journal, attempt, specimen, output):
         attempt["business_outcomes"] = evidence["business_outcomes"]
     attempt["task_outcome"] = "FAIL" if any(row.status == "FAIL" for row in facts) else "NEEDS_REVIEW"
     journal.save()
-    attempt["usage"] = adapters.known_usage(evidence, specimen)
-    attempt["usage_completeness"] = "KNOWN"
+    attempt["usage"] = snapshot["usage"] if specimen.case_id in TEAM_CASES else adapters.known_usage(evidence, specimen)
+    attempt["usage_completeness"] = "UNKNOWN" if specimen.case_id in TEAM_CASES and not evidence["usage_complete"] else "KNOWN"
     metrics = []
     for check in specimen.metrics:
         try:
@@ -229,6 +242,8 @@ def cleanup(platform, journal, attempt):
     module.verified(journal.directory, journal.data, attempt, specimen)
     pending = network.ACTIVE.data["session_id"] if network.ACTIVE else None
     fixed_audit.validate(journal.directory, journal.data, pending_session=pending)
+    if specimen.case_id in TEAM_CASES:
+        return fixed_team_evidence.cleanup(platform, journal, attempt, specimen)
     for reference in [*attempt.get("prior_run_refs", {}).values(), root]:
         if adapters.read_run(platform, reference).get("status") not in {"SUCCEEDED", "COMPLETED", "FAILED", "CANCELLED"}:
             return "NEEDS_REVIEW"
@@ -257,7 +272,8 @@ def cleanup(platform, journal, attempt):
 def describe(specimen, dataset):
     return {"schema_version": 1, "catalog_digest": digest(dataset.model_dump(mode="json")),
             "case_definition_digest": digest(specimen.model_dump(mode="json")), "case_id": specimen.case_id,
-            "rules_id": RULES_ID, "implemented": specimen.case_id in IMPLEMENTED,
+            "rules_id": RULES_ID, "implemented": (specimen.case_id in IMPLEMENTED
+                            and (specimen.case_id not in TEAM_CASES or fixed_team_evidence.supported(specimen))),
             "maximum_model_calls": specimen.budgets.max_model_calls, "maximum_tokens": specimen.budgets.max_tokens,
             "maximum_sandboxes": 2, "sandbox_enforcement": "controlled-sandbox-reserve-v1"}
 

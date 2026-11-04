@@ -18,6 +18,9 @@ from app.team_config import subset
 from app.team_context import active_member
 from app.token_estimates import output_reserve
 from app.web_search import search_tool
+from app.work_shared_budget_guard import WorkSharedBudgetGuard
+
+WORK_SHARED_BUDGET_GUARD = 'native-work-model-tool-v1'
 
 
 class TeamRun:
@@ -135,12 +138,18 @@ class TeamRun:
             async def guard(selected=member):
                 await self.check(selected)
 
+            budget = (
+                [WorkSharedBudgetGuard(
+                    self.database, {"id": self.run, "owner_id": self.owner, "lease_token": self.lease}
+                )]
+                if self.mode == "work" else []
+            )
             graph = build_ask(
                 model,
                 True,
                 tool_capable=config.supports_tools is True,
                 tools=tools,
-                middleware=[RunGuard(guard), *middleware],
+                middleware=[RunGuard(guard), *budget, *middleware],
                 instructions=child["instructions"] + "\n本次团队角色目标：" + member["goal"],
                 backend=workspace,
             )

@@ -70,6 +70,7 @@ def request_definition(request):
     proposed = Dataset.model_validate(request["definition"])
     registered = fixed_run.catalog()
     cases = {case.case_id: case for case in registered.cases}
+    sandbox_bounds = []
     for case in proposed.cases:
         if case.case_id not in cases or digest(case.model_dump(mode="json")) != digest(
             cases[case.case_id].model_dump(mode="json")
@@ -78,6 +79,10 @@ def request_definition(request):
         descriptor = fixed_run.describe(case, registered)
         if descriptor["implemented"] is not True:
             raise ValueError("Fixed profile not implemented")
+        bound = descriptor.get("maximum_sandboxes")
+        if type(bound) is not int or not 0 <= bound <= 600:
+            raise ValueError("A reviewed case sandbox descriptor is required")
+        sandbox_bounds.append(bound)
     budgets = request["budgets"]
     maxima = {
         "max_seconds": 86400,
@@ -93,7 +98,7 @@ def request_definition(request):
         "max_seconds": sum(case.budgets.timeout_seconds for case in proposed.cases),
         "max_model_calls": sum(case.budgets.max_model_calls for case in proposed.cases),
         "max_tokens": sum(case.budgets.max_tokens for case in proposed.cases),
-        "max_sandboxes": 2 * len(proposed.cases),
+        "max_sandboxes": sum(sandbox_bounds),
     }
     if any(budgets[key] < amount for key, amount in required.items()):
         raise ValueError("Hard parent budgets do not cover the declared selected cases")
@@ -112,7 +117,7 @@ def subset_run(request, directory):
     ):
         raise ValueError("Reviewed target permission delegation is unavailable")
     arguments = SimpleNamespace(
-        dataset=ROOT / "services/evaluation/datasets/a20-fixed.json",
+        dataset=fixed_run.CATALOG_PATH,
         output=directory / "suite",
         admin_connection_file=admin,
         manager_key_file=Path(manager) if manager else None,

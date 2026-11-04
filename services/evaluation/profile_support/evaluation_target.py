@@ -36,6 +36,11 @@ CASE_LIMITS = {"AET-F01": {"max_model_calls": 4, "max_tokens": 60, "max_roots": 
               for case in ("AET-W02", "AET-A03", "AET-A04")}}
 
 
+LIMITS = MappingProxyType({**LIMITS, "AET-W05": (3, 45), "AET-W06": (6, 16000)})
+CASE_LIMITS = {**CASE_LIMITS, "AET-W05": {"max_model_calls": 3, "max_tokens": 45, "max_roots": 1},
+               "AET-W06": {"max_model_calls": 7, "max_tokens": 16007, "max_roots": 2}}
+
+
 class ProfileState:
     """Trusted side observations contain assertions/digests, never raw prompts or credentials."""
 
@@ -85,7 +90,7 @@ class ProfileState:
     def register_model(self, model_id, case_id, role, owner_id):
         binding = {"case_id": case_id, "role": role, "owner_id": str(owner_id)}
         if (case_id not in CASES or role not in {"lead", "reviewer", "embedding"}
-                or role == "reviewer" and case_id != "AET-W05"
+                or role == "reviewer" and case_id not in {"AET-W05", "AET-W06"}
                 or role == "embedding" and case_id not in {"AET-A03", "AET-A04", "AET-W06"}):
             raise ValueError("Unregistered model role")
         with self.lock:
@@ -205,17 +210,16 @@ class ControlledModel(BaseChatModel):
         return self
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        if self.case_id in {"AET-W05", "AET-W06"}:
+            from evaluation_team_profiles import generate
+            return generate(self, messages)
         key = self._state.reserve(self.case_id, self.role, messages)
         try:
-            if self.case_id == "AET-W05" and self.role == "reviewer":
-                raise TimeoutError("Controlled member timeout; not a vendor call")
             action = self.next_message(messages)
         except Exception:
             self._state.mark_unknown(key)
             raise
         action.usage_metadata = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
-        if self.case_id == "AET-W06":
-            action.usage_metadata = {"input_tokens": 15000, "output_tokens": 900, "total_tokens": 15900}
         self._state.complete(key)
         return ChatResult(generations=[ChatGeneration(message=action)])
 
@@ -285,10 +289,6 @@ class ControlledModel(BaseChatModel):
             return AIMessage(content="源码已修复，请运行独立验证。")
         if self.case_id in {"AET-W03", "AET-W04"}:
             return call("execute", {"command": COUNTER_COMMAND}) if not tools else AIMessage(content="完成或已拒绝。")
-        if self.case_id == "AET-W05":
-            return call("task", {"subagent_type": "reviewer", "description": "读取 input.txt 并审阅"}) if not tools else AIMessage(content="请保留成员失败证据。")
-        if self.case_id == "AET-W06":
-            return call("read_file", {"file_path": "/input.txt"}) if not tools else AIMessage(content="此调用应被预算拦截。")
         if self.case_id == "AET-W07":
             return call("ae_write_record", {"record": "one"}) if not tools else AIMessage(content="等待操作结果核对，不重放。")
         if self.case_id == "AET-W08":
@@ -369,6 +369,10 @@ def build_app(settings, *, sandbox_config=None):
             parent.install_runtime(application, state)
             factory = lambda configuration: model_factory(configuration, state)
             application.state.evaluation_profiles = state
+            from evaluation_team_audit import install as install_team_audit
+            from evaluation_team_observer import attach as attach_team_observer
+            restore_team_audit = install_team_audit(application, state)
+            attach_team_observer(application)
             application.state.evaluation_case_limits = {"schema_version": 1, "enforcement": "controlled-case-reserve-v1",
                 "scope": "evaluation-owner-and-case", "profiles": {case: dict(bound) for case, bound in CASE_LIMITS.items()}}
             application.state.evaluation_execution_limits = {
@@ -442,6 +446,7 @@ def build_app(settings, *, sandbox_config=None):
                     await work_consumer.close()
                 if sandboxes is not None:
                     await sandboxes.close()
+                restore_team_audit()
                 restore_embeddings()
 
     app.router.lifespan_context = lifespan

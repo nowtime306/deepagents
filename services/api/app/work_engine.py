@@ -31,9 +31,13 @@ from app.work_backend import WorkBackend
 from app.work_budget import WorkBudget
 from app.work_pause import WorkPauseMiddleware
 from app.work_resources import WorkWorkflows
+from app.work_shared_budget_guard import WorkSharedBudgetGuard
 from app.work_worker import CapacityUnavailable, LeaseLost, WorkPaused, WorkWorker
 
 EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
+
+
+WORK_SHARED_BUDGET_GUARD = 'native-work-model-tool-v1'
 
 
 class WorkEngine:
@@ -432,7 +436,11 @@ class WorkEngine:
             self.saver,
             backend=graph_backend,
             tools=tools,
-            middleware=[WorkPauseMiddleware(self.database, run), *middleware],
+            middleware=[
+                WorkPauseMiddleware(self.database, run),
+                WorkSharedBudgetGuard(self.database, run),
+                *middleware,
+            ],
             instructions=run["instructions"]
             + (
                 "\n本次从历史成果的文件副本重新开始；先核对已有成果，避免重复操作。"

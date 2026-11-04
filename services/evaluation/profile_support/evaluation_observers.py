@@ -90,7 +90,8 @@ def attach_observers(app):
 
     @app.get("/api/v1/agent-evaluations/profiles/capabilities")
     async def capabilities(request: Request):
-        await environment(request)
+        from evaluation_team_observer import capability as team_capability
+        proof = await environment(request)
         service = getattr(request.app.state, "evaluation_bounded_sandboxes", None)
         manager = {"ready": False}
         if service is not None:
@@ -106,5 +107,6 @@ def attach_observers(app):
                     and not request.app.state.evaluation_java_verifier.storage_failed else None),
                 "parent_effect_delegate": (await request.app.state.evaluation_parent_guard.capability()
                     if getattr(request.app.state, "evaluation_parent_guard", None) else None),
+                "team_profiles": team_capability(request.app, proof["owner_id"]),
                 "case_limits": getattr(request.app.state, "evaluation_case_limits", None),
                 "sandbox_limits": service.capability() if service else None, "work_manager": manager}

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "initializer_sha256": "79a190b15b667dd31be87389f17e89ee58f4da3c9e39fe0f10bd18c8d9d00dc1",
+  "initializer_sha256": "93db6a3bbc37e056f39748fe84b403ab224e4cf3190b3c8c8dad27769b02dc99",
   "sandbox_bounds": {
     "AET-A01": 2,
     "AET-A02": 2,
@@ -14,6 +14,8 @@
     "AET-F04": 2,
     "AET-F06": 2,
     "AET-F01": 2,
-    "AET-F03": 2
+    "AET-F03": 2,
+    "AET-W05": 2,
+    "AET-W06": 2
   }
 }

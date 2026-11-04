@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "dataset_id": "agent-evaluation-a20-fixed",
-  "dataset_version": 1,
+  "dataset_version": 2,
   "cases": [
     {
       "case_id": "AET-A01",
@@ -381,7 +381,7 @@
       "input": "委派reviewer读取input.txt并审阅。",
       "fixture_profile": {
         "id": "team-child-failure",
-        "version": 1
+        "version": 2
       },
       "fixture_parameters": {
         "fixed_inputs": {
@@ -389,7 +389,10 @@
           "files": {
             "/input.txt": "team-evidence"
           },
-          "member_role": "reviewer"
+          "member_role": "reviewer",
+          "member_failure": "timeout_after_real_read",
+          "expected_run_status": "NEEDS_REVIEW",
+          "expected_member_status": "UNKNOWN"
         }
       },
       "validators": [
@@ -424,7 +427,7 @@
       "input": "先读取input.txt，然后继续分析。",
       "fixture_profile": {
         "id": "shared-token-budget",
-        "version": 1
+        "version": 2
       },
       "fixture_parameters": {
         "fixed_inputs": {
@@ -432,7 +435,15 @@
           "files": {
             "/input.txt": "bounded"
           },
-          "token_limit": 16000
+          "member_role": "reviewer",
+          "query": "星桥 保修",
+          "document": "星桥产品保修三年，须提供发票。",
+          "token_limit": 16000,
+          "index_tokens": 7,
+          "expected_runtime_calls": 6,
+          "expected_runtime_tokens": 16000,
+          "forbidden_artifact": "/budget-after.txt",
+          "expected_run_status": "NEEDS_REVIEW"
         }
       },
       "validators": [
@@ -449,8 +460,8 @@
       "dependencies": [],
       "budgets": {
         "timeout_seconds": 300,
-        "max_model_calls": 10,
-        "max_tokens": 16000
+        "max_model_calls": 7,
+        "max_tokens": 16007
       }
     },
     {

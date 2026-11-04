@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "dataset_id": "agent-evaluation-a20-fixed",
+  "dataset_version": 1,
+  "cases": [
+    {
+      "case_id": "AET-W05",
+      "name": "团队成员失败传播",
+      "mode": "work",
+      "requirements": [
+        "AE-03",
+        "AE-11"
+      ],
+      "tags": [
+        "controlled-engineering"
+      ],
+      "input": "委派reviewer读取input.txt并审阅。",
+      "fixture_profile": {
+        "id": "team-child-failure",
+        "version": 1
+      },
+      "fixture_parameters": {
+        "fixed_inputs": {
+          "goal": "委派reviewer读取input.txt并审阅。",
+          "files": {
+            "/input.txt": "team-evidence"
+          },
+          "member_role": "reviewer"
+        }
+      },
+      "validators": [
+        {
+          "registered_id": "child_failure_propagates",
+          "version": 1,
+          "required": true,
+          "parameters": {}
+        }
+      ],
+      "metrics": [],
+      "repeats": 1,
+      "approval_policy": "none",
+      "dependencies": [],
+      "budgets": {
+        "timeout_seconds": 300,
+        "max_model_calls": 10,
+        "max_tokens": 20000
+      }
+    },
+    {
+      "case_id": "AET-W06",
+      "name": "共享预算达限",
+      "mode": "work",
+      "requirements": [
+        "AE-03",
+        "AE-11"
+      ],
+      "tags": [
+        "controlled-engineering"
+      ],
+      "input": "先读取input.txt，然后继续分析。",
+      "fixture_profile": {
+        "id": "shared-token-budget",
+        "version": 1
+      },
+      "fixture_parameters": {
+        "fixed_inputs": {
+          "goal": "先读取input.txt，然后继续分析。",
+          "files": {
+            "/input.txt": "bounded"
+          },
+          "token_limit": 16000
+        }
+      },
+      "validators": [
+        {
+          "registered_id": "budget_no_later_effect",
+          "version": 1,
+          "required": true,
+          "parameters": {}
+        }
+      ],
+      "metrics": [],
+      "repeats": 1,
+      "approval_policy": "none",
+      "dependencies": [],
+      "budgets": {
+        "timeout_seconds": 300,
+        "max_model_calls": 10,
+        "max_tokens": 16000
+      }
+    }
+  ]
+}
