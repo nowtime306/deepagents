@@ -57,3 +57,21 @@
 合并后客户端575、profile221、评测API单元122各自通过、零失败/错误/跳过；源码前后摘要一致。原件分别为 `.local/agent-evaluations/team-active-client-10fc31e196104b2ea126edf235b665fd`、`team-active-profile-59f4e59fa00f49cc93d6e6612683aad1`、`team-active-api-evaluation-03d9e1d876884babaa1834115f6e2928`。
 
 生产79的只读迁移影响预检已完成，47表原列摘要和key摘要封存；083预计受影响Work/session/workflow均零，082预计插入四条基线审计。此为当时活库预估，不代替最终备份或以后用户变更。收据 `.local/production79-migration-impact-20261104-v2/receipt.json`，SHA256 `76666adc463958e9a75a5740c8f538af699e68a35244a2462aae867d8c7c6a5e`。实际79→85克隆升级、真实独立Ask/SSE与schema85应用兼容回退仍须通过后才进行生产迁移；原schema79宿主不能直接当85回退，不能用旧备份覆盖上线后新记录。
+
+### F85 独立兼容核心：静审和无数据库工程通过
+
+F85 v3 固定原2818源码，仅config/main/ask_workflows/ask_server四处受限覆盖，新增配置仅关键字参数；旧79宿主及原包保持。175资产来源及Git原blob经独立核验，实际冷进程57项通过、零失败/错误/跳过，136个app模块均来自该固定源码。
+
+收据 `.local/team-workspace/agent-evaluation/qa-workflow-extra/f85_v3_cold_bc70d01bff2a4e1ebc3811d65cbbb141/independent-receipt.json`，SHA256 `7f8eadc297e87eb85ac45c631e04dcf295dd747c1c80713541d8a7cafc15c5e1`。真实PG连接入口禁止且实际调用零；生命周期组件和SQL仍为明确边缘替身，不等于真实85数据库、Ask进程/SSE、迁移回退或UI验收。首轮collect因Windows审计executable=None白名单编码失败，0测试执行，原目录保留；仅修测试入口的精确git archive白名单编码后复测，产品和断言不变。
+
+当前C85固定正式提交1358d026、351项源码，F85固定独立v3；下一门禁是最新79备份在独立克隆完整迁移85，随后两个版本真实同库往返。生产仍保持79稳定核心。
+
+### F85 向量兼容补充：v4审查与工程复测通过
+
+静态检查发现原旧实现重建向量不认识084的fingerprint/dimensions，新版写入的校验字段可能在回退维护后过期。本轮没有伪造校验字段或增加生产迁移：新F85 v4在处理器前暂停9个文档/记忆/图片向量写入与索引入口；知识检索在回退期间跳过向量和重排，记忆检索明确降为关键词。普通知识库名称与记忆正文维护保留。C85正式实现不因此降级。
+
+v4共六处原2818源码覆盖，原v3封包及57项记录保持。独立静审闭合后冷工程69项通过、零失败/错误/跳过；收据 `.local/team-workspace/agent-evaluation/qa-work-extra/f85_v4_cold_5a6716e04df34faca28d88d36207ac2d/independent-receipt.json`，SHA256 `4e9554748e6b3d317361b8c92c80f6b66ac8dac630cf41fc90fe95f520f761dc`。实际四文件API Ruff通过。baseline-overlay.patch是继承v3四覆盖，新增两覆盖见v3-to-v4.patch；包内旧Ruff口径是继承材料，不能冒充v4新检查原件。
+
+另增独立计数反例，避免旧检索函数捕获AssertionError后掩盖调用：两个冷进程分别运行原v3/v4实际search，观察模型解析调用由[configured,configured-rerank]变为[]，均保留关键词证据；独立附加两项通过，零真实数据库或模型调用。收据 `.local/team-workspace/agent-evaluation/qa-work-extra/f85_registry_control_de54a6b7b09844dd81172976ae9c08a9/independent-receipt.json`，SHA256 `be6557b466c46be5f945a4f27a76d68c9e76a5b280d4c8fa1ddb12db87aaf147`。不是A20业务复测，也不增加原13/20。
+
+克隆测试宿主首审发现F85重复来源校验的固定git archive会被网络/进程审计拒绝；v3仅放行冻结命令、cwd和参数，保留全部来源检查及负控制。root关闭该审查项并独立核纯控制测试。宿主采用实际API/独立AskWorker/PG/SSE和明确的单调用模型替身，不把测试专用入口冒充未经修改的生产AskServer。真实升级/同库往返仍待克隆运行。
