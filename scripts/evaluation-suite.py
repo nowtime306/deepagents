@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,12 +84,14 @@ def selection(dataset, case_ids=None, repeat_count=None):
     return [(case,ordinal) for case in chosen for ordinal in range(1,(repeat_count or case.repeats)+1)]
 
 
-def command(action, *, state, admin=None, manager=None, dataset=None, output=None):
+def command(action, *, state, admin=None, manager=None, dataset=None, output=None, parent_run=None):
     """Every executable/module/script is fixed in code, never read from a case."""
     pwsh = 'pwsh'
     if action in {'start', 'stop', 'target-cleanup'}:
         args = [pwsh, '-NoProfile', '-File', str(ROOT/'scripts/evaluation-target.ps1'), '-Action',
                 'cleanup' if action == 'target-cleanup' else action, '-StateDirectory', str(state)]
+        if action == 'start' and parent_run is not None:
+            args += ['-ParentRunId', str(parent_run)]
         if action in {'start', 'target-cleanup'}:
             args += ['-AdminConnectionFile', str(admin)]
         if action == 'start' and manager:
@@ -201,12 +203,42 @@ def finalize_target(attempt,state,result,call):
     if attempt['cleanup']=='RETAINED' and attempt['status']=='PASS':attempt['status']='NEEDS_REVIEW'
 
 
+def verify_parent_target(state, attempt, credentials):
+    parent_file = state.parent.parent / 'platform-parent.json'
+    expected_run = attempt.get('platform_parent_run')
+    if not parent_file.exists():
+        if expected_run is not None:
+            raise ValueError('Required parent marker disappeared')
+        return
+    if expected_run is None:
+        raise ValueError('Unexpected parent marker')
+    import httpx
+    parent = json.loads(parent_file.read_text(encoding='utf-8'))
+    if parent.get('parent_run_id') != expected_run:
+        raise ValueError('Parent run identity differs')
+    target = Target.model_validate_json((state/'target-manifest.json').read_text(encoding='utf-8'))
+    with httpx.Client(base_url=target.api_base_url, headers={'Origin':target.api_base_url}, trust_env=False, timeout=5) as client:
+        client.post('/api/v1/auth/login',json={'username':credentials['username'],'password':credentials['password']}).raise_for_status()
+        response = client.get('/api/v1/agent-evaluations/profiles/capabilities')
+        response.raise_for_status()
+        proof = response.json().get('parent_effect_delegate')
+    if (not isinstance(proof,dict) or proof.get('required') is not True or proof.get('ready') is not True
+            or proof.get('contract') != 'platform-effect-permit-v1'
+            or proof.get('parent_run_id') != parent['parent_run_id']
+            or proof.get('candidate_commit') != parent['candidate_commit']
+            or proof.get('case_id') != attempt['case_id']
+            or set(proof.get('boundaries',{})) != {'provider','tool','sandbox','submission'}
+            or any(value is not True for value in proof['boundaries'].values())):
+        raise ValueError('Required parent effect bridge was not proved by the actual target')
+
+
 def perform_attempt(attempt,state,result,call,candidate):
     reason=None
     try:
         if call('start')!=0:return 'TARGET_START_REVIEW'
         check_candidate(candidate,state/'target-manifest.json')
         credentials=json.loads((state/'credentials.json').read_text(encoding='utf-8'))
+        verify_parent_target(state,attempt,credentials)
         # Fixed preflight performs the genuine authenticated attestation against this manifest.
         for action in ('preflight','init'):
             if call(action,credentials)!=0:return action.upper()+'_REVIEW'
@@ -249,6 +281,11 @@ def invoke(args, directory, label, cancel_path, deadline, credentials=None):
     allowed = {'PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','HOME','USERPROFILE','APPDATA','LOCALAPPDATA'}
     environment = {k:v for k,v in os.environ.items() if k.upper() in allowed}
     environment.update(DEEPEVAL_TELEMETRY_OPT_OUT='1', DEEPEVAL_DISABLE_DOTENV='1', PYTHON_DOTENV_DISABLED='1')
+    if label == 'start' and '-ParentRunId' in args:
+        for key in ('EVALUATION_PLATFORM_PERMIT_ORIGIN','EVALUATION_PLATFORM_PERMIT_SECRET'):
+            if not os.environ.get(key):
+                raise ValueError('Required parent delegation was not forwarded')
+            environment[key] = os.environ[key]
     environment.update(DEEPEVAL_HOME=str(directory), ENV_DIR_PATH=str(directory),
                        DEEPEVAL_RESULTS_FOLDER=str(directory/'deepeval-results'), DEEPEVAL_CACHE_FOLDER=str(directory/'deepeval-cache'))
     if credentials:
@@ -321,6 +358,14 @@ def aggregate(directory, record):
 
 def run_suite(args):
     output = args.output.resolve()
+    parent_run = getattr(args, 'platform_parent_run', None)
+    if parent_run is not None:
+        parent = json.loads((output/'platform-parent.json').read_text(encoding='utf-8'))
+        if (str(UUID(str(parent_run))) != str(parent_run) or parent.get('parent_run_id') != str(parent_run)
+                or parent.get('candidate_commit') != args.candidate_commit):
+            raise ValueError('Required parent identity not bound')
+    elif (output/'platform-parent.json').exists():
+        raise ValueError('Unexpected parent marker')
     base = ROOT/'.local/agent-evaluations'
     if not output.is_relative_to(base) or output == base or (output/'suite.json').exists():
         raise ValueError('A new private suite output is required; no implicit replay')
@@ -381,13 +426,14 @@ def run_suite(args):
                          'candidate_commit':args.candidate_commit,'rules_id':args.rules_id,'status':'NEEDS_REVIEW',
                          'child':str(child.relative_to(output)), 'dispatch_attempted':False,
                          'business_started':False,'unknown_submission':False,'root_run_ids':[],'cleanup':'RETAINED'}
+                if parent_run is not None:attempt['platform_parent_run'] = str(parent_run)
                 record['attempts'].append(attempt);save(output/'suite.json',record)
                 def call(action, auth=None):
                     if action in {'start','init','preflight','run'} and ((output/'cancel.request').exists() or time.monotonic()>=deadline):
                         return 130
                     if action=='run':attempt['dispatch_attempted']=True
                     return invoke(command(action,state=state,admin=args.admin_connection_file,manager=args.manager_key_file,
-                                          dataset=child_data,output=result),child,action,result/'cancel.request',deadline,auth)
+                                          dataset=child_data,output=result,parent_run=parent_run),child,action,result/'cancel.request',deadline,auth)
                 reason=perform_attempt(attempt,state,result,call,args.candidate_commit)
                 verified=verify_frozen_source(record)
                 attempt['source_verification']=record['source_verification'].copy()

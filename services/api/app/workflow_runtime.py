@@ -53,6 +53,8 @@ def transform(node: Node, text: str) -> str:
         return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
     return text
 
+EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
+
 
 class WorkflowRuntime:
     """Use the same models, retrieval and read-only MCP policies as the rest of the platform."""
@@ -233,6 +235,9 @@ class WorkflowRuntime:
                 if guard:
                     await guard()
                 await self.pins(definition, owner, default_model)
+                parent_guard = getattr(self.database, 'evaluation_effect_guard', None)
+                if parent_guard is not None:
+                    await parent_guard('tool')
 
             context = {**context, "guard": authority}
 

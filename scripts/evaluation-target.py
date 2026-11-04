@@ -48,7 +48,39 @@ def target_params(params, name):
     return {**params, 'dbname': name}
 
 
-def start(directory, admin_file, manager_key_file):
+def platform_parent(directory, commit, expected_run=None):
+    marker = directory.parent.parent / 'platform-parent.json'
+    if not marker.exists():
+        if expected_run is not None:
+            raise ValueError('Required parent marker disappeared')
+        return None
+    if expected_run is None:
+        raise ValueError('Parent marker needs its explicit requested run identity')
+    if marker.is_symlink() or marker.is_junction() or marker.stat().st_size > 4096:
+        raise ValueError('Invalid private parent marker')
+    value = json.loads(marker.read_text(encoding='utf-8'))
+    if value.get('parent_run_id') != str(expected_run):
+        raise ValueError('Parent run identity differs')
+    required = {'schema_version','contract','parent_run_id','parent_owner_id','candidate_commit','selected_cases'}
+    if (set(value) != required or type(value['schema_version']) is not int or value['schema_version'] != 1
+            or value['contract'] != 'platform-effect-permit-v1' or value['candidate_commit'] != commit):
+        raise ValueError('Private parent marker does not match this checkout')
+    for key in ('parent_run_id','parent_owner_id'):
+        if str(UUID(value[key])) != value[key]:
+            raise ValueError('Canonical parent identity required')
+    context = json.loads((directory.parent / 'suite-context.json').read_text(encoding='utf-8'))
+    if (context['candidate_commit'] != commit or context['case_id'] not in value['selected_cases']
+            or len(value['selected_cases']) != len(set(value['selected_cases']))):
+        raise ValueError('Target is not a selected parent case')
+    support = ROOT / 'services/evaluation/profile_support'
+    sys.path.insert(0, str(support))
+    from evaluation_platform_effects import configuration
+    if configuration() is None:
+        raise ValueError('Required parent delegation was lost before provisioning')
+    return {key:value[key] for key in ('schema_version','contract','parent_run_id','parent_owner_id','candidate_commit')} | {'case_id':context['case_id']}
+
+
+def start(directory, admin_file, manager_key_file, parent_run_id=None):
     from app.config import Settings
     from app.manage import add_user, migrate
     from app.models import CredentialVault
@@ -62,6 +94,7 @@ def start(directory, admin_file, manager_key_file):
     name = 'owner_agent_evaluation_' + identifier.hex + '_test'
     data = directory / ('data_' + identifier.hex + '_test')
     commit = subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip()
+    parent = platform_parent(directory, commit, parent_run_id)
     state = {'environment_id': str(identifier), 'database_name': name, 'platform_commit': commit,
              'data_dir': str(data), 'status': 'PROVISIONING', 'pid': None}
     state['source_sha256'] = source_fingerprint(ROOT)
@@ -82,6 +115,8 @@ def start(directory, admin_file, manager_key_file):
               'platform_commit': commit, 'sandbox_namespace': namespace,
               'fixture_profile': {'id': 'controlled-v1', 'version': 1}}
     save(data / 'evaluation-instance.json', marker)
+    if parent is not None:
+        save(data / 'evaluation-parent.json', {**parent, 'environment_id':str(identifier), 'owner_id':owner})
     save(directory / 'credentials.json', {'username': owner_name, 'password': password})
     # The child binds and retains its own socket before publishing its actual port.
     save(directory / 'server-private.json', {'database_url': connection, 'data_dir': str(data),
@@ -91,6 +126,11 @@ def start(directory, admin_file, manager_key_file):
     save(directory / 'target-state.json', state)
     environment = {k: v for k, v in os.environ.items() if k.upper() in {'PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','HOME','USERPROFILE','APPDATA','LOCALAPPDATA'}}
     environment['PYTHON_DOTENV_DISABLED'] = '1'
+    if parent is not None:
+        for key in ('EVALUATION_PLATFORM_PERMIT_ORIGIN','EVALUATION_PLATFORM_PERMIT_SECRET'):
+            if not os.environ.get(key):
+                raise ValueError('Required parent delegation was lost before startup')
+            environment[key] = os.environ[key]
     with (directory / 'server.log').open('ab') as output:
         child = subprocess.Popen([sys.executable, '-I', str(Path(__file__).resolve()), 'serve', '--state', str(directory)],
                                  cwd=directory, env=environment, stdout=output, stderr=output,
@@ -234,7 +274,7 @@ def pending_resources(database):
 
 def business_history(database):
     return any(database.execute(sql.SQL('SELECT 1 FROM {} LIMIT 1').format(sql.Identifier(table))).fetchone()
-               for table in ('task_runs','work_queue_runs','workflow_runs'))
+               for table in ('task_runs','work_queue_runs','workflow_runs','resource_operations'))
 
 
 def confirm_cleanup_evidence(directory):
@@ -283,6 +323,7 @@ def main():
     parser.add_argument('--state', required=True, type=Path)
     parser.add_argument('--admin-connection-file', type=Path)
     parser.add_argument('--manager-key-file', type=Path)
+    parser.add_argument('--parent-run-id', type=UUID)
     args = parser.parse_args()
     directory = args.state.resolve()
     allowed = ROOT / '.local/agent-evaluations'
@@ -294,7 +335,7 @@ def main():
             claimed.write(str(os.getpid()))
         try:
             if args.action == 'start':
-                start(directory, args.admin_connection_file, args.manager_key_file)
+                start(directory, args.admin_connection_file, args.manager_key_file, args.parent_run_id)
             else:
                 cleanup(directory, args.admin_connection_file)
         finally:

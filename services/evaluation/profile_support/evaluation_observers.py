@@ -104,5 +104,7 @@ def attach_observers(app):
                 "java_verifier": (getattr(request.app.state, "evaluation_java_capability", None)
                     if getattr(request.app.state, "evaluation_java_verifier", None) and request.app.state.evaluation_java_verifier.ready
                     and not request.app.state.evaluation_java_verifier.storage_failed else None),
+                "parent_effect_delegate": (await request.app.state.evaluation_parent_guard.capability()
+                    if getattr(request.app.state, "evaluation_parent_guard", None) else None),
                 "case_limits": getattr(request.app.state, "evaluation_case_limits", None),
                 "sandbox_limits": service.capability() if service else None, "work_manager": manager}

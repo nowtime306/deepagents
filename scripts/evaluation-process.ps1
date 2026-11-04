@@ -27,7 +27,7 @@ function New-EvaluationOutput([string]$Path) {
     return $target
 }
 
-function Invoke-EvaluationProcess([string]$Executable, [string[]]$Arguments, [string]$Output, [string]$Label, [switch]$Authentication) {
+function Invoke-EvaluationProcess([string]$Executable, [string[]]$Arguments, [string]$Output, [string]$Label, [switch]$Authentication, [switch]$ParentDelegation) {
     $logId = $Label + '-' + [guid]::NewGuid().ToString('N')
     $info = [Diagnostics.ProcessStartInfo]::new($Executable)
     $info.UseShellExecute = $false
@@ -64,6 +64,13 @@ function Invoke-EvaluationProcess([string]$Executable, [string[]]$Arguments, [st
         foreach ($name in @('EVALUATION_API_TOKEN','EVALUATION_USERNAME','EVALUATION_PASSWORD')) {
             $value = [Environment]::GetEnvironmentVariable($name)
             if ($value) { $info.Environment[$name] = $value }
+        }
+    }
+    if ($ParentDelegation) {
+        foreach ($name in @('EVALUATION_PLATFORM_PERMIT_ORIGIN','EVALUATION_PLATFORM_PERMIT_SECRET')) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if (!$value) { throw '父批次执行授权未完整转发，未启动目标。' }
+            $info.Environment[$name] = $value
         }
     }
     foreach ($argument in $Arguments) { $info.ArgumentList.Add($argument) }

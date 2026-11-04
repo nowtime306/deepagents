@@ -5,25 +5,25 @@
 ## 已验证范围
 
 - A20中13个不同案例各1次：Ask A01～A04，Work W01～W04，Workflow F01～F04及F06。十一项受控事实PASS、两项预期失败负控制（W01/F03原失败不改写）。各原件/候选和独立回收核验见`agent-evaluation-acceptance.md`及专项审查。
-- 完整工程回归最近固定范围为f047增量的客户端492/profile219通过；后续id-only最小修复又经32客户端、2正式router替身及真实独立PG合同1项通过。重叠测试不累加，不把它们计为Agent任务或供应商质量。
+- Worker默认关闭接线后的完整工程回归为客户端493/profile221通过，相关API单元53通过；新增Worker五项PG合同在私有冻结与active普通导入两批新随机库均通过，重复范围不累加。此前id-only修复的2正式router替身及真实PG合同另有原件。均不把它们计为Agent任务或供应商质量。
 - 评测元数据API、085迁移、私有owner/RBAC/CAS/幂等/版本/报告、中文管理页面代码已有开发快照；原22项真实PG及独立生产构建记录在`agent-evaluation-platform-qa.md`。缺可信执行驱动时正式提交503、零排队。真实页面访问尚被工具权限规则拒绝，构建不是UI验收。
 
-## 已封存但尚未合入或验收
+## 源码合入与未闭合范围
 
-1. 持久Worker v2：`.local/platform-worker-development/v2/manifest.json`，摘要`3367f98d9a07272655adb521bdbf301404b269ce3f3c201a693723b321426227`。非作者关闭required许可配置竞态、非bool许可及真实解释器/模块/锁身份三个问题，独立66项工程通过。审查收据清单摘要`01bd3b0f47185e25a19071215e3e06efe1fe82398b06a6473725f286a066f738`。补丁未应用，无可信A20出版或伪造bridge收据；真实PG claim/import/fencing和实际父绑定HTTP整链路未执行，PG测试源码尚未实现，仅有范围草稿。不能称Worker已启用。
-2. W05/W06阶段包：`.local/team-budget-development/v1/manifest.json`摘要`29fa8552b0d3c8f03c69140c8cb49780a9f43c1d4c0a851d943cc7d95a81a052`。24项作者工程，仅helper/预算guard/原生计量重算，正式fixture/observer/ready接线未闭合。W06实际Work硬额度16000，初始化embedding7另计；未来新定义外层16007必须与运行额度分开，不改旧定义。
-3. F05/F07：`services/evaluation/.local/workflow-effects-development/checkpoint.json`摘要`3ed57139df1e87caf1e4dedbeabec808a45f34f7006fd909e12d18060a381305`，46个顶层私有原件和handoff。F05默认阻断，计划两批准根counter各1+首审批拒绝对照根code0，真实最多10次create/并发1；原600硬上限保留，报价不足必须阻断。F07未接线；普通外部GET超时不能因checkbox升格为确定无写副作用，只有固定可信只读adapter可发专用类型，模型/写超时仍UNKNOWN。最新收敛改动尚未重测，不拿早期profile25冒充最终绿。
+1. 持久Worker v2：冻结摘要`3367f98d9a07272655adb521bdbf301404b269ce3f3c201a693723b321426227`，独立审查/66项工程通过，收据清单`01bd3b0f47185e25a19071215e3e06efe1fe82398b06a6473725f286a066f738`。root逐字节核对后，五新模块/十二处可选接线已默认关闭合入工作树；没有main/lifespan注册、启动或伪造可信publication/bridge。真实PG claim/import/fencing、回滚、取消、撤权五项现已实现并独立通过，可移植PG测试也已普通导入active复验。工程测试迁移继续；实际父绑定HTTP整链路尚未验，不能称Worker已启用。详见`agent-evaluation-worker-qa.md`。
+2. W05/W06原阶段包摘要`29fa8552b0d3c8f03c69140c8cb49780a9f43c1d4c0a851d943cc7d95a81a052`，24项作者工程保留；私有正式fixture/observer/成员查询桥接继续开发，尚无独立QA或真实执行。W06忠实保留“先读取input.txt再检索”：运行6次模型调用/16000 Token，初始化embedding另1次/7，未来新v2定义外层7次/16007与运行硬额度分开，旧定义不改；前6次外层草案漏算先读步骤，不能作为最终验收标准。
+3. F05/F07旧46原件checkpoint摘要`3ed57139df1e87caf1e4dedbeabec808a45f34f7006fd909e12d18060a381305`保持。Worker v2重基最终私有冻结`services/evaluation/.local/workflow-effects-development/rebase-worker-v2-final/review-freeze.json`摘要`00f088daf63bdd1bc5043a65c59400512d673bf8ff206ddb76fd1fa862542ed9`，作者客户端29/profile28/预算3/协调8及TS/Lint通过，未替代独立QA。F05默认阻断，计划两批准根counter各1+首审批拒绝对照根code0，最多10次create/并发1；跨初始化/各运行共享case300秒时限尚在补，原600总硬上限保持，报价不足阻断。F07未接完整receiver或IMPLEMENTED；普通GET超时不能凭checkbox升格，只有固定可信只读adapter可发专用类型，模型/写超时仍UNKNOWN。
 4. A05、W07和W08未完成。W08原安全边界子任务曾被自动风险检测中断，未绕通道重试，不能标通过。原私有失败/冻结留存。
 5. B100真实不同任务与重复、C比较CI、D持续评测尚未完成；真实比较身份元数据没有导入时仍拒绝比较，不编造提升。真实供应商联调继续按用户要求跳过，其他未实现项不借此算完成。
 
 ## 续作顺序与保护约束
 
-先对Worker v2当前base漂移逐处复核、审查真实PG测试源码，再用新随机_test库验证持久claim/lease/import事务/取消/撤权，不冒充真实Agent；随后补实际parent-bound业务链、可信来源/逐效果许可和导入证据。审查关闭才交独立测试，未通过入口继续阻断。并行完成剩余七例的固定新定义与正式接线，逐例新库、新账号/数据和namespace实测，严禁重放未知写入。
+Worker源码与真实PG合同已审查/独立验证；接着完成工程测试可移植迁移和实际parent-bound业务链、可信来源/逐效果许可及证据导入。审查关闭才交独立测试，未通过入口继续阻断。并行完成剩余七例的新定义和正式接线，逐例新库、新账号/数据和namespace实测，严禁重放未知写入。
 
 真实A20证据及可信出版闭合后，才继续B/C/D、实际页面和生产发布。Chrome官方工具在用户再次改权后仍明确拒绝`http://127.0.0.1:3131`，不得换浏览器、原始CDP或间接通道绕过。需要实际工具权限恢复才可完成页面验收。
 
 生产仍以先前schema79基线的临时只读恢复部署保留，本轮没有迁移/替换它；原数据库、model.key和用户手动修改均保留。8100/3131为既有独立测试服务，不当生产抢占；生产API恢复端口8101、前端3100，manager18180沿用原实例。正式发布前重新核进程身份、鲜备份及独立恢复验证、独立前端产物与迁移85以上；旧恢复wrapper固定schema79，不能假作迁移后的自动回滚。失败诊断库、旧报告不得强删、回填或覆盖用户后来改动。
 
-所有本轮实际suite和已知工程命令均已返回，未保留新测试target或创建自动续作任务；既有服务不停止。开发源码快照已正常推送至69d240b，本文及最终验收记录另作后续文档提交。用户未跟踪的`docs/deepeval-learning/`始终未纳入或修改。
+本批PG和回归命令均已返回，两套新增PG库已精确回收，未保留新测试target或创建自动续作任务；既有服务不停止。此前开发/文档快照已正常推送至eea7b818，本批Worker工作树待本批验证闭合后另记提交；私有并行开发继续。用户未跟踪的`docs/deepeval-learning/`始终未纳入或修改。
 
-最后官方额度读数：周额度used97%（剩3%）；五小时secondary为null，无法确认用户要求的8%保留线，不能把周余额冒充五小时余额。本轮先封存现有安全检查点；没有使用当前额度重置卡，也没有改动旧独立重置卡自动任务。
+最新用户额度指令：周剩1%仍继续验收，实际耗尽后使用一张已有重置卡再核验。最后官方读数used99%（剩1%）、卡2张，尚未兑换；secondary为null，不能把周余额冒充五小时余额。已准备官方app-server账户接口的幂等单卡处理，仅实际周耗尽时调用；不购买额外额度、不创建新自动任务、不改旧独立重置卡任务。

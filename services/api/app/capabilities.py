@@ -14,6 +14,8 @@ from app.memory_api import search as search_memories_owned
 from app.permissions import require_account
 from app.skill_library import SkillBackend
 
+EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
+
 
 class CapabilityService:
     """Scope every tool and skill file to the authenticated run owner."""
@@ -287,4 +289,7 @@ class CapabilityService:
                 ),
                 SkillsMiddleware(backend=backend, sources=["/skills/"]),
             ]
+        parent_wrapper = getattr(self.database, 'evaluation_wrap_tools', None)
+        if parent_wrapper is not None:
+            tools = parent_wrapper(tools)
         return tools, middleware

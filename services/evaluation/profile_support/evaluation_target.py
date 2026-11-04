@@ -39,6 +39,8 @@ CASE_LIMITS = {"AET-F01": {"max_model_calls": 4, "max_tokens": 60, "max_roots": 
 class ProfileState:
     """Trusted side observations contain assertions/digests, never raw prompts or credentials."""
 
+    parent_guard_contract = 'platform-effect-permit-v1'
+
     def __init__(self, path: Path | None = None):
         self.lock = Lock()
         self.calls = Counter()
@@ -116,6 +118,9 @@ class ProfileState:
         scope = current_scope()
         if scope is None:
             raise RuntimeError("A controlled model requires a genuine platform resource-run scope")
+        parent_guard = getattr(self, 'parent_effect_guard', None)
+        if parent_guard is not None:
+            parent_guard(case_id)
         key = (str(scope.owner), scope.mode, str(scope.run), case_id, role)
         human = [str(message.content) for message in messages if isinstance(message, HumanMessage)]
         encoded = json.dumps(human, ensure_ascii=False).encode()
@@ -350,14 +355,18 @@ def build_app(settings, *, sandbox_config=None):
         raise ValueError("The controlled target requires explicit attestation settings")
     from app.main import create_app
     from evaluation_automations import ControlledAskWorker
+    from evaluation_parent_guard import ParentGuard
 
+    parent = ParentGuard(settings)
     app = create_app(settings, evaluation_sandbox_connection=sandbox_config)
+    parent.attach(app)
     original = app.router.lifespan_context
 
     @asynccontextmanager
     async def lifespan(application):
         async with original(application):
             state = ProfileState(settings.data_dir / "evaluation-provider-state.json")
+            parent.install_runtime(application, state)
             factory = lambda configuration: model_factory(configuration, state)
             application.state.evaluation_profiles = state
             application.state.evaluation_case_limits = {"schema_version": 1, "enforcement": "controlled-case-reserve-v1",

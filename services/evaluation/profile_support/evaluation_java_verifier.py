@@ -49,6 +49,9 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
+
+
 class JavaVerifier:
     def __init__(self, database, sandboxes, artifacts, models, profiles, *, environment_id, state_path):
         self.database, self.sandboxes, self.artifacts = database, sandboxes, artifacts
@@ -179,6 +182,9 @@ class JavaVerifier:
             (run["id"], UUID(job["task_id"]), UUID(job["owner_id"]), run["lease_token"], job["task_revision"], job["source_model_id"], UUID(job["namespace"])))
         if not rows or str(run["id"]) == job["source_run_id"] or str(run["owner_id"]) != job["owner_id"]:
             raise RuntimeError("Live verifier ownership or Work lease was lost")
+        parent_guard = getattr(self.database, 'evaluation_effect_guard', None)
+        if parent_guard is not None:
+            await parent_guard('tool')
 
     async def execute(self, run):
         task = str(run["task_id"])

@@ -33,6 +33,8 @@ from app.work_pause import WorkPauseMiddleware
 from app.work_resources import WorkWorkflows
 from app.work_worker import CapacityUnavailable, LeaseLost, WorkPaused, WorkWorker
 
+EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
+
 
 class WorkEngine:
     """Connect one fenced run to a model, sandbox, checkpointer and artifacts."""
@@ -154,6 +156,10 @@ class WorkEngine:
                     )
                     if not agents:
                         raise RuntimeError("Agent permission revoked")
+                if not closing:
+                    parent_guard = getattr(self.database, 'evaluation_effect_guard', None)
+                    if parent_guard is not None:
+                        await parent_guard('tool')
 
             backend = WorkBackend(
                 sandbox,

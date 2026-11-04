@@ -16,6 +16,8 @@ from app.sandbox_service import IMAGES, RESOURCES, SandboxKind
 from app.storage import Database
 from app.work_network import policy
 
+EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
+
 
 class DurableSandboxes:
     """Reserve one durable slot per environment before sending remote creates."""
@@ -87,6 +89,16 @@ class DurableSandboxes:
         if session is None:
             return None
         namespace = (await self.database.fetch("SELECT id FROM work_sandbox_namespace"))[0]["id"]
+        parent_guard = getattr(self.database, 'evaluation_effect_guard', None)
+        if parent_guard is not None:
+            try:
+                await parent_guard('sandbox')
+            except BaseException:
+                # No SDK create was sent; this exact local reservation is known unused.
+                await self.database.execute(
+                    "UPDATE work_sandbox_sessions SET state='RELEASED',updated_at=now() "
+                    "WHERE id=%s AND state='CREATING' AND sandbox_id IS NULL", (session["id"],))
+                raise
         try:
             sandbox = await Sandbox.create(
                 IMAGES[kind],

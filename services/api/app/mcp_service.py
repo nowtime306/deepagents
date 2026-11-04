@@ -57,6 +57,8 @@ def server_pin(server: dict) -> str:
         payload["command_json"] = server.get("command_json", [])
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
+EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
+
 
 class MCPService:
     """Keep credentials server-side and recheck allowed tools before every invocation."""
@@ -182,6 +184,9 @@ class MCPService:
             if (bool(fresh[0].get("oauth_required")) != bool(server.get("oauth_required"))
                     or server.get("allow_private") and not fresh[0].get("allow_private")):
                 fail(403, "MCP_AUTHORIZATION_CHANGED", "MCP访问授权在调用前已变化")
+            parent_guard = getattr(self.database, 'evaluation_effect_guard', None)
+            if parent_guard is not None:
+                await parent_guard('tool')
             response = await session.call_tool(name, arguments=arguments)
         if response.is_error:
             fail(502, "MCP_TOOL_FAILED", "MCP 工具执行失败，请检查服务日志")
