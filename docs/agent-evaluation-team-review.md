@@ -38,3 +38,14 @@ W05 保留成员真实读取后超时：两次已知调用合计 30 Token，第�
 F05 新重基包仍在私有审查，F07 完整 receiver 未接线，A05/W07/W08 及 B100/C/D 未完成。Windows 报告 Markdown 原子替换偶发 WinError5 仍 OPEN；已捕获精确失败并验证自有句柄可产生同码，但原拒绝者未知，不能称根因已修。失败后 ready 缺失，门禁不会误绿。
 
 浏览器工具对独立测试站仍受既有拒绝规则限制，未绕过，也没有真实页面验收。生产保持原临时只读恢复部署；本次没有迁移、服务替换或正式发布标签。
+
+
+## 首次实际 W05：初始化拒绝及最小修复
+
+固定候选 `5ae6303faef4ef128c9d8b1367fa98fc83e8889a` 的一次标准 W05 suite 原件为 `.local/agent-evaluations/w05-5ae6303f-44db6ebc2fc64e279abd414c54d8d7ae`。实际退出 1，INIT_REVIEW/RETAINED，未派发任务。共享 fixture 对同 case/prefix 的父子智能体使用同名，真实 API 第二次创建明确返回 409 AGENT_NAME_CONFLICT；不能将它当预期成员超时控制已通过。
+
+非作者只读收据 `ops-development/w05-init-independent-readonly.json` 摘要 `df8b1535434988a5e4d29cf1f327c5973da8e72a3a34451499c531428b159449`：九张执行/用量/资源表为零、会话零、精确目标 PID 已不存在、本 namespace manager 全分页库存零。三模型（含基线）、一智能体及一发布版本保留在原诊断库；18份证据与三报告封印不变。实际只有 preflight COMPLETE / init ERROR / cleanup COMPLETE 三条审计，没有伪造 run 审计。342份旧源码在修复前核齐；后续新源码变化不回填原来源。
+
+最小修复冻结 `21ac68f6d6313d87191accb5fe87564782d46cff1f6064b7e7fb5e83d9f573cc`：只在生成名称加入已有 model_id，意图键、发布引用、真实 API 唯一约束和已确认请求缓存不变，不使用随机重试。严格按 owner/name 判重的 MockTransport 先重现旧版第二次 POST 409，再验证父子发布、同 owner 重名仍拒绝、不同 owner 同名允许及已确认调用不重发。root 非作者审查和私有三项通过；正式导入新增三项连同完整客户端 **496 项通过、零跳过**，原件 `team-active-client-0d9d444f0a5e4720a57fa91216d63990`。新增测试只整理一处导入空行，完整 AST 不变；Ruff 通过。
+
+旧批预留 10 调用/20000 Token/2 sandbox 不退款、不改 CLEAN；保留原库与原失败。新代码的后续复验须单独固定候选和新环境、继续单 case 停止点，不能重放旧环境。尚未有 W05/W06 业务通过或生产发布。
