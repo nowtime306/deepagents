@@ -45,3 +45,15 @@
 ## 发布边界
 
 本轮管理接口已在测试环境可用，生产仍是原稳定核心。真实W05未通过，不增加原13/20受控验收案例。Work/Workflow/自动任务及新版评测执行不因这些接口或工程测试自动开放。正在准备元数据管理可单独发布的迁移、恢复、启动及回退验证；缺失可信执行链的部分保持禁用并明确延期。
+
+### 受限发布模式：代码与工程测试通过，部署验证待完成
+
+新增实例级 `Settings.restricted_execution`，默认false、仅关键字参数，保留原有调用及默认行为。受限模式拒绝矛盾的后台开关，API及独立Ask进程都绑定自身Database实例；不使用全局产品替换。API跳过启动恢复写入、Workflow消费者及外发投递；43个当前已知执行端点暂停，内部Ask工作流工具在任何查询/提交前拒绝。普通管理与Ask通路保留。新增执行端点仍须人工审查禁用清单，不能宣称自动发现。
+
+作者私有候选v2为 `services/evaluation/.local/restricted-metadata-host-v2/manifest.json`，SHA256 `4e61ec65f7ba6f0073df5448cee2dfd1daedca6de526a5ef1dd47f07cc1cc003`。经过独立静态审查后才安装正式源码；私有包导入分类问题只在新v2整理，非import AST、全部绑定和断言保持，原v1不覆盖。正式API配置Ruff通过。
+
+非作者正式普通导入57项工程测试通过，零失败/错误/跳过，五个修改产品模块来源均为正式API；真实生命周期和独立Ask入口的DB/网络/服务边缘明确使用替身，不冒称真实进程或SSE。唯一被拒bind已通过单独诊断同组重跑定位为urllib3固定IPv6导入探针，仍被拒，没有放宽网络规则；重复57不累计。独立收据 `.local/team-workspace/agent-evaluation/qa-workflow-extra/restricted_policy_formal_diagnostic_f61d5434e03f4e8daf1eed1439508c24/independent-receipt.json`，SHA256 `fe45122aca4a68027df6865227529df9a1319caea71b0b5664ba9baf58ee6cc5`。
+
+合并后客户端575、profile221、评测API单元122各自通过、零失败/错误/跳过；源码前后摘要一致。原件分别为 `.local/agent-evaluations/team-active-client-10fc31e196104b2ea126edf235b665fd`、`team-active-profile-59f4e59fa00f49cc93d6e6612683aad1`、`team-active-api-evaluation-03d9e1d876884babaa1834115f6e2928`。
+
+生产79的只读迁移影响预检已完成，47表原列摘要和key摘要封存；083预计受影响Work/session/workflow均零，082预计插入四条基线审计。此为当时活库预估，不代替最终备份或以后用户变更。收据 `.local/production79-migration-impact-20261104-v2/receipt.json`，SHA256 `76666adc463958e9a75a5740c8f538af699e68a35244a2462aae867d8c7c6a5e`。实际79→85克隆升级、真实独立Ask/SSE与schema85应用兼容回退仍须通过后才进行生产迁移；原schema79宿主不能直接当85回退，不能用旧备份覆盖上线后新记录。

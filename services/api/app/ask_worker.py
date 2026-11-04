@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 class AskWorker:
     def __init__(self, database, models, settings, model_factory=resolve_model) -> None:
+        from app.execution_policy import bind
+
+        bind(database, settings)
         self.database, self.models, self.settings = database, models, settings
         self.model_factory = model_factory
         self.queue, self.id = AskQueue(database), uuid4()

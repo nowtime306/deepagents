@@ -106,3 +106,5 @@ Work详情修复提交`f2fd3c9aa7a07af9902b8e7bcd5046dcb8fbcf85`已正常推送�
 - 容量诊断提交 3091666487cca2ef73b1c87f3b00eed6e2c4aff7：onwer_agent 已正常推送；原资源公式/余量/租约/UNKNOWN不重放保留，拒绝原因与同次采样安全信息入既有事件表。独立正式普通导入 17 单元 + 8 PG/ASGI 合同共 25 项通过、零跳过；相关 profile221/API unit27 分组通过。该提交同时存档稳定核心恢复及专项报告；生产仍为原2818恢复核心，未升级此新Work代码、未开放Work或DeepEval执行。详见 [容量诊断QA](../work-capacity-diagnostics-qa.md)。
 
 - 固定代码工作流集成提交 `b8757ca0cf3396b8015ba9b13b9994ab05fce566`，分支 `onwer_agent`，已正常推送。包括 F05 v2、认证共享期限、四效果边界、归属/关联拒绝、预算报价及正式普通导入测试。完整 client575/profile221/API单元122、独立API132和新隔离PG7分别通过；测试格式修复独审后，原132与PG7在新目录/新库再次通过，未累计业务覆盖。独立生产构建通过但未部署，A20仍十三/二十，原失败和预留保留。生产3100仍为2818/schema79稳定核心，未开放新执行入口。详见 [F05集成QA](../agent-evaluation-f05-integration-qa.md) 与 [稳定核心运维说明](../stable-core-operations.md)。
+
+- 原生Work预算登记修复 `4bf8feb2180169866feaef82e82dd77d8522893f`，分支 `onwer_agent`，已推送并核远端。实际W05发现原生UNKNOWN账本与根标志不同步，最小SQL修复经审查、独立正式PG9及相关usage/team工程132通过。旧真实W05的FAIL/UNKNOWN及数据库保持，未重跑，不计业务验收通过。另仅独立测试库085及最小QA账号已准备，真实元数据HTTP33项符合预期；生产未升级。详见 [恢复验收记录](../agent-evaluation-resumed-acceptance-2026-11-04.md)。

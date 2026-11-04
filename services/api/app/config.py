@@ -2,7 +2,7 @@
 
 import ipaddress
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -69,9 +69,13 @@ class Settings:
     internal_api_url: str = DEFAULT_INTERNAL_API_URL
     evaluation_instance_id: str | None = None
     evaluation_platform_commit: str | None = None
+    restricted_execution: bool = field(default=False, kw_only=True)
 
     def __post_init__(self) -> None:
         self.internal_api_url = validate_internal_api_url(self.internal_api_url)
+        if self.restricted_execution and any((self.work_enabled, self.automation_enabled,
+                                             self.evaluation_enabled, self.media_worker_enabled)):
+            raise ValueError("Restricted release cannot enable background execution workers")
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -82,6 +86,7 @@ class Settings:
             data_dir=Path(os.getenv("PLATFORM_DATA_DIR", str(cls.data_dir))),
             web_origin=os.getenv("WEB_ORIGIN", cls.web_origin),
             internal_api_url=os.getenv("PLATFORM_INTERNAL_API_URL", cls.internal_api_url),
+            restricted_execution=os.getenv("RESTRICTED_EXECUTION", "false").lower() == "true",
             work_enabled=os.getenv("WORK_ENABLED", "false").lower() == "true",
             ask_worker_enabled=os.getenv("ASK_WORKER_ENABLED", "true").lower() == "true",
             automation_enabled=os.getenv("AUTOMATION_ENABLED", "true").lower() == "true",

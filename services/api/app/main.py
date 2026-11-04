@@ -137,6 +137,9 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database = Database(settings.database_url)
+        from app.execution_policy import bind
+
+        bind(database, settings)
         try:
             await database.pool.open(wait=True)
             async with (
@@ -151,7 +154,8 @@ def create_app(
                 from app.browser_skill_runtime import BrowserSkillRuntime
 
                 app.state.browser_skills = BrowserSkillRuntime(database, settings.data_dir)
-                await app.state.browser_skills.recover()
+                if not settings.restricted_execution:
+                    await app.state.browser_skills.recover()
                 encrypted = await database.fetch(
                     "SELECT 1 FROM model_configs WHERE api_key_ciphertext<>'' "
                     "UNION ALL SELECT 1 FROM mcp_servers WHERE token_ciphertext<>'' "
@@ -182,10 +186,11 @@ def create_app(
                 app.state.capabilities = CapabilityService(database, app.state.knowledge, app.state.mcp)
                 app.state.runtime = Runtime(database, saver, settings, model_registry=app.state.models)
                 app.state.runtime.capabilities = app.state.capabilities
-                await database.execute(
-                    "UPDATE repository_actions SET status='UNKNOWN',error_code='SERVER_RESTARTED',"
-                    "updated_at=now() WHERE status='STARTED'"
-                )
+                if not settings.restricted_execution:
+                    await database.execute(
+                        "UPDATE repository_actions SET status='UNKNOWN',error_code='SERVER_RESTARTED',"
+                        "updated_at=now() WHERE status='STARTED'"
+                    )
                 browser = None
                 connection = evaluation_sandbox_connection if settings.evaluation_instance_id else None
                 key_path = Path(__file__).parents[2] / "sandbox/.local/manager.key"
@@ -203,21 +208,22 @@ def create_app(
                         WorkArtifacts(database, settings.data_dir / "work-artifacts"),
                     )
                 app.state.browser_workbench = browser
-                await reconcile_startup(database)
-                # P0/P1 support one API process. Interrupted short runs fail visibly.
-                interrupted = await database.fetch(
-                    "SELECT id FROM task_runs WHERE status IN ('PENDING','RUNNING') "
-                    "AND (NOT %s OR (status='RUNNING' AND lease_token IS NULL))",
-                    (settings.ask_worker_enabled,),
-                )
-                for row in interrupted:
-                    await database.event(
-                        row["id"],
-                        "run.failed",
-                        {"message": "服务重启，请重新发送"},
-                        status="FAILED",
-                        error="SERVER_RESTARTED",
+                if not settings.restricted_execution:
+                    await reconcile_startup(database)
+                    # P0/P1 support one API process. Interrupted short runs fail visibly.
+                    interrupted = await database.fetch(
+                        "SELECT id FROM task_runs WHERE status IN ('PENDING','RUNNING') "
+                        "AND (NOT %s OR (status='RUNNING' AND lease_token IS NULL))",
+                        (settings.ask_worker_enabled,),
                     )
+                    for row in interrupted:
+                        await database.event(
+                            row["id"],
+                            "run.failed",
+                            {"message": "服务重启，请重新发送"},
+                            status="FAILED",
+                            error="SERVER_RESTARTED",
+                        )
                 workflow_queue = WorkflowQueue(
                     database,
                     WorkflowRuntime(
@@ -236,7 +242,8 @@ def create_app(
                 await fence.start()
                 database.service_fence = app.state.service_fence = fence
                 service_monitor = asyncio.create_task(fence.monitor())
-                consumer = asyncio.create_task(workflow_queue.serve())
+                consumer = (asyncio.create_task(workflow_queue.serve())
+                            if not settings.restricted_execution else None)
                 automatic = (
                     asyncio.create_task(AutomationScheduler(app.state).serve()) if settings.automation_enabled else None
                 )
@@ -248,7 +255,8 @@ def create_app(
                 browser_maintenance = asyncio.create_task(browser.serve()) if browser else None
                 from app.identity_delivery import start_delivery, stop_delivery
 
-                start_delivery(app)
+                if not settings.restricted_execution:
+                    start_delivery(app)
                 from app.media_retrieval_video import serve as serve_media
 
                 media_worker = asyncio.create_task(serve_media(app.state)) if settings.media_worker_enabled else None
@@ -256,8 +264,9 @@ def create_app(
                     yield
                 finally:
                     await app.state.browser_skills.close()
-                    consumer.cancel()
-                    await asyncio.gather(consumer, return_exceptions=True)
+                    if consumer:
+                        consumer.cancel()
+                        await asyncio.gather(consumer, return_exceptions=True)
                     if automatic:
                         automatic.cancel()
                         await asyncio.gather(automatic, return_exceptions=True)
@@ -269,7 +278,8 @@ def create_app(
                         await asyncio.gather(browser_maintenance, return_exceptions=True)
                     if browser:
                         await browser.close()
-                    await stop_delivery(app)
+                    if not settings.restricted_execution:
+                        await stop_delivery(app)
                     if media_worker:
                         media_worker.cancel()
                         await asyncio.gather(media_worker, return_exceptions=True)
@@ -475,6 +485,10 @@ def create_app(
     app.include_router(attachment_router)
     app.include_router(usage_router)
     app.include_router(diagnostics_router)
+    if settings.restricted_execution:
+        from app.execution_policy import install_gate
+
+        install_gate(app)
     return app
 
 

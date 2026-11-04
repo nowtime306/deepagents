@@ -65,6 +65,9 @@ def workflow_tool(service, owner, selection, context):
 
     async def run_workflow(version_id: UUID, text: str) -> str:
         """运行智能体已明确绑定的只读发布工作流。结构化输入使用 JSON 文本；同轮相同输入复用结果，不重放未知请求。"""
+        from app.execution_policy import require_execution
+
+        require_execution(service.database)
         identifier = str(version_id)
         if identifier not in selection.get("workflow_version_ids", []):
             fail(403, "WORKFLOW_UNBOUND", "当前智能体未授权此工作流版本")
