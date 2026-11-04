@@ -66,7 +66,7 @@ class FixedFixtures:
     def model(self, case_id, role="lead"):
         identifier = self.create("model-" + role, "/api/v1/admin/models", {
             "name": f"AE {case_id} {role} {self.prefix}", "model": f"eval::{case_id}::v1",
-            "base_url": self.platform.target.api_base_url + "/controlled-model", "kind": "chat", "provider": "custom",
+            "base_url": self.platform.target.api_base_url + "/controlled-model", "kind": "embedding" if role == "embedding" else "chat", "provider": "custom",
             "protocol": "openai", "enabled": True, "supports_tools": True, "max_output_tokens": 4096})
         self.mutate("seal-model-" + role, "POST", "/api/v1/agent-evaluations/profiles/model-bindings",
                     body={"model_id": identifier, "case_id": case_id, "role": role})

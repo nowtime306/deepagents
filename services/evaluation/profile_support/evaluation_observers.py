@@ -71,7 +71,7 @@ def attach_observers(app):
         return await workflow_effects(request, workflow_id)
 
     @app.get("/api/v1/agent-evaluations/profiles/runs/{mode}/{run_id}/observations")
-    async def observations(mode: Literal["ask", "work", "workflow"], run_id: UUID, request: Request):
+    async def observations(mode: Literal["ask", "work", "workflow", "resource"], run_id: UUID, request: Request):
         proof = await environment(request)
         owner = proof["owner_id"]
         run = await owned(request.app.state.db, owner, mode, run_id)
@@ -99,7 +99,7 @@ def attach_observers(app):
             except Exception:  # noqa: BLE001 -- A read-only health failure blocks readiness without leaking manager credentials.
                 manager = {"ready": False}
         return {"schema_version": 1, "fixture_profile": {"id": "controlled-v1", "version": 1},
-                "observers": ["root-model-context-v1", "owned-sandbox-states-v1", "readonly-workflow-effects-v1", "single-automation-lifecycle-v1",
+                "observers": ["root-model-context-v1", "root-model-context-resource-v1", "owned-sandbox-states-v1", "readonly-workflow-effects-v1", "single-automation-lifecycle-v1",
                               *(["work-consumer-rebuild-v1"] if getattr(request.app.state, "evaluation_work_consumer", None) else [])],
                 "java_verifier": (getattr(request.app.state, "evaluation_java_capability", None)
                     if getattr(request.app.state, "evaluation_java_verifier", None) and request.app.state.evaluation_java_verifier.ready

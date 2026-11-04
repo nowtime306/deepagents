@@ -30,7 +30,8 @@ LIMITS = MappingProxyType({case: (0 if case in {"AET-F02", "AET-F04", "AET-F06"}
 COUNTER_COMMAND = ("python3 -c \"from pathlib import Path; p=Path('counter.txt'); "
                    "p.write_text(str(int(p.read_text())+1))\"")
 A01_CASE_LIMIT = {"max_model_calls": 8, "max_tokens": 120, "max_roots": 2}
-CASE_LIMITS = {"AET-A01": A01_CASE_LIMIT, "AET-W02": {"max_model_calls": 6, "max_tokens": 90, "max_roots": 2}}
+CASE_LIMITS = {"AET-A01": A01_CASE_LIMIT, **{case: {"max_model_calls": 6, "max_tokens": 90, "max_roots": 2}
+              for case in ("AET-W02", "AET-A03", "AET-A04")}}
 
 
 class ProfileState:
@@ -235,10 +236,21 @@ class ControlledModel(BaseChatModel):
         if self.case_id in {"AET-A03", "AET-A04"}:
             if not tools:
                 return call("search_knowledge", {"query": "星桥 保修" if self.case_id == "AET-A03" else "木星 核动力"})
+            results = json.loads(tools[-1].content)
+            if (not isinstance(results, list) or len(results) != 1 or not isinstance(results[0], dict)
+                    or results[0].get("mode") != "hybrid" or results[0].get("warning") is not None
+                    or not isinstance(results[0].get("items"), list)):
+                raise ValueError("The genuine single-KB tool result failed or degraded")
             if self.case_id == "AET-A04":
                 return AIMessage(content='{"answer":"资料不足","sources":[]}')
-            # The final source identity must come from actual retrieval, not a fabricated profile identifier.
-            return AIMessage(content=json.dumps({"answer": "星桥产品保修三年", "retrieval": tools[-1].content}, ensure_ascii=False))
+            candidates = [item for item in results[0]["items"] if isinstance(item, dict)
+                          and item.get("text") == "星桥产品保修三年，须提供发票。"]
+            if not candidates:
+                raise ValueError("A03 has no actual supporting source; do not fabricate identifiers")
+            item = candidates[0]
+            source = {key: item[key] for key in ("document_id", "chunk_id", "document_revision")}
+            source["quote"] = item["text"]
+            return AIMessage(content=json.dumps({"answer": "星桥产品保修三年", "sources": [source]}, ensure_ascii=False))
         if self.case_id == "AET-A05":
             if not tools:
                 return call("ae_lookup", {})
