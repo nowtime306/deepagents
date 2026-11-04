@@ -98,3 +98,5 @@ Work详情修复提交`f2fd3c9aa7a07af9902b8e7bcd5046dcb8fbcf85`已正常推送�
 - F06实现候选 `8a15c8d78f022e191f53fbd6e96a1e9bb065d4dc` 已正常推送。随后单案例/一次重复正式执行PASS，经另一角色核原始四根、三分支、60事件/零用量、逐CLI审计及精确回收后，累计8/20不同案例限定验收。见 [阶段验收](../agent-evaluation-acceptance.md) 与 [并行专项](../agent-evaluation-parallel-review.md)；W01原FAIL及旧4627保留现场不回填，无生产迁移/部署/新标签。
 
 - Worker门禁修复候选 `47895eda157a4a86bd2059425270b19b3f02ffe1` 已推送核对，独立89项工程/17项真实PG通过。该候选的父绑定A02完整链另一次通过并经非作者只读核齐（后记17b5157004c59c49fb6724755548ed8837ae23ef904aca4e104f25b99db314d7）；覆盖仍13/20。首次路径清单断言失败现场保留；v2父子新库与精确进程已回收。公开入口仍BLOCKED，无新标签、迁移或生产部署，详见 [Worker QA](../agent-evaluation-worker-qa.md)。
+
+- 父绑定 A02 验收记录提交 `c77528c6d72cf08374fe44be1c548b71848c883a`、团队失败/共享预算实现候选 `1411f0563afe6939ada83c56d587ef442ffc92a5` 均已推送并核对 `origin/onwer_agent`。后者仅开发集成：普通 active 工程131、同十项真实PG合同、client493/profile221/API unit27分组通过；不同案例仍13/20，真实W05/W06及发布未验收。题集v2只改两题，initializer同步，旧候选和失败现场保留。见 [团队评测审查](../agent-evaluation-team-review.md)，未部署或新增正式标签。

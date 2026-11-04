@@ -12,7 +12,7 @@
 
 1. 持久Worker v2：冻结摘要`3367f98d9a07272655adb521bdbf301404b269ce3f3c201a693723b321426227`，独立审查/66项工程通过，收据清单`01bd3b0f47185e25a19071215e3e06efe1fe82398b06a6473725f286a066f738`。root逐字节核对后，五新模块/十二处可选接线已默认关闭合入；没有main/lifespan注册、启动或伪造可信publication/bridge。真实PG claim/import/fencing、回滚、取消、撤权五项已实现并独立通过，可移植PG测试也已普通导入active复验。66项工程测试迁移到正式专用目录后普通API配置复验通过、零跳过；实际父绑定目标HTTP整链路已在候选47895eda完成受控A02一次复验并独立核对；公开入口仍BLOCKED，不能称Worker已启用。详见`agent-evaluation-worker-qa.md`。
 2. W05/W06原阶段包摘要`29fa8552b0d3c8f03c69140c8cb49780a9f43c1d4c0a851d943cc7d95a81a052`，24项作者工程保留；v4正式fixture/observer/成员查询桥接已独审并合开发源码；普通active导入131项、真实PG/ASGI/observer同十项及client493/profile221/unit27分组通过。题集v2仅改这两题、其余18保留，尚未真实Work验收/部署，详见`agent-evaluation-team-review.md`。W06忠实保留“先读取input.txt再检索”：运行6次模型调用/16000 Token，初始化embedding另1次/7，未来新v2定义外层7次/16007与运行硬额度分开，旧定义不改；前6次外层草案漏算先读步骤，不能作为最终验收标准。
-3. F05/F07旧46原件checkpoint摘要`3ed57139df1e87caf1e4dedbeabec808a45f34f7006fd909e12d18060a381305`保持，重基00f088作者客户端29/profile28/预算3/协调8及TS/Lint通过。后续共享deadline在root审查发现headers按时/body迟到会误CONFIRMED，模型/审批两条真实HTTPX替身重现保留39pass2fail；body-v2冻结`1c200dce516283d184e44ba5192b611328fceb975b091780ad4ffbe02c56bbd6`以流消费和JSON解析后、确认前检查修复，ops独立43通过，收据`e2c7b97ee966a85bc4d59adfe84d1284acfd81fba4b5c86d98492b8ef3e4dad4`。仅该缺陷闭合，未合active；F05仍默认阻断，最多10次create/并发1，case300与总600创建cap不放宽。协调器超时可能无限poll、cleanup挡stop、target仅PID与后台效果超时围栏仍有缺口；新私有监督增量继续，不能将HTTP各phase timeout说成总300秒硬抢占。F07仍未接完整receiver或IMPLEMENTED，普通GET超时不升格为确定无写，模型/写超时仍UNKNOWN。
+3. F05/F07旧46原件checkpoint `3ed57139…`及各轮失败保留。共享body deadline、父300秒record/有限监督、目标四效果hook和重建实例拒绝恢复ACTIVE的私有v2 `255c6408…` 已独审，client65/guard62/profile28工程通过；首次离线report PermissionError失败不抹掉。保留Gate传播的driver重基 `25c2c6df…` root独立14+89通过，该四hunk预算/catalog增量已随1411合入；F05本身仍未合。后续W兼容重基 `31c48be9…` 非作者9/65/62/28通过，收据34705ff9…，其余19题及W接线保留，等待统一候选和真实PG/target合同。WinError5已自然捕获为report.md原子替换拒绝，原持有者仍未知、OPEN/failclosed；强关target仅PID、远程效果撤销/绝对总时限等不能凭替身算闭合。F05仍默认OFF/NOT_READY，最多10create/并发1、case300及总600授权创建cap不放宽。F07仍未接完整receiver或IMPLEMENTED，普通GET超时不当确定无写，模型/写超时UNKNOWN。
 4. A05、W07和W08未完成。W08原安全边界子任务曾被自动风险检测中断，未绕通道重试，不能标通过。原私有失败/冻结留存。
 5. B100真实不同任务与重复、C比较CI、D持续评测尚未完成；真实比较身份元数据没有导入时仍拒绝比较，不编造提升。真实供应商联调继续按用户要求跳过，其他未实现项不借此算完成。
 
@@ -24,6 +24,6 @@ Worker源码、可移植工程测试及真实PG合同已审查/独立验证；�
 
 生产仍以先前schema79基线的临时只读恢复部署保留，本轮没有迁移/替换它；原数据库、model.key和用户手动修改均保留。8100/3131为既有独立测试服务，不当生产抢占；生产API恢复端口8101、前端3100，manager18180沿用原实例。正式发布前重新核进程身份、鲜备份及独立恢复验证、独立前端产物与迁移85以上；旧恢复wrapper固定schema79，不能假作迁移后的自动回滚。失败诊断库、旧报告不得强删、回填或覆盖用户后来改动。
 
-本批PG和回归命令均已返回，四套新增PG库已精确回收，未保留新测试target或创建自动续作任务；既有服务不停止。已推送并核对b337/604/767三次快照。门禁441修复已审/89+17实测并提交推送47895eda。旧767包e847/6845封存未执行；478第一版因source pathspec漏列已跟踪API配置而在业务前拒绝，诊断库保留。路径补齐v2 b96da5/9bf1d6实际链通过，父子新库及两个精确进程回收，非作者后记17b515核齐；各原件见Worker QA。用户`docs/deepeval-learning/`及另新出现的未跟踪`docs/system-architecture-2026-11-04.md`不属本批，均保留不纳入。
+本批PG和回归命令均已返回，四套新增PG库已精确回收，未保留新测试target或创建自动续作任务；既有服务不停止。已推送并核对b337/604/767/478/c775/1411各次开发快照。门禁441修复已审/89+17实测并提交推送47895eda。旧767包e847/6845封存未执行；478第一版因source pathspec漏列已跟踪API配置而在业务前拒绝，诊断库保留。路径补齐v2 b96da5/9bf1d6实际链通过，父子新库及两个精确进程回收，非作者后记17b515核齐；各原件见Worker QA。用户`docs/deepeval-learning/`及另新出现的未跟踪`docs/system-architecture-2026-11-04.md`不属本批，均保留不纳入。
 
 最新用户额度指令：周剩1%仍继续验收，实际耗尽后使用一张已有重置卡再核验。官方读数实际达到used100%后，root已通过官方app-server账户接口幂等使用一张已有卡；操作回执reset，随后桌面官方接口独立复核used0%、可用卡由2降至1。未购买额外额度，未创建新自动任务或修改旧独立重置卡任务；本次单卡授权已执行，私有幂等状态保留以防重复兑换。secondary仍为null，不能把周余额冒充五小时余额。
