@@ -35,3 +35,11 @@ d072候选联合批次的F01初始化草稿测试返回502：真实UsageRecorder
 单独批次`suite-f03-d072045-2e247fb71b3741c5ab16db6c225812a6`，parent退出0。非作者对同次50原件只读重算：两初始化SUCCEEDED、主根FAILED/正式502、26原生事件中action.0.action→action失败、六项用量零/provider零/沙箱零、四CLI完整SEALED审计和ready三报告摘要、328来源均一致。没有虚构独立child run或把业务FAILED改为SUCCEEDED。37项复核记录`.local/f03-independent-review/run_cc78010385e6/final-review.json`摘要`edc59163cb87b8b3283a21e91ea0913e487f0645648e1ff043e04a829849d7f2`。
 
 执行后精确宿主观察确认数据库不存在/会话零、两个原目标PID已退、namespace的manager/Docker库存零；记录`f03-d072045-host-observation.json`摘要`39fa987bf66554593235da3e725d99a2f8d710d099042c542993880d8cc6672c`位于私有team-workspace/agent-evaluation。这是后记，不冒充原签名生命周期。F03通过范围仅预期失败控制成立，原业务FAILED保留，不算业务成功或真实模型/UI/OS出网验收。
+
+## F01正式PUT响应合同修复
+
+d727新样本的两个初始化运行/发布、current选择及模型维护均已成功，随后本地校验误要求workflow/model PUT返回revision2；正式两个handler只返回id。源码CAS revision1请求与实际已用/发布修订2仍必须验证。最小修复仅两处期望响应改为对应资源id，不能以删掉后续修订断言解决。原初始化已实际执行，不因日志started=false声称零效果；失败库/报告原样保留，新环境另测。
+
+冻结摘要`3dcf5730cef2f411573888706c8935fdbcc688b6098e5b48b4dd861125ad3931`经非作者审查关闭，独立客户端32项及真实正式router处理器2项通过；其身份/存储为替身。独立收据`760ce996de1fceb6b78bb891ddae565da74bfde2b97f0aa6d7144924459535c0`。另补显式新测试库、私有vault、真实opaque session/权限/ModelRegistry及正式router的PG合同测试；外层创建随机库，失败保留，成功须核零业务计数和零会话后精确回收。该测试不启动主应用、worker、模型或manager。可移植当前代码回归不加载历史错误源码，原旧源码红证据留在私有冻结。
+
+root合入后active32客户端/2正式router替身通过，路径`services/evaluation/.local/f01-response-active-f69751f11f724a668187a2ffd8d57e5e`。新随机PG真实合同1通过、0跳过，实际id-only响应、GET修订2/温度.4、两类过期CAS409均成立；七类运行效果零、库会话零并精确回收。收据`.local/agent-evaluations/f01-response-pg-96e0ca0a40e043cbb16fb4f238c849a3/receipt.json`摘要`2ffcfba04cb0dc955cfddcaba5506b2445dc4fb5892597cfb6ee58716f3d1e9e`。PG测试导入评测模块放在显式环境验证之后，默认无独立测试环境时跳过，避免普通API测试收集要求生产安装DeepEval。上述仍不是正式F01任务成功，须后续新样本。

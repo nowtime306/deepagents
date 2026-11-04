@@ -146,13 +146,13 @@ def validate_initialization(attempt, specimen):
             add("workflow-" + slot, "POST", "/api/v1/workflows", {"name": name, "model_id": model, "definition": item["definition"]}, {"id": item["id"]})
         else:
             add("workflow-v2", "PUT", f"/api/v1/workflows/{item['id']}",
-                {"name": name, "model_id": model, "revision": 1, "definition": item["definition"]}, {"revision": 2})
+                {"name": name, "model_id": model, "revision": 1, "definition": item["definition"]}, {"id": item["id"]})
         add(key + "-test", "POST", f"/api/v1/workflows/{item['id']}/test-runs",
             {"text": INPUT if case == "AET-F01" else GOOD, "revision": item["revision"]}, {"id": item["init_run_id"], "status": "SUCCEEDED"})
         add(key + "-publish", "POST", f"/api/v1/workflows/{item['id']}/publish", {"revision": item["revision"]}, {"version": item["version"]})
     if case == "AET-F01":
         add("current-v1", "POST", f"/api/v1/workflows/{fixture['id']}/versions/1/set-current", {"release_revision": 3}, {})
-        add("maintain-f01-model", "PUT", f"/api/v1/admin/models/{model}", {**model_body, "temperature": 0.4, "revision": 1}, {"revision": 2})
+        add("maintain-f01-model", "PUT", f"/api/v1/admin/models/{model}", {**model_body, "temperature": 0.4, "revision": 1}, {"id": model})
     intents = attempt.get("fixture_intents", {})
     if set(intents) != set(expected):
         raise UnknownSubmission("Exact confirmed initialization writes are required")

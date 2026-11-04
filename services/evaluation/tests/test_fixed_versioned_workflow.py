@@ -90,7 +90,7 @@ class Fixture:
             if path == "/api/v1/admin/models/" + self.model:
                 assert body["revision"] == 1
                 self.model_revision, self.temperature = 2, body["temperature"]
-                return httpx.Response(200, json={"id": self.model, "revision": 2})
+                return httpx.Response(200, json={"id": self.model})
             if path == "/api/v1/workflows":
                 identifier = str(uuid4())
                 self.workflows[identifier] = {"definition": body["definition"], "revision": 1, "versions": [], "current": None, "release": 1}
@@ -100,7 +100,7 @@ class Fixture:
             if method == "PUT":
                 assert workflow["revision"] == body["revision"]
                 workflow.update(definition=body["definition"], revision=2)
-                return httpx.Response(200, json={"id": identifier, "revision": 2})
+                return httpx.Response(200, json={"id": identifier})
             if path.endswith("/set-current"):
                 assert body["release_revision"] == workflow["release"]
                 workflow["release"] += 1
@@ -174,6 +174,18 @@ class Fixture:
                 rows[-1]["node_id"] = "fake"
             return httpx.Response(200, json={"items": rows})
         pytest.fail("Unexpected workflow observation")
+
+
+def test_id_only_router_contract_retains_two_confirmed_initialization_runs(tmp_path, monkeypatch):
+    fixture = Fixture("AET-F01")
+    assert command(tmp_path, monkeypatch, fixture, "init") == 0
+    assert len(fixture.rows) == 2
+    data = json.loads((tmp_path / "output/journal.json").read_text(encoding="utf-8"))
+    attempt = data["attempts"][0]
+    assert attempt["fixture_intents"]["workflow-v2"]["response"] == {"id": next(iter(fixture.workflows))}
+    assert attempt["fixture_intents"]["maintain-f01-model"]["response"] == {"id": fixture.model}
+    assert all(row["status"] == "CONFIRMED" for row in attempt["fixture_intents"].values())
+    assert attempt["started"] is False and attempt["versioned_baseline_ref"]
 
 
 def command(tmp_path, monkeypatch, fixture, action):
