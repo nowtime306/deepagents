@@ -12,6 +12,7 @@ from .reports import write_report
 
 INDEX = "network-audit-index.json"
 READY = "report-ready.json"
+PARTIAL = "partial-report.json"
 FILES = ("report.json", "results.xml", "report.md")
 
 
@@ -28,6 +29,8 @@ def begin(directory: Path, session: network.Session) -> None:
     data = index(directory)
     data["sessions"].append({"session_id": session.data["session_id"], "status": "PENDING"})
     atomic_json(directory / INDEX, data)
+    (directory / READY).unlink(missing_ok=True)
+    (directory / PARTIAL).unlink(missing_ok=True)
 
 
 def seal(directory: Path, session: network.Session, status: str) -> dict:
@@ -131,11 +134,28 @@ def publish(directory: Path, journal, session: network.Session) -> dict:
     return report
 
 
+def publish_error(directory: Path, data: dict, session: network.Session, error_type: str) -> None:
+    """Save current diagnostic state without replacing accepted reports or issuing readiness."""
+    (directory / READY).unlink(missing_ok=True)
+    attempts = data.get("attempts", [])
+    atomic_json(directory / PARTIAL, {
+        "schema_version": 1, "publication_status": "INCOMPLETE", "acceptance_ready": False,
+        "gate": "FAIL" if any(row.get("task_outcome") == "FAIL" for row in attempts) else "NEEDS_REVIEW",
+        "action": session.data["action"], "audit_session_id": session.data["session_id"],
+        "error_type": error_type,
+        **{key: data.get(key) for key in ("environment_id", "owner_id", "dataset_digest", "suite_context")},
+        "attempts": attempts,
+        "network_audit_refs": [row["reference"] for row in index(directory)["sessions"] if row["status"] == "SEALED"],
+    })
+
+
 def validate_ready(directory: Path) -> dict:
     """Consumers must verify this receipt, not infer success from an isolated JSON/XML file."""
     journal = Journal(directory)  # Fixed commands hold this same lock while appending/publishing.
     try:
         return _validate_ready(directory)
+    except FileNotFoundError as error:
+        raise ValueError("Incomplete report publication") from error
     finally:
         journal.close()
 

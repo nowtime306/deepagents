@@ -16,10 +16,10 @@ from . import (
     fixed_evidence,
     fixed_knowledge_evidence,
     fixed_parallel_evidence,
+    fixed_team_evidence,
     fixed_versioned_workflow,
     fixed_workflow_evidence,
     fixed_workflow_observation,
-    fixed_team_evidence,
     network,
 )
 from .client import Platform
@@ -467,12 +467,18 @@ def main():
     except Exception as error:  # noqa: BLE001 -- Preserve facts, safe failure types and per-command audit on every exit.
         if journal is not None and args.action in {"init", "run", "cleanup"}:
             for attempt in journal.data.get("attempts", []):
-                failed = any(row.get("required") and row.get("status") == "FAIL" for row in attempt.get("fact_results", []))
+                failed = attempt.get("task_outcome") == "FAIL" or any(
+                    row.get("required") and row.get("status") == "FAIL" for row in attempt.get("fact_results", []))
                 attempt.update(task_outcome="FAIL" if failed else "NEEDS_REVIEW", cleanup_status="NEEDS_REVIEW",
                                reason="Fixed profile blocked/failed: " + type(error).__name__)
             journal.save()
         if journal is not None and not session.closed:
             fixed_audit.seal(output, session, "ERROR")
+        if journal is not None:
+            try:
+                fixed_audit.publish_error(output, journal.data, session, type(error).__name__)
+            except Exception as report_error:  # noqa: BLE001 -- Retain the original failure and never issue readiness.
+                print("Partial diagnostic unavailable: " + type(report_error).__name__)
         print("Fixed evaluation blocked: " + type(error).__name__)
         return 2 if isinstance(error, (ValueError, KeyError, TypeError)) else 1
     finally:
