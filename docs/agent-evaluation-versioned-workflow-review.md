@@ -21,3 +21,17 @@ F03固定子版本json_get(name)，子流程及父流程分别成功测试后发
 合入时只迁移测试导入/路径至active模块，不降低业务断言；固定初始化器新字节摘要并保留原pin换行规则。active增量及既有客户端/profile回归通过后，再冻结新候选，在全新隔离库分别运行F01/F03，独立复核真实版本/维护配置、502持久失败、全部用量/审计和精确回收后才增加案例数。F05/F07仍在单独开发，本篇不是整批A20或生产上线验收。
 
 active合入后，root使用隔离环境再次运行完整客户端488通过、目标侧profile195通过，零失败/跳过；结果位于`services/evaluation/.local/versioned-active-e5fe3cc3773c45d38c537b7c75991c46`。两组含既有457/185及新增31/10，不累计相加。初始化器按原CRLF规则摘要为`79a190b15b667dd31be87389f17e89ee58f4da3c9e39fe0f10bd18c8d9d00dc1`；suite只新增两项保守各2沙箱预约，没有改变既有案例上限。尚待新候选实际样本。
+
+## 正式样本发现的预约缺口
+
+d072候选联合批次的F01初始化草稿测试返回502：真实UsageRecorder按输入估计+4096输出预约检查，原图token_limit=1000在供应方调用前被拒绝。原工程测试替换recorder漏掉此门禁；失败环境保留、不复用、不凭started=false断言未执行。单独全新F03批次代码通过且回收，原业务FAILED和父/子失败事件均保留，仍待另一角色完整核验后计数。首次两case参数在独立pwsh进程中被合为一个case字符串、预检退出2的日志也保留，没有冒充业务执行。
+
+最小修复仅F01图及原生预约证明8192，严格受控provider案例预算仍4调用/60 Token/4根，F03图仍1000。另由真实callback复现温度元数据为空：F01受控模型仅从实际ModelConfig取得temperature并由标准_identifying_params进入回调，不手写计量记录或删除温度断言。冻结摘要`1a2d846243e80d759fa51a4dcc359ca2820a3c0f53ca673a6245b75431434e45`经非作者审查关闭；另一角色独立重跑客户端31、真实UsageRecorder/profile4通过，收据`51a94ba12bd64bea7353e46b6b96e6f5e5f2755931543d593b84b9ffced0115b`。四项真实callback测试包含旧预约在provider前拒绝、新四根KNOWN40入20出、同根再次调用拒绝；SQL/权限仍替身，后续必须新目标真实复验。
+
+修复合入后，root在active路径再次执行客户端31及完整profile199通过（包含既有195+新增4，不能相加），原日志在`services/evaluation/.local/f01-budget-active-2251ef8815b042e8aa3719cb4675195e`。正式F01仍待下一固定候选的新目标。
+
+## F03同次独立限定验收
+
+单独批次`suite-f03-d072045-2e247fb71b3741c5ab16db6c225812a6`，parent退出0。非作者对同次50原件只读重算：两初始化SUCCEEDED、主根FAILED/正式502、26原生事件中action.0.action→action失败、六项用量零/provider零/沙箱零、四CLI完整SEALED审计和ready三报告摘要、328来源均一致。没有虚构独立child run或把业务FAILED改为SUCCEEDED。37项复核记录`.local/f03-independent-review/run_cc78010385e6/final-review.json`摘要`edc59163cb87b8b3283a21e91ea0913e487f0645648e1ff043e04a829849d7f2`。
+
+执行后精确宿主观察确认数据库不存在/会话零、两个原目标PID已退、namespace的manager/Docker库存零；记录`f03-d072045-host-observation.json`摘要`39fa987bf66554593235da3e725d99a2f8d710d099042c542993880d8cc6672c`位于私有team-workspace/agent-evaluation。这是后记，不冒充原签名生命周期。F03通过范围仅预期失败控制成立，原业务FAILED保留，不算业务成功或真实模型/UI/OS出网验收。

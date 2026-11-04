@@ -28,7 +28,7 @@ class Fixture:
         self.proof.update(sandbox_namespace=self.namespace, permissions=["evaluation.read", "evaluation.manage", "evaluation.run",
             "workflows.read", "workflows.manage", "workflows.execute"])
         self.proof["execution_limits"]["profiles"][case] = {"mode": "workflow", "max_model_calls": 1 if case == "AET-F01" else 0,
-                                                           "max_tokens": 15 if case == "AET-F01" else 0}
+                                                           "max_tokens": 8192 if case == "AET-F01" else 0}
 
     def run(self, definition, text, root, prefix=""):
         values, events = {"input": text}, self.events[root]

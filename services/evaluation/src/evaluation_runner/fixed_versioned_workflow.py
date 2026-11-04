@@ -25,7 +25,7 @@ def graph(kind, child=None):
     parameters = ({"instructions": "AE-F01-" + kind + "-v1"} if node_kind == "llm" else
                   {"operation": "json_get", "path": "name"} if kind == "child" else {"version_id": child})
     return {"schema_version": 1, "execution": "readonly", "input_schema": {"type": "string"},
-            "output_schema": {"type": "string"}, "node_budget": 6, "model_calls": 1, "token_limit": 1000,
+            "output_schema": {"type": "string"}, "node_budget": 6, "model_calls": 1, "token_limit": 8192 if kind in {"upper", "lower"} else 1000,
             "nodes": [{"id": "start", "name": None, "kind": "start", "input": "input", "parameters": {}},
                       {"id": "action", "name": None, "kind": node_kind, "input": "input", "parameters": parameters},
                       {"id": "end", "name": None, "kind": "end", "input": "action", "parameters": {}}],
@@ -93,7 +93,7 @@ def readiness(platform, specimen, capabilities=None):
             or limits.get("enforcement") != "controlled-case-reserve-v1"
             or limits.get("scope") != "evaluation-owner-and-case" or digest(limits.get("profiles", {}).get(specimen.case_id)) != digest(expected)
             or digest(root) != digest({"mode": "workflow", "max_model_calls": 1 if specimen.case_id == "AET-F01" else 0,
-                                      "max_tokens": 15 if specimen.case_id == "AET-F01" else 0})
+                                      "max_tokens": 8192 if specimen.case_id == "AET-F01" else 0})
             or "readonly-workflow-effects-v1" not in capabilities.get("observers", [])
             or specimen.budgets.max_model_calls < expected["max_model_calls"] or specimen.budgets.max_tokens < expected["max_tokens"]):
         raise adapters.Blocked("Fixed workflow execution/budget capability is incomplete")

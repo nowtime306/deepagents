@@ -25,7 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 CASES = {f"AET-{mode}{number:02}" for mode, size in (("A", 5), ("W", 8), ("F", 7))
          for number in range(1, size + 1)}
 LIMITS = MappingProxyType({case: (1 if case == "AET-F01" else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F06"} else 4 if case == "AET-A01" else 1 if case == "AET-A02" else 6,
-                                 15 if case == "AET-F01" else 16000 if case == "AET-W06" else 60 if case == "AET-A01"
+                                 8192 if case == "AET-F01" else 16000 if case == "AET-W06" else 60 if case == "AET-A01"
                                  else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F06"} else 15 if case == "AET-A02" else 90) for case in CASES})
 COUNTER_COMMAND = ("python3 -c \"from pathlib import Path; p=Path('counter.txt'); "
                    "p.write_text(str(int(p.read_text())+1))\"")
@@ -185,11 +185,16 @@ class ControlledModel(BaseChatModel):
     case_id: str
     role: str = "lead"
     automation_phase: str | None = None
+    temperature: float | None = None
     _state: ProfileState = PrivateAttr()
 
     @property
     def _llm_type(self):
         return "agent-evaluation-controlled-v1"
+
+    @property
+    def _identifying_params(self):
+        return {"temperature": self.temperature} if self.case_id == "AET-F01" and self.temperature is not None else {}
 
     def bind_tools(self, tools, **kwargs):
         return self
@@ -308,7 +313,8 @@ def model_factory(config, state):
         role = binding["role"]
         if role == "embedding":
             raise ValueError("Embedding models cannot be used as chat models")
-    model = ControlledModel(case_id=parts[1], role=role)
+    model = ControlledModel(case_id=parts[1], role=role,
+                            temperature=config.temperature if parts[1] == "AET-F01" else None)
     if parts[1] == "AET-A01":
         with state.lock:
             root = state.roots.get((str(scope.owner), scope.mode, str(scope.run)))
