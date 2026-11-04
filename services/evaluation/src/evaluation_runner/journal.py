@@ -57,6 +57,9 @@ class Journal:
             response = client.post(path, json=payload)
             response.raise_for_status()
             value = response.json()
+            confirmation_guard = getattr(client, "effect_confirmation_guard", None)
+            if confirmation_guard is not None:
+                confirmation_guard()
         except (httpx.HTTPError, ValueError):
             # Even a response parse failure may follow a committed remote write.
             intents[operation]["status"] = "UNKNOWN"

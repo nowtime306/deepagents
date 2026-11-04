@@ -116,3 +116,11 @@ Work专项另完成新target-shape只读探测，目录ACL/私有cwd/HOME/TEMP�
 新`capacity_active_ec7a599d74d94499b3da65c7e7e0ee06`普通pytest正式路径执行25passed/0skip/0error/0fail/2.50s、child0/外层0；ordinary-imports.json确认两产品来自正式API文件，无私有conftest/实现副本。14相关pins前后同。exact IPv6 import probe1且实际阻断，TEST阶段unexpected0。新库`owner_agent_capacity_qa_c210206c135a476d9f2517db187e2cb9_test`row/usage/operation/team/账号0、session0后已正常drop确认不存在，旧失败库不变。首次包装器残留旧目录前缀在建库前停止，修正为同等强度的新目录保护后才执行，断言未改；细节如实记入findings。
 
 receipt SHA `22f34dbde38c6f4c20e6b2bf56cbce292f3a38a01e275369872211a332319d4c`；最终wrapper SHA `d500ae1c016c4ea9ca1ea7ed0ae3d381d673eef6829d45c030f265e2f1f61e46`。本轮仅诊断增量工程门禁闭合，可交主Agent固定提交；业务仍13/20，W05/W06新增业务0、历史容量原因UNPROVEN。
+
+## W07/W08 静态开发交接（309）
+
+按角色只读复核原题、既有封存记录引用和当前调用链，23项源码/文档pin前后一致，未运行任何测试/任务/DB/模型/SDK/沙箱，未复做原W08风险拒绝操作。W07是外部已写但回执丢失的same-root query-only恢复，W08是冻结输入/最新成果字节及隔离文件边界；两者不能用普通暂停或抢救文件互相替代。
+
+共同缺口：fixed_run无IMPLEMENTED/专用init/evidence/execute接线，两个validator仅前向声明，通用Work observer只有sandbox状态而非receiver/file witness。W07另有“经审批”input与approval_policy=none矛盾、裸ae_write_record与正式mcpw_动态公开工具名不一致，缺合成接收器/原生审批/持久观察与no-replay闭环。W08已有parts/O_NOFOLLOW/scan跳链接/UUID成果等静态保护，但缺真实合成链接/canary见证、原输入修订与最新snapshot字节完全验证；先前风险阻断保持，不靠换通道重试。以上是未实现/静态接线缺口，不冒称已复现产品漏洞。
+
+完整最小交付、反例与验收门禁见`.local/team-workspace/agent-evaluation/qa-work-extra/w07_w08_static_6eb9794e4ec44b55867cf59fc7a68add/development-handoff.md`（SHA `e47a1e34585d707d799f324720cb0e621bf7a59cf24894bad250fbafad10edf1`）；receipt SHA `e05693433cfa8a2c50cff7c626978f927ebd143cabb0369370a20b5506547777`。未拿到本版本真实backend/recovery opt-in测试原始JUnit，不把源码存在或旧文档声明当运行验收。预算等待确认期间不执行新任务；新增业务通过0，W07/W08仍未完成。

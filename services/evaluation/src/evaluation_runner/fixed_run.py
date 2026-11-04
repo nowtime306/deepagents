@@ -14,6 +14,7 @@ from . import (
     fixed_audit,
     fixed_automation_evidence,
     fixed_evidence,
+    fixed_flow_code,
     fixed_knowledge_evidence,
     fixed_parallel_evidence,
     fixed_team_evidence,
@@ -29,12 +30,12 @@ from .journal import Journal, atomic_json, digest
 from .metrics import score
 
 RULES_ID = "controlled-a20-v1"
-IMPLEMENTED = {"AET-F01", "AET-F03", "AET-A01", "AET-A02", "AET-A03", "AET-A04", "AET-W01", "AET-W02", "AET-W03", "AET-W04", "AET-F02", "AET-F04", "AET-F06"}
+IMPLEMENTED = {"AET-F05", "AET-F01", "AET-F03", "AET-A01", "AET-A02", "AET-A03", "AET-A04", "AET-W01", "AET-W02", "AET-W03", "AET-W04", "AET-F02", "AET-F04", "AET-F06"}
 TEAM_CASES = fixed_team_evidence.CASES
 WORK_CASES = {"AET-W01", "AET-W02", "AET-W03", "AET-W04"} | TEAM_CASES
 IMPLEMENTED |= TEAM_CASES
 KNOWLEDGE_CASES = {"AET-A03", "AET-A04"}
-NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01", "AET-F06"} | fixed_versioned_workflow.CASES | KNOWLEDGE_CASES
+NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01", "AET-F05", "AET-F06"} | fixed_versioned_workflow.CASES | KNOWLEDGE_CASES
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "datasets/a20-fixed.json"
 
 
@@ -43,6 +44,8 @@ def catalog():
 
 
 def evidence_module(specimen):
+    if specimen.case_id == "AET-F05":
+        return fixed_flow_code
     if specimen.case_id in TEAM_CASES:
         return fixed_team_evidence
     if specimen.case_id in fixed_versioned_workflow.CASES:
@@ -69,7 +72,7 @@ def evidence_module(specimen):
     raise adapters.Blocked("No fixed evidence handler")
 
 
-def readiness(platform, specimen):
+def readiness(platform, specimen, *, for_execution=False):
     """Identity attestation is separate from a read-only, case-specific readiness verdict."""
     proof = platform.attest()
     missing = []
@@ -98,6 +101,8 @@ def readiness(platform, specimen):
             fixed_team_evidence.readiness(platform, specimen, capabilities)
         if specimen.case_id in fixed_versioned_workflow.CASES:
             fixed_versioned_workflow.readiness(platform, specimen, capabilities)
+        if specimen.case_id == "AET-F05":
+            fixed_flow_code.readiness(platform, specimen, capabilities, require_active=for_execution)
         if specimen.case_id in KNOWLEDGE_CASES:
             fixed_knowledge_evidence.enforce_case_budget(capabilities, specimen)
         if specimen.case_id == "AET-A01":
@@ -127,12 +132,19 @@ def readiness(platform, specimen):
         adapters.enforce_budget(execution, proof)
     except (ValueError, httpx.HTTPError, adapters.Blocked):
         missing.append("Trusted profile observations or budget enforcement are unavailable")
-    return {"case_id": specimen.case_id, "status": "BLOCKED" if missing else "READY", "missing": missing,
+    return {"case_id": specimen.case_id, "status": "BLOCKED" if missing else "READY_FOR_INIT" if specimen.case_id == "AET-F05" and not for_execution else "READY", "missing": missing,
             "scope": "controlled engineering; not a semantic-quality or UI verdict"}
 
 
 def initialize(platform, journal, attempt, specimen):
-    status = readiness(platform, specimen)
+    if specimen.case_id == "AET-F05":
+        with fixed_flow_code.deadline_scope(platform, journal, attempt, specimen, initialize=True):
+            return initialize_case(platform, journal, attempt, specimen)
+    return initialize_case(platform, journal, attempt, specimen)
+
+
+def initialize_case(platform, journal, attempt, specimen):
+    status = readiness(platform, specimen, for_execution=specimen.case_id == "AET-F05")
     attempt["readiness"] = status
     journal.save()
     if status["status"] != "READY":
@@ -150,6 +162,8 @@ def initialize(platform, journal, attempt, specimen):
         attempt["fixture"] = fixed_team_evidence.initialize(fixtures, model, specimen)
     elif specimen.case_id in fixed_versioned_workflow.CASES:
         attempt["fixture"] = fixed_versioned_workflow.initialize(fixtures, model, specimen)
+    elif specimen.case_id == "AET-F05":
+        attempt["fixture"] = fixed_flow_code.initialize(fixtures, model, specimen)
     elif specimen.case_id in KNOWLEDGE_CASES:
         attempt["fixture"] = fixed_knowledge_evidence.initialize(fixtures, model, specimen)
     elif specimen.case_id == "AET-A02":
@@ -186,6 +200,15 @@ def initialize(platform, journal, attempt, specimen):
 
 
 def execute(platform, journal, attempt, specimen, output):
+    if specimen.case_id == "AET-F05":
+        with fixed_flow_code.deadline_scope(platform, journal, attempt, specimen):
+            if readiness(platform, specimen, for_execution=True)["status"] != "READY":
+                raise adapters.Blocked("Read-only case readiness blocked execution")
+            return execute_case(platform, journal, attempt, specimen, output)
+    return execute_case(platform, journal, attempt, specimen, output)
+
+
+def execute_case(platform, journal, attempt, specimen, output):
     if not attempt.get("fixture"):
         raise adapters.Blocked("A confirmed fixed fixture initialization is required")
     inputs = specimen.fixture_parameters["fixed_inputs"]
@@ -194,7 +217,7 @@ def execute(platform, journal, attempt, specimen, output):
     if specimen.case_id in NAMESPACE_CASES:
         platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
         platform.attest()
-    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W02", "AET-W03", "AET-W04", "AET-F06"} | KNOWLEDGE_CASES | fixed_versioned_workflow.CASES | TEAM_CASES:
+    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W02", "AET-W03", "AET-W04", "AET-F06"} | KNOWLEDGE_CASES | fixed_versioned_workflow.CASES | TEAM_CASES | {"AET-F05"}:
         snapshot = module.execute(platform, journal, attempt, specimen, cancelled=lambda: (output / "cancel.request").exists())
     else:
         if not attempt.get("submission_complete"):
@@ -251,7 +274,7 @@ def cleanup(platform, journal, attempt):
         return "NEEDS_REVIEW"
     if specimen.case_id in WORK_CASES and not module.cleanup_ready(journal.directory, journal.data, attempt, specimen):
         return "NEEDS_REVIEW"
-    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-F06"} | fixed_versioned_workflow.CASES and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
+    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-F05", "AET-F06"} | fixed_versioned_workflow.CASES and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
     if specimen.case_id in {"AET-A01", "AET-W02"} | KNOWLEDGE_CASES and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
@@ -275,7 +298,7 @@ def describe(specimen, dataset):
             "rules_id": RULES_ID, "implemented": (specimen.case_id in IMPLEMENTED
                             and (specimen.case_id not in TEAM_CASES or fixed_team_evidence.supported(specimen))),
             "maximum_model_calls": specimen.budgets.max_model_calls, "maximum_tokens": specimen.budgets.max_tokens,
-            "maximum_sandboxes": 2, "sandbox_enforcement": "controlled-sandbox-reserve-v1"}
+            "maximum_sandboxes": 10 if specimen.case_id == "AET-F05" else 2, "sandbox_enforcement": "controlled-sandbox-reserve-v1"}
 
 
 def suite_context(path, specimen, dataset, target, existing=None):
@@ -444,9 +467,10 @@ def main():
                     if args.action == "init":
                         initialize(platform, journal, attempt, specimen)
                     elif args.action == "run":
-                        status = readiness(platform, specimen)
-                        if status["status"] != "READY":
-                            raise adapters.Blocked("Read-only case readiness blocked execution")
+                        if specimen.case_id != "AET-F05":
+                            status = readiness(platform, specimen)
+                            if status["status"] != "READY":
+                                raise adapters.Blocked("Read-only case readiness blocked execution")
                         attempt["run_audit_session_id"] = session.data["session_id"]
                         journal.save()
                         execute(platform, journal, attempt, specimen, output)
@@ -457,7 +481,7 @@ def main():
                         attempt["cleanup_status"] = cleanup(platform, journal, attempt)
         if args.action == "preflight":
             fixed_audit.seal(output, session, "COMPLETE")
-            return 0 if result["status"] == "READY" else 1
+            return 0 if result["status"] == "READY" or specimen.case_id == "AET-F05" and result["status"] == "READY_FOR_INIT" else 1
         report = fixed_audit.publish(output, journal, session)
         if args.action == "init":
             return 0

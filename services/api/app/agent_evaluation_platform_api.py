@@ -207,7 +207,15 @@ async def version(identifier: UUID, version: int, request: Request):
     user, store = await access(request, "evaluation.read")
     row = await store.version(identifier, version, user["id"])
     readiness = definition_readiness(row["definition"], request, user["id"])
-    return {**row, "execution_readiness": readiness, "executable": readiness["status"] == "READY"}
+    definition = Definition.model_validate(row["definition"])
+    quotes = {}
+    for mode, count in (("engineering", 1), ("effect", 3)):
+        try:
+            quotes[mode] = default_budget(definition, count)
+        except ValidationError:
+            quotes[mode] = None
+    return {**row, "execution_readiness": readiness, "executable": readiness["status"] == "READY",
+            "budget_quote": quotes}
 
 
 @router.get("/runs")

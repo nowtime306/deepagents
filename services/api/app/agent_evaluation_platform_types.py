@@ -351,12 +351,18 @@ def duplicates(definition: Definition) -> list[list[str]]:
     return [group for group in groups.values() if len(group) > 1]
 
 
+def sandbox_bound(case: Case) -> int:
+    """Only the reviewed fixed F05 v2 material raises its reservation; admission still validates full parameters."""
+    return 10 if (case.case_id == "AET-F05" and case.fixture_profile.id == "fixed-code-approval"
+                  and case.fixture_profile.version == 2) else 2
+
+
 def default_budget(definition: Definition, repeats: int) -> dict:
     return RunBudget(
         max_seconds=sum(c.budgets.timeout_seconds for c in definition.cases) * repeats,
         max_model_calls=sum(c.budgets.max_model_calls for c in definition.cases) * repeats,
         max_tokens=sum(c.budgets.max_tokens for c in definition.cases) * repeats,
-        max_sandboxes=2 * len(definition.cases) * repeats,
+        max_sandboxes=sum(sandbox_bound(case) for case in definition.cases) * repeats,
     ).model_dump()
 
 

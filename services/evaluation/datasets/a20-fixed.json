@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "dataset_id": "agent-evaluation-a20-fixed",
-  "dataset_version": 2,
+  "dataset_version": 3,
   "cases": [
     {
       "case_id": "AET-A01",
@@ -735,13 +735,19 @@
       "input": "seed",
       "fixture_profile": {
         "id": "fixed-code-approval",
-        "version": 1
+        "version": 2
       },
       "fixture_parameters": {
         "fixed_inputs": {
           "text": "seed",
           "graph": "start -> approval -> code(counter append1; stdout input-code) -> approval -> end",
-          "code_timeout": 5
+          "code_timeout": 5,
+          "counter_path": "/counter.txt",
+          "reject_companion": "published v1 first approval reject; code0",
+          "real_work_roots": 3,
+          "maximum_sandbox_creations": 10,
+          "maximum_concurrent_sandboxes": 1,
+          "lifecycle": "draft approval+code+approval (4 sessions), published repeat (4 sessions), reject first approval (2 sessions)"
         }
       },
       "validators": [

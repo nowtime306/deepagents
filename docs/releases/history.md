@@ -102,3 +102,5 @@ Work详情修复提交`f2fd3c9aa7a07af9902b8e7bcd5046dcb8fbcf85`已正常推送�
 - 父绑定 A02 验收记录提交 `c77528c6d72cf08374fe44be1c548b71848c883a`、团队失败/共享预算实现候选 `1411f0563afe6939ada83c56d587ef442ffc92a5` 均已推送并核对 `origin/onwer_agent`。后者仅开发集成：普通 active 工程131、同十项真实PG合同、client493/profile221/API unit27分组通过；不同案例仍13/20，真实W05/W06及发布未验收。题集v2只改两题，initializer同步，旧候选和失败现场保留。见 [团队评测审查](../agent-evaluation-team-review.md)，未部署或新增正式标签。
 
 - 2026-11-04，分支 onwer_agent，修复提交 1694f92840a122d58a7f88fba63b29bfb99c8a73 已推送并核对 origin/onwer_agent。评测异常独立诊断、旧 READY 失效、已知 FAIL 保留及公开 reader 异常合同经独立审查，最终完整 client 502 项通过、零跳过；不是 502 个业务任务。另实际完成原 2818/schema79 稳定核心恢复：鲜备份和独立恢复通过，API 与独立 Ask 服务启动，3100 登录/资源列表及 319 静态文件验证通过，原数据和密钥保留。Work/工作流/自动任务和新 DeepEval 执行仍暂停，没有新增全量发布标签。完整来源、范围和证据见 [本批记录](../agent-evaluation-report-recovery-qa.md)。
+
+- 容量诊断提交 3091666487cca2ef73b1c87f3b00eed6e2c4aff7：onwer_agent 已正常推送；原资源公式/余量/租约/UNKNOWN不重放保留，拒绝原因与同次采样安全信息入既有事件表。独立正式普通导入 17 单元 + 8 PG/ASGI 合同共 25 项通过、零跳过；相关 profile221/API unit27 分组通过。该提交同时存档稳定核心恢复及专项报告；生产仍为原2818恢复核心，未升级此新Work代码、未开放Work或DeepEval执行。详见 [容量诊断QA](../work-capacity-diagnostics-qa.md)。

@@ -8,10 +8,11 @@ from importlib import import_module
 from pathlib import Path
 from uuid import UUID
 
-from app.resource_runtime import current_scope
 from evaluation_platform_effects import configuration, require_permit
 from fastapi.responses import JSONResponse
 from psycopg.conninfo import conninfo_to_dict
+
+from app.resource_runtime import current_scope
 
 MARKER = "evaluation-parent.json"
 CONTRACT = "platform-effect-permit-v1"
@@ -31,6 +32,7 @@ class ParentGuard:
     def __init__(self, settings):
         self.settings = settings
         self.binding = None
+        self.registered = set()
         path = Path(settings.data_dir) / MARKER
         if not path.exists():
             if configuration() is not None:
@@ -61,7 +63,6 @@ class ParentGuard:
         if configuration() is None:
             raise ValueError("Required parent delegation was lost")
         self.binding = value
-        self.registered = set()
 
     @property
     def required(self):
@@ -88,31 +89,36 @@ class ParentGuard:
     def provider(self, case_id):
         self.check_sync("provider", case_id=case_id)
 
-    def wrap_tools(self, tools):
-        if not self.required:
+    def wrap_tools(self, tools, *, before_effect=None):
+        if not self.required and before_effect is None:
             return tools
         for tool in tools:
             actual = getattr(tool, "coroutine", None)
             if not callable(actual):
                 raise RuntimeError("Parent target refuses an unguarded native tool")  # noqa: TRY004 -- Missing async guards are a runtime capability failure.
-            if getattr(actual, "_parent_guard", None) is self:
+            if getattr(actual, "_parent_guard", None) is self and getattr(actual, "_before_effect", None) is before_effect:
                 continue
 
             def wrap(function):
                 @wraps(function)
                 async def guarded(*args, **kwargs):
+                    if before_effect is not None:
+                        before_effect()
                     await self.check_async("tool")
+                    if before_effect is not None:
+                        before_effect()
                     return await function(*args, **kwargs)
 
                 guarded._parent_guard = self
+                guarded._before_effect = before_effect
                 return guarded
 
             tool.coroutine = wrap(actual)
         return tools
 
-    def attach(self, app):
+    def attach(self, app, *, before_effect=None):
         app.state.evaluation_parent_guard = self
-        if not self.required:
+        if not self.required and before_effect is None:
             return
 
         @app.middleware("http")
@@ -125,13 +131,17 @@ class ParentGuard:
             )
             if not safe and request.url.path.startswith("/api/v1/"):
                 try:
+                    if before_effect is not None:
+                        before_effect()
                     await self.check_async("submission")
+                    if before_effect is not None:
+                        before_effect()
                 except (RuntimeError, ValueError):
                     return JSONResponse(
                         {
                             "error": {
-                                "code": "EVALUATION_PARENT_PERMISSION_UNAVAILABLE",
-                                "message": "评测父批次租约或当前权限不可用，未执行新操作",
+                                "code": "EVALUATION_PARENT_PERMISSION_UNAVAILABLE" if before_effect is None else "EVALUATION_F05_EFFECT_UNAVAILABLE",
+                                "message": "评测父批次租约或当前权限不可用，未执行新操作" if before_effect is None else "评测授权或期限不可用，未执行新操作",
                             }
                         },
                         status_code=503,

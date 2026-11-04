@@ -4,5 +4,11 @@ import sys
 from pathlib import Path
 
 ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / "services/api/app").is_dir())
-for relative in ("services/evaluation/src", "services/evaluation/profile_support", "scripts"):
+for relative in (
+    "services/evaluation/src",
+    "services/evaluation/profile_support",
+    "services/evaluation/tests",
+    "services/api/tests/integration_tests",
+    "scripts",
+):
     sys.path.insert(0, str(ROOT / relative))

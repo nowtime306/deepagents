@@ -18,6 +18,7 @@ from evaluation_sources import source_fingerprint as inventory_fingerprint
 from evaluation_runner.contracts import Dataset, Target
 from evaluation_runner.fixed_audit import validate_ready
 from evaluation_runner.journal import digest
+from evaluation_runner.fixed_case_deadline import Supervisor, ENV as DEADLINE_ENV, request_owned_stop
 
 
 def check_candidate(candidate, manifest=None):
@@ -108,21 +109,27 @@ def command(action, *, state, admin=None, manager=None, dataset=None, output=Non
 
 
 def observe_started(attempt, report):
-    rows=report.get('attempts',[])
-    roots=[]
-    unknown=False
-    for row in rows:
-        root=row.get('platform_root') or {}
-        if row.get('started') is True and isinstance(root.get('id'),str):
-            try:
-                from uuid import UUID
-                UUID(root['id'])
-                roots.append(root['id'])
-            except ValueError:
-                pass
-        unknown |= any(intent.get('status') not in {'CONFIRMED','REJECTED'}
-                       for intent in row.get('submission_intents',{}).values())
-    attempt.update(business_started=bool(roots),root_run_ids=sorted(set(roots)),unknown_submission=unknown)
+    """Count accepted main/initialization roots separately from the client's main-stage flag."""
+    from uuid import UUID
+
+    roots, unknown = [], False
+    for row in report.get('attempts', []):
+        refs = [row.get('platform_root') or {}, *row.get('prior_run_refs', {}).values()]
+        refs += [{'id': root.get('run_id')} for root in row.get('flow_code_roots', {}).values()]
+        fixture = row.get('fixture') or {}
+        initial = [fixture, *fixture.get('versions', []), *fixture.get('children', [])]
+        refs += [{'id': item.get('init_run_id')} for item in initial]
+        for ref in refs:
+            identifier = ref.get('id')
+            if isinstance(identifier, str):
+                try:
+                    UUID(identifier)
+                    roots.append(identifier)
+                except ValueError:
+                    pass
+        intents = [*row.get('fixture_intents', {}).values(), *row.get('submission_intents', {}).values()]
+        unknown |= any(intent.get('status') not in {'CONFIRMED', 'REJECTED'} for intent in intents)
+    attempt.update(business_started=bool(roots), root_run_ids=sorted(set(roots)), unknown_submission=unknown)
 
 
 def factual_failure(report):
@@ -174,6 +181,9 @@ def finalize_target(attempt,state,result,call):
     """Always try owned cooperative teardown; never force-drop an uncertain target."""
     if not (state/'target-state.json').exists():
         attempt['cleanup']='NO_REGISTERED_TARGET'
+        return
+    if attempt.get("case_id") == "AET-F05" and attempt.get("f05_supervision"):
+        request_owned_stop(attempt, state, result)
         return
     steps={}
     try:
@@ -277,7 +287,7 @@ def perform_attempt(attempt,state,result,call,candidate):
         finalize_target(attempt,state,result,call)
 
 
-def invoke(args, directory, label, cancel_path, deadline, credentials=None):
+def invoke(args, directory, label, cancel_path, deadline, credentials=None, supervisor=None):
     allowed = {'PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','HOME','USERPROFILE','APPDATA','LOCALAPPDATA'}
     environment = {k:v for k,v in os.environ.items() if k.upper() in allowed}
     environment.update(DEEPEVAL_TELEMETRY_OPT_OUT='1', DEEPEVAL_DISABLE_DOTENV='1', PYTHON_DOTENV_DISABLED='1')
@@ -290,9 +300,16 @@ def invoke(args, directory, label, cancel_path, deadline, credentials=None):
                        DEEPEVAL_RESULTS_FOLDER=str(directory/'deepeval-results'), DEEPEVAL_CACHE_FOLDER=str(directory/'deepeval-cache'))
     if credentials:
         environment.update(EVALUATION_USERNAME=credentials['username'], EVALUATION_PASSWORD=credentials['password'])
+    if supervisor is not None:
+        refused = supervisor.before_spawn(label)
+        if refused is not None:
+            return refused
+        environment[DEADLINE_ENV] = supervisor.checksum
     with (directory/(label+'-'+uuid4().hex+'.log')).open('wb') as log:
         process = subprocess.Popen(args, cwd=directory, env=environment, stdout=log, stderr=log,
                                    **({'creationflags': subprocess.CREATE_NO_WINDOW} if sys.platform == 'win32' else {}))
+        if supervisor is not None:
+            return supervisor.wait(process, label, directory.parent/"cancel.request")
         while process.poll() is None:
             if (directory.parent/'cancel.request').exists() or time.monotonic() >= deadline:
                 cancel_path.parent.mkdir(parents=True, exist_ok=True)
@@ -428,7 +445,19 @@ def run_suite(args):
                          'business_started':False,'unknown_submission':False,'root_run_ids':[],'cleanup':'RETAINED'}
                 if parent_run is not None:attempt['platform_parent_run'] = str(parent_run)
                 record['attempts'].append(attempt);save(output/'suite.json',record)
+                case_supervisor = None
                 def call(action, auth=None):
+                    nonlocal case_supervisor
+                    if case.case_id == "AET-F05" and action in {"init", "run"}:
+                        if case_supervisor is None:
+                            if action != "init":
+                                raise ValueError("Missing original F05 supervisor")
+                            case_supervisor = Supervisor(child, state, result, attempt, deadline)
+                        if action == "run":
+                            attempt["dispatch_attempted"] = True
+                        return invoke(command(action, state=state, admin=args.admin_connection_file, manager=args.manager_key_file,
+                                              dataset=child_data, output=result, parent_run=parent_run), child, action,
+                                      result/"cancel.request", deadline, auth, supervisor=case_supervisor)
                     if action in {'start','init','preflight','run'} and ((output/'cancel.request').exists() or time.monotonic()>=deadline):
                         return 130
                     if action=='run':attempt['dispatch_attempted']=True

@@ -111,6 +111,11 @@ def start(directory, admin_file, manager_key_file, parent_run_id=None):
         owner = str(database.execute('SELECT id FROM users WHERE username=%s', (owner_name,)).fetchone()[0])
         namespace = str(database.execute('SELECT id FROM work_sandbox_namespace').fetchone()[0])
         migrations = [row[0] for row in database.execute('SELECT version FROM schema_migrations ORDER BY version')]
+    sys.path.insert(0, str(ROOT / "services/evaluation/profile_support"))
+    import f05_deadline_contract as f05
+    reviewed = json.loads((ROOT / "services/evaluation/profile_support/suite-capabilities.json").read_text(encoding="utf-8"))
+    guard_state = f05.initialize_target(directory.parent, str(identifier), owner, namespace, commit, reviewed.get("f05_deadline", {}))
+    state.update(guard_state)
     marker = {'environment_id': str(identifier), 'owner_id': owner, 'database_name': name,
               'platform_commit': commit, 'sandbox_namespace': namespace,
               'fixture_profile': {'id': 'controlled-v1', 'version': 1}}
@@ -121,7 +126,7 @@ def start(directory, admin_file, manager_key_file, parent_run_id=None):
     # The child binds and retains its own socket before publishing its actual port.
     save(directory / 'server-private.json', {'database_url': connection, 'data_dir': str(data),
          'environment_id': str(identifier), 'platform_commit': commit,
-         'manager_key_file': str(manager_key_file.resolve()) if manager_key_file else None})
+         'manager_key_file': str(manager_key_file.resolve()) if manager_key_file else None, **guard_state})
     state.update(owner_id=owner, sandbox_namespace=namespace, required_migrations=migrations, status='STARTING')
     save(directory / 'target-state.json', state)
     environment = {k: v for k, v in os.environ.items() if k.upper() in {'PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','HOME','USERPROFILE','APPDATA','LOCALAPPDATA'}}
@@ -148,20 +153,21 @@ def start(directory, admin_file, manager_key_file, parent_run_id=None):
                 proof.raise_for_status()
                 if proof.json()['environment_id'] != str(identifier) or proof.json()['owner_id'] != owner:
                     raise RuntimeError('Target identity did not match newly provisioned environment')
-                response = client.post('/api/v1/admin/models', json={
-                    'name': 'AE AET-A02 lead ' + identifier.hex[:8], 'model': 'eval::AET-A02::v1',
-                    'base_url': origin + '/controlled-model', 'kind': 'chat', 'protocol': 'openai',
-                    'provider': 'custom', 'supports_tools': True, 'enabled': True, 'max_output_tokens': 4096})
-                response.raise_for_status()
-                model_id = response.json()['id']
-                state['created_resources'] = [{'kind': 'model', 'id': model_id}]
-                save(directory / 'target-state.json', state)
-                client.post('/api/v1/agent-evaluations/profiles/model-bindings', json={
-                    'case_id': 'AET-A02', 'role': 'lead', 'model_id': model_id}).raise_for_status()
+                if not guard_state:
+                    response = client.post('/api/v1/admin/models', json={
+                        'name': 'AE AET-A02 lead ' + identifier.hex[:8], 'model': 'eval::AET-A02::v1',
+                        'base_url': origin + '/controlled-model', 'kind': 'chat', 'protocol': 'openai',
+                        'provider': 'custom', 'supports_tools': True, 'enabled': True, 'max_output_tokens': 4096})
+                    response.raise_for_status()
+                    model_id = response.json()['id']
+                    state['created_resources'] = [{'kind': 'model', 'id': model_id}]
+                    save(directory / 'target-state.json', state)
+                    client.post('/api/v1/agent-evaluations/profiles/model-bindings', json={
+                        'case_id': 'AET-A02', 'role': 'lead', 'model_id': model_id}).raise_for_status()
             save(directory / 'target-manifest.json', {'schema_version': 1, 'environment_id': str(identifier),
                  'api_base_url': origin, 'platform_commit': commit, 'owner_id': owner,
                  'required_migrations': migrations, 'fixture_profile': {'id':'controlled-v1','version':1},
-                 'resource_bindings': {'AET-A02': model_id}})
+                 'resource_bindings': {} if guard_state else {'AET-A02': model_id}})
             state['status'] = 'READY_WORK_ENABLED' if manager_key_file else 'READY_NON_WORK'
             save(directory / 'target-state.json', state)
             return
@@ -202,7 +208,9 @@ def serve(directory):
     settings = Settings(database_url=private['database_url'], data_dir=Path(private['data_dir']),
                         web_origin=origin, internal_api_url=origin, work_enabled=sandbox_config is not None, ask_worker_enabled=True,
                         evaluation_instance_id=private['environment_id'], evaluation_platform_commit=private['platform_commit'])
-    app = profile.build_app(settings, sandbox_config=sandbox_config)
+    import f05_deadline_contract as f05
+    required_anchor = f05.startup_anchor(directory.parent, state, private)
+    app = profile.build_app(settings, sandbox_config=sandbox_config, f05_anchor_sha256=required_anchor)
     server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, access_log=False))
     async def host():
         async def watch():

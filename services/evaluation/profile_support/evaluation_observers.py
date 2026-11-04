@@ -3,10 +3,11 @@
 from typing import Literal
 from uuid import UUID
 
+from fastapi import Request
+
 from app.agent_evaluation_environment import environment
 from app.errors import fail
 from app.resource_trace_api import owned
-from fastapi import Request
 
 WORKFLOW_COUNTS = ("workflow_runs", "workflow_events", "ask_runs", "work_tasks", "work_runs", "model_calls", "operations",
                    "sandbox_sessions", "active_workflow_runs", "active_ask_runs", "active_work_runs", "active_sandboxes",
@@ -100,7 +101,7 @@ def attach_observers(app):
             except Exception:  # noqa: BLE001 -- A read-only health failure blocks readiness without leaking manager credentials.
                 manager = {"ready": False}
         return {"schema_version": 1, "fixture_profile": {"id": "controlled-v1", "version": 1},
-                "observers": ["root-model-context-v1", "root-model-context-resource-v1", "owned-sandbox-states-v1", "readonly-workflow-effects-v1", "single-automation-lifecycle-v1",
+                "observers": ["root-model-context-v1", "root-model-context-resource-v1", "owned-sandbox-states-v1", "readonly-workflow-effects-v1", "single-automation-lifecycle-v1", "fixed-code-three-roots-v2",
                               *(["work-consumer-rebuild-v1"] if getattr(request.app.state, "evaluation_work_consumer", None) else [])],
                 "java_verifier": (getattr(request.app.state, "evaluation_java_capability", None)
                     if getattr(request.app.state, "evaluation_java_verifier", None) and request.app.state.evaluation_java_verifier.ready
@@ -108,5 +109,7 @@ def attach_observers(app):
                 "parent_effect_delegate": (await request.app.state.evaluation_parent_guard.capability()
                     if getattr(request.app.state, "evaluation_parent_guard", None) else None),
                 "team_profiles": team_capability(request.app, proof["owner_id"]),
+                **({"f05_deadline_guard": request.app.state.evaluation_f05_deadline_guard.capability()}
+                    if getattr(request.app.state, "evaluation_f05_deadline_guard", None) else {}),
                 "case_limits": getattr(request.app.state, "evaluation_case_limits", None),
                 "sandbox_limits": service.capability() if service else None, "work_manager": manager}

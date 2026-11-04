@@ -39,6 +39,9 @@ class FixedFixtures:
         try:
             response = self.platform.http.request(method, path, **kwargs)
             value = response.json() if response.content else {}
+            confirmation_guard = getattr(self.platform, "effect_confirmation_guard", None)
+            if confirmation_guard is not None:
+                confirmation_guard()
         except (httpx.HTTPError, ValueError):
             intents[key]["status"] = "UNKNOWN"
             self.journal.save()
@@ -49,7 +52,7 @@ class FixedFixtures:
                                 error_code=value.get("error", {}).get("code", "HTTP_REJECTED"))
             self.journal.save()
             raise ValueError("Fixture API rejected operation: " + str(response.status_code))
-        safe = {field: value[field] for field in ("id", "run_id", "task_id", "version", "revision", "status", "sealed")
+        safe = {field: value[field] for field in ("id", "run_id", "task_id", "workflow_run_id", "version", "revision", "status", "sealed")
                 if field in value}
         intents[key].update(status="CONFIRMED", http_status=response.status_code, response=safe)
         self.journal.save()

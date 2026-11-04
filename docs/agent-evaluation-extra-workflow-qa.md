@@ -110,3 +110,69 @@
 遗漏风险：suite最终应取封存supervised_evaluation_suite c313…的监督增量，patched_evaluation_suite ca638只是中间层；后者少F05同窗口Supervisor。另CodeSandboxes默认False、目标未传enabled、readiness要求True，原样消费仍不可运行。需开发单独交精确受审的F05 activation条件，不能全局翻True或伪造capability。W target候选夹带F07主动TimeoutError片段应隔离，仍不算F07 receiver接线。
 
 交接包含8新文件精确来源、12源码/定义函数增量及1caps刷新、反例矩阵和后续顺序：统一候选审查→实际合入源码工程→真实隔离PG合同→主Agent容量派发后真实F05三root。没有扩大create10/并发1/case300/原全局600预算，正式业务新增0，F07仍未完整实现。
+
+## 统一候选f700非作者代码审查（2026-11-04）
+
+按用户“审查通过后才交测试”，本批仅静态审查、不导入候选、不运行QA。active HEAD30916664；manifest f7000088…的20base/candidate、35review assets、5protected摘要均匹配且前后未变。partial/既有FAIL异常handler、稳定agent名称、Team ProfileState/model_factory AST、catalog其他19题均保留；Gate及public report reader未覆盖，F07片段已隔离，caps仍待最终刷新。
+
+结论 **REQUEST_CHANGES**：D02 guard.cancelled()未证明same-suite归属就消费父cancel.request并读取suite.json；合法standalone父目录有无归属marker、无suite.json时，读取异常经capability转持久POISON，导致四hook误拒。对foreign marker提前proof.safe亦属同一归属顺序问题。开发需区分未归属和此前已确认本suite后损坏；不能一律吞文件异常来修复。仅为静态控制流推导，未声称执行复现。
+
+私有 `.local/team-workspace/agent-evaluation/qa-workflow-extra/f05-unified-review-20261104-e650/review.md` SHA `c4a9080d07cb902fe17f7bc83cfd50b03641de4fafbcb05e53d018c845c4df04`，收据同目录review-receipt.json。另记录STARTED原实例篡改检测/独占启动和跨实例删除唯一sentinel的覆盖边界，等待开发明确后补反例。修复后新封包复审，通过才QA；D02未关闭，工程及正式业务新增均0。
+
+## v2复审及审查后独立工程（2026-11-04）
+
+新manifest `a8bed11264d8a19e8d14d2c3336f0b1344b294da17c9a6bc0871a83327418cf7` 的R1已静态关闭：首次无法完整证明父suite归属时不消费其marker；同一live guard完整匹配并缓存归属后，元数据消失/破坏/错配仍poison；owned result优先不变。20active base、v1的35/v2的15review assets及protected5匹配；19产品映射与v1同字节，partial/FAIL、name、Team/Gate保留。静态收据 `.local/team-workspace/agent-evaluation/qa-workflow-extra/f05-v2-review-20261104-23d1/review-receipt.json` SHA `aee462fef979f6669ef91f96779899c932b14556ea2536fb4b446780026ccba9`。原f700失败收据保留。
+
+主Agent明确确认代码复审通过后，才执行本批独立工程。新目录 `.local/team-workspace/agent-evaluation/qa-workflow-extra/f05-v2-qa-20261104-77b8`，从v2复制141个顶层文件，产品源码和全部原断言字节保持；每组新HOME，按原网络/进程守卫，仅允许标准库自管socketpair，其他外部连接/进程被禁止。使用已授权主机工程环境，不修改源码来避开文件系统权限。
+
+独立执行结果如下，均native exit0、JUnit失败0/错误0/跳过0，包含原正例：
+
+- activation43：`engineering_activation_c7517b6fa95f`，5.31秒。
+- guard62：`engineering_guard_7694d7040b36`，5.45秒。
+- client65：`engineering_client_7671bd47f882`，9.67秒。
+- profile14：`engineering_profile_5220b6cb34ab`，4.06秒；沿原获批组选择，不改断言。
+- consume7：`engineering_activation_84d0149f88a5`，0.18秒。
+- W兼容9：`engineering_rebase_9ee2e655c541`，0.48秒。
+- budget3：`engineering_budget_ef7618b899c2`，0.12秒。
+- coordinator/监督8：`engineering_coordinator_4931d7c7b5bf`，0.10秒。
+- partial边界8：`unit_6629be96bc29`，0.17秒。
+
+收据 `independent-engineering-receipt.json` SHA `7b4a2f3a1a6cd344634ac498db53e674063eda0e4c4a8d5dafe501d7c4e5a3b1` 含逐组精确argv、JUnit/原始stdout/stderr/result/network摘要及源前后见证。复制的141文件与原源前后逐字节一致，原件、active/protected pins无漂移。各组有重叠断言，不相加冒充独立业务案例。
+
+activation中4条safe路径拒绝属于既有proof.safe失败注入，只验归属顺序；物理symlink原WinError1314未验收、失败保留。未使用真实DB/target/SDK/manager/容器/模型，正式业务新增0。尚未验收真实PG归属/事务/lease合同和真实F05三root；F07仍未receiver统一接线。Chrome站点仍拒绝，未尝试UI或部署；caps fixture未装，最终源码pin刷新/资源准入仍待主Agent，READYfalse。历史MD保存WinError5原根因未由本次工程关闭。
+
+## v3已知F05关联缺失的静态复审（2026-11-04）
+
+新manifest fe976fb5…仅CodeSandboxes.reserve两hunk改动；有效leased run为SQL主行保owner/model，owned workflow snapshot改相关子查询，缺关联/foreign关联返回NULL仍识别为fixed并在native reserve前按exact graph拒绝，不降普通2。20active bases、其余19产品同字节、v2 guard及protected5均匹配。静态审查通过/known-fixed问题CLOSED，未执行新QA。无效lease原底层None/refund/诊断路径保留，不额外要求不得调用底层；Browser拒绝是正式原基线，不计新回归。
+
+收据 `.local/team-workspace/agent-evaluation/qa-workflow-extra/f05-v3-review-20261104-9d23/review-receipt.json` SHA `fed773feb785694e883aa3fa6df5d5c782b5e62a10266a9c9a60c92bb3cb63de`。六作者反例仅SQL结果替身，真实PG查询/owner/lease合同待验；v2工程不回填v3。新六条和activation/profile窄回归仍等主Agent准入，正式业务新增0。
+
+## v4固定模型权限分类复审与窄工程（2026-11-04）
+
+v3封存后开发追加识别到同类foreign owner/role分类缺口，故本角色没有启动v3六例QA。v4 manifest `b3eb5c1801296b1362db4ddc3ef2328b9cecdff2b1df75af4211a176f0a4bfad` 仅reserve继续最小修正：单次profiles.lock复制binding，以case_id识别knownF05后再严格校验lead/runOwner/guardOwner，foreign不再降普通2；v3主行+owned关联子查询保留。19产品/v2guard同字节、20active bases/protected5核一致；AST仅reserve变化，静态审查CLOSED。Browser仍按旧基线拒绝，未扩需求；无效lease允许原None/refund/诊断。
+
+主Agent本批预授权“静态关闭后可执行”后，独立新目录 `.local/team-workspace/agent-evaluation/qa-workflow-extra/f05-v4-review-qa-20261104-226b` 运行原admission10、activation43、profile14，分别4.10/5.34/3.43秒，全部native0、JUnit失败0/错误0/跳过0。145复制文件、源码及断言前后与封存v4逐字节一致；active/protected原pins无漂移，每组新HOME、原守卫和原始日志保留。静态收据SHA `1ef6fb7c66bc0934ed5083c33d4c4fd9029d7763e6189f01cbb210ab2634395b`；独立工程收据 `independent-engineering-receipt.json` SHA `f20774a3fc91546e23b861f3df0b975efbcdfeb8c72a6c5d21627e0c75a486eb`。
+
+没有重跑不受影响的62/65组，它们仍仅v2结果，不回填v4。新10为SQL结果替身，真实owner/关联/lease查询和PG7待验；4safe注入不算物理链接。未用真实DB/SDK/target/manager/容器/模型，正式业务新增0。最终源码合入/pins、真实F05三root、Chrome UI/生产构建/部署、F07 receiver与原MD保存故障边界均未由此关闭，READYfalse。
+
+## 正式可移植测试源码审查（2026-11-04）
+
+封包manifest76dbc87f…完成非作者静态审查，PASS，未collect/导入/执行。16映射及8assets摘要匹配；14源测试文件342条assert AST逐条保留，测试名、参数化/skip边界未删改。产品改普通导入，唯一helper精确加载正式两脚本；bootstrap改真脚本加载后替换原effects，临时启动输入不作为产品副本覆盖。PG7保留显式独立_test/data_test、newowner与空空间准入、内外fixture失败保留、SDK/模型禁止及成功自有清理。
+
+独立核root排序后的3profile递归非importAST及全部import绑定集合一致，actual target e331f1a2…/observers0ae57582…/parent_guard b68a9f98…需作为执行新pins；runner8f3a与caps initializer实际匹配，不使用旧SHA冒称当前。收据 `.local/team-workspace/agent-evaluation/qa-workflow-extra/portable-review-20261104-180d/review-receipt.json` SHA `44423938d15db689b38560714c5fb22bd3361845b8aaae7f4f2e5b5637521288`。342仅静态assert数量，新增运行/业务0。等待主Agent正式安装后才进行普通导入非PG工程，PG另等运维新库准入。
+
+## 正式安装后的普通导入API独立工程（2026-11-04）
+
+主Agent确认16映射正式安装后，本专项在新目录 `.local/team-workspace/agent-evaluation/qa-workflow-extra/ordinary-api-f05-20261104-693b` 以正式API pytest配置/asyncplugin执行8个正式测试文件，不含PG7：target_deadline、既有ParentGuard、bootstrap、activation、admission、effects_profile、workflow_task_contract、budget。没有-k/删除/降级断言，native0、132 passed、0错误/失败/跳过，8.51秒。此为普通导入后的本次新结果，未回填此前私有包；不将assert342当测试数。
+
+直接使用已授权host工程环境，未先触发受限失败；独立HOME和临时数据目录，原网络/进程审计保留，120条允许事件仅标准库socketpair的bind/connect，其余连接/进程拒绝。34个已加载产品模块__file__均定位正式services源码，不含.local产品副本或sys.modules替换。测试与actual产品before/after摘要一致，原始stdout/stderr/JUnit/import-paths/network/result保留。
+
+独立收据 `independent-receipt.json` SHA `918d050036e20c03a11785df945917c0a26f4a4c0400eb0535f427b5dc7825ef`。PG未执行、真实SDK/模型/target/manager未运行、正式业务新增0；物理链接仍未验收，READY/部署均false。真实PG7及F05业务生命周期仍待后续独立资源准入，Chrome拒绝未绕过。
+
+## 九测试文件格式修复复审及文档事实核对（2026-11-04）
+
+history封存f090c070…的9文件修复经本专项独立静态复审PASS：218条API assert及所有字符串完全相同，全部342原assert仍保留；递归非import AST唯一差异是未使用的For元组目标index→_index，循环body无该值读取，参数化/fixture行为不变。其余client断言与product21源码摘要不变，无新增ignore/noqa或门禁放宽。
+
+按主Agent“静态PASS即可原132组复测”准入，新目录 `.local/team-workspace/agent-evaluation/qa-workflow-extra/lint-review-retest-20261104-0d19` 主机普通导入复测132通过，0失败/错误/跳过，7.97秒、native0；新HOME/原审计守卫、原断言、actual源和测试before/after保持，34模块均正式services来源。原132结果保留、不重复累计业务。收据 `independent-receipt.json` SHA `e6910e0c0f233853f5f252900954b7f5c3e1ca898ad3cb564c94cb7a061231ca`。
+
+并行只读核对integration QA文档当前9份链接收据SHA，另核原JUnit575/221/122/PG7均0fail/error/skip；PG收据十五表0/会话0/已删除新成功库、保留旧失败的边界与文档相符，build仅PASS_BUILD_ONLY/未重启，文档明确未部署和未UI验收，没有把工程数量相加成业务完成或放宽实际授权预算。生产健康/PG现场按收据核读，本角色未重连生产/重跑PG。建议文案把认证协议“双端点”精确为runner/profile两处文件，并给600创建预约上限标单位；不是新增产品缺陷。物理链接、F05真实三root、F07、ChromeUI和历史MD故障等未完成项继续保留，业务新增0。

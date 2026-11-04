@@ -31,3 +31,7 @@ A20 不同业务案例仍为 13/20。容量拒绝原因诊断、F05/F07、其余
 运维最终收据 `.local/agent-evaluations/stable-core-start-75d4d82dc27044b788a83c65ebd81099/final-receipt.json`，SHA256 `299d5018b4c05383685912a7f2518fc96e64426d539e4775be25e9bb23604687`。root 再独立验证登录与四项列表全部 200、API/管理服务健康、唯一新鲜后台心跳及七表数量和密钥一致，收据 `stable-core-independent-932f9f7cea55497f9c93a887868c3fbc/receipt.json`。这些是实际 HTTP 和数据库验证，非浏览器页面验收；未真实发问或修改用户资源。
 
 诊断代码提交 `1694f92840a122d58a7f88fba63b29bfb99c8a73` 已推送并独立核对远端 `origin/onwer_agent`。它与生产恢复所用的原基线是不同来源，不冒充新版全量部署或创建通过验收的新版标签。
+
+## 本轮页面验收限制
+
+恢复后尝试通过官方 Chrome 工具打开实际生产地址 `http://localhost:3100`，工具明确返回保存的权限规则拒绝，origin approval gate 未授予访问。未获得页面状态，没有实际浏览器操作验收，也没有切换浏览器、地址别名、原始 CDP 或其他通道绕过。这不改变此前实际 HTTP、数据库和静态产物检查的范围，但这些结果不能升级为 UI 通过。

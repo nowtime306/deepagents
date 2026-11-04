@@ -891,6 +891,7 @@ function CreateEvaluation({
   const [versionInfo, setVersionInfo] = useState<{
     key: string;
     case_count: number;
+    budget_quote: EvaluationBudget | null;
   } | null>(null);
   useEffect(() => {
     if (view !== "runs") return;
@@ -916,7 +917,7 @@ function CreateEvaluation({
       return;
     const controller = new AbortController();
     const key = `${datasetId}:${version}`;
-    api<{ case_count: number }>(
+    api<{ case_count: number; budget_quote?: { engineering: EvaluationBudget | null } }>(
       `${base}/datasets/${datasetId}/versions/${version}`,
       { signal: controller.signal },
     )
@@ -928,7 +929,14 @@ function CreateEvaluation({
         )
           throw new Error("发布版本的任务数量无效");
         if (!controller.signal.aborted) {
-          setVersionInfo({ key, case_count: value.case_count });
+          const quote = value.budget_quote?.engineering ?? null;
+          const limits = {max_seconds: 86400, max_model_calls: 10000, max_tokens: 100000000, max_sandboxes: 600};
+          if (quote && (Object.keys(quote).length !== 4 || Object.entries(limits).some(([key, limit]) => {
+            const amount = quote[key as keyof EvaluationBudget];
+            return !Number.isSafeInteger(amount) || amount < (key === "max_seconds" ? 1 : 0) || amount > limit;
+          })))
+            throw new Error("发布版本预算报价无效");
+          setVersionInfo({ key, case_count: value.case_count, budget_quote: quote });
           setError("");
         }
       })
@@ -999,6 +1007,12 @@ function CreateEvaluation({
     setError("");
     setBusy(true);
     try {
+      if (view === "runs") {
+        const quote = selectedVersion?.budget_quote;
+        if (!quote) throw new Error("所选发布版本预算报价尚未就绪。");
+        if (Object.keys(quote).some((name) => budgets[name as keyof EvaluationBudget] < quote[name as keyof EvaluationBudget]))
+          throw new Error("预算低于所选发布版本的保守预约，请显式调整后提交。");
+      }
       const body = JSON.stringify(payload());
       if (new TextEncoder().encode(body).length > 131072)
         throw new Error("评测定义超过128 KiB，请拆分为更小的评测集。");
@@ -1172,6 +1186,9 @@ function CreateEvaluation({
                     定义数量不等于已确认的独立业务目标。本入口使用单次受控工程模式，不代表真实模型质量评测。预算将由服务器按不可变定义检查。
                   </p>
                   <h3>本批次硬预算</h3>
+                  <p>{selectedVersion?.budget_quote
+                    ? `所选发布版本至少预约${selectedVersion.budget_quote.max_sandboxes}次沙箱创建。需要时请显式调整以下上限；预约次数不会提高执行并发。`
+                    : "所选发布版本尚无有效预算报价，不能据默认值推断可执行。"}</p>
                   {(
                     [
                       ["max_seconds", "总时限（秒）"],
@@ -1186,6 +1203,7 @@ function CreateEvaluation({
                         required
                         type="number"
                         min={key === "max_seconds" ? 1 : 0}
+                        max={key === "max_sandboxes" ? 600 : key === "max_seconds" ? 86400 : key === "max_model_calls" ? 10000 : 100000000}
                         step={1}
                         value={Number.isNaN(budgets[key]) ? "" : budgets[key]}
                         onChange={(event) =>
@@ -1313,7 +1331,7 @@ function CreateEvaluation({
                   busy ||
                   (view === "runs" &&
                     (capability.admission.status !== "READY" ||
-                      !selectedVersion))
+                      !selectedVersion?.budget_quote))
                 }
               >
                 {busy

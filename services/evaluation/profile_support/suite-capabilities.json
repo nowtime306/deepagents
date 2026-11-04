@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "initializer_sha256": "8f8851bf8629d29e5c2460885442fc72992e7bd5ecf6eda7a327bc32004249f2",
+  "initializer_sha256": "8f3a4f7c4c35f8b89ae43569e38bb9e238cd218da6a847e69b3e63c89849fbf3",
   "sandbox_bounds": {
     "AET-A01": 2,
     "AET-A02": 2,
@@ -16,6 +16,13 @@
     "AET-F01": 2,
     "AET-F03": 2,
     "AET-W05": 2,
-    "AET-W06": 2
+    "AET-W06": 2,
+    "AET-F05": 10
+  },
+  "f05_deadline": {
+    "catalog_digest": "b3d00e0e0e49bc31edb2838c94ff33f1116cb0ca867bd524743de6edf1a1e634",
+    "case_definition_digest": "ae1cf642ff69cef554f613fff92c46bd45389ce7d05a26ec10832d0298b52e66",
+    "rules_id": "controlled-a20-v1",
+    "definition_version": 2
   }
 }

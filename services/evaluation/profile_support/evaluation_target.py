@@ -15,18 +15,19 @@ from threading import Lock
 from types import MappingProxyType
 from typing import Literal
 
-from app.resource_runtime import current_scope
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from psycopg.conninfo import conninfo_to_dict
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
+from app.resource_runtime import current_scope
+
 CASES = {f"AET-{mode}{number:02}" for mode, size in (("A", 5), ("W", 8), ("F", 7))
          for number in range(1, size + 1)}
-LIMITS = MappingProxyType({case: (1 if case == "AET-F01" else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F06"} else 4 if case == "AET-A01" else 1 if case == "AET-A02" else 6,
+LIMITS = MappingProxyType({case: (1 if case == "AET-F01" else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F05", "AET-F06"} else 4 if case == "AET-A01" else 1 if case == "AET-A02" else 6,
                                  8192 if case == "AET-F01" else 16000 if case == "AET-W06" else 60 if case == "AET-A01"
-                                 else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F06"} else 15 if case == "AET-A02" else 90) for case in CASES})
+                                 else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F05", "AET-F06"} else 15 if case == "AET-A02" else 90) for case in CASES})
 COUNTER_COMMAND = ("python3 -c \"from pathlib import Path; p=Path('counter.txt'); "
                    "p.write_text(str(int(p.read_text())+1))\"")
 A01_CASE_LIMIT = {"max_model_calls": 8, "max_tokens": 120, "max_roots": 2}
@@ -347,19 +348,27 @@ class ModelBinding(BaseModel):
         return value
 
 
-def build_app(settings, *, sandbox_config=None):
+def build_app(settings, *, sandbox_config=None, f05_anchor_sha256=None):
     """Wrap the actual API lifespan and genuine queue consumers inside a new isolated target."""
     if not conninfo_to_dict(settings.database_url)["dbname"].endswith("_test") or not settings.data_dir.name.endswith("_test"):
         raise ValueError("The controlled target requires a dedicated test database and data directory")
     if not settings.evaluation_instance_id or not settings.evaluation_platform_commit:
         raise ValueError("The controlled target requires explicit attestation settings")
-    from app.main import create_app
     from evaluation_automations import ControlledAskWorker
     from evaluation_parent_guard import ParentGuard
 
+    from app.main import create_app
+
     parent = ParentGuard(settings)
     app = create_app(settings, evaluation_sandbox_connection=sandbox_config)
-    parent.attach(app)
+    from evaluation_f05_deadline_guard import create as create_deadline_guard
+    deadline_guard = create_deadline_guard(settings, f05_anchor_sha256)
+    app.state.evaluation_f05_deadline_guard = deadline_guard
+    if deadline_guard is None:
+        parent.attach(app)
+    else:
+        parent.attach(app, before_effect=deadline_guard.before_submission)
+        deadline_guard.registered.add("submission")
     original = app.router.lifespan_context
 
     @asynccontextmanager
@@ -367,6 +376,8 @@ def build_app(settings, *, sandbox_config=None):
         async with original(application):
             state = ProfileState(settings.data_dir / "evaluation-provider-state.json")
             parent.install_runtime(application, state)
+            if deadline_guard is not None:
+                deadline_guard.install_runtime(application, state, parent)
             factory = lambda configuration: model_factory(configuration, state)
             application.state.evaluation_profiles = state
             from evaluation_team_audit import install as install_team_audit
@@ -390,14 +401,20 @@ def build_app(settings, *, sandbox_config=None):
             work_consumer = None
             try:
                 if sandbox_config is not None:
+                    from evaluation_flow_code import CodeSandboxes
+
                     from app.capabilities import CapabilityService
                     from app.work_artifacts import WorkArtifacts
                     from app.work_engine import WorkEngine
                     from app.work_resources import WorkKnowledge
-                    from evaluation_sandbox_cap import BoundedSandboxes
 
-                    sandboxes = BoundedSandboxes(application.state.db, sandbox_config,
-                                                 settings.data_dir / "evaluation-sandbox-bound.json")
+                    sandboxes = CodeSandboxes(application.state.db, sandbox_config,
+                                             settings.data_dir / "evaluation-sandbox-bound.json", state)
+                    if deadline_guard is not None:
+                        from f05_deadline_contract import read as read_f05_contract
+
+                        reviewed_f05 = read_f05_contract(Path(__file__).with_name("suite-capabilities.json"))
+                        sandboxes.activate(deadline_guard, application.state.evaluation_execution_limits, reviewed=reviewed_f05)
                     application.state.evaluation_bounded_sandboxes = sandboxes
                     if application.state.browser_workbench is not None:
                         application.state.browser_workbench.sandboxes = sandboxes
@@ -453,6 +470,9 @@ def build_app(settings, *, sandbox_config=None):
     from evaluation_observers import attach_observers
 
     attach_observers(app)
+    from evaluation_flow_code import attach as attach_flow_code
+
+    attach_flow_code(app)
     from evaluation_automations import attach_automations
 
     attach_automations(app)
@@ -463,11 +483,12 @@ def build_app(settings, *, sandbox_config=None):
 
     attach_observer(app)
 
+    from fastapi import Request
+
     from app.agent_evaluation_environment import environment
     from app.errors import fail
     from app.permissions import require_account
     from app.security import administrator
-    from fastapi import Request
 
     @app.post("/api/v1/agent-evaluations/profiles/model-bindings")
     async def bind_model(body: ModelBinding, request: Request):
