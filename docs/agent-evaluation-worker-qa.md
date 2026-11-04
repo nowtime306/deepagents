@@ -83,3 +83,14 @@ rdc_index另作非作者只读核验：85dc原冻结及active三文件逐字节�
 root独立运行active普通目录89项/28.60秒、零跳过，包含原71及新增18个投影/报告反例；原件`active-worker-protocol-a7ed1b423c9e4833aefc02f9f3ba6196`，receipt摘要`fec68d287964a3971de49235d46429b2ef331391604ffb93123f073ca2a5a86e`。另在全新随机库17项/4.86秒通过、零跳过，包含原PG5、HTTP3和新增导入9（2合法、7无效/不一致）；七业务效果零、会话零，精确本次库已删除，原件`gate-import-pg-6a36fb229c6243aa8c9b1aadf550832c`，receipt摘要`dc377569d497d5bfb62f348c64b98293589af58d19b06e5bc95902848e721577`。组间范围不与旧批累加为任务数。
 
 rdc_index独立只读核对六active文件、89项日志/JUnit/14源前后、PG17日志/JUnit/原收据及原反例，后记`gate441-independent-postscript/review_1031bb5b1558/review.json`摘要`b407b58566919d4857f1c056bbb6e5ca82f629abb67fe0c1fa29002920c2f5e5`。其未重跑或查库；不把收据核对夸成额外完整JSON/PG快照对账。该缺陷范围闭合，A02完整链仍待新候选重基后实际执行。
+
+
+### 47895eda父绑定A02完整链限定验收
+
+源码候选`47895eda157a4a86bd2059425270b19b3f02ffe1`已推送核对。新核心冻结`b96da5c25c09fc5a2edae51bfa8c9ace6ce511b2b2b2ebe7194bdaf6a96b12a6`、生命周期外层`9bf1d69b1b95ab0a1e0ed8c2499e914059afbbbd9ae0e4ed7690e2d5e0cacf82`锁定333份源码和13项fixture基线。首次478包的source pathspec漏列已跟踪的API pyproject/uv.lock，断言在inspect/seed/派发前拒绝；七业务表及评测run均零、会话零，原失败库`owner_agent_parent_a02_9352c43545404111aa893f111829d7cf_test`和原件保留。v2仅补齐两个检查路径，原断言、源码摘要及运行逻辑不放宽；root先真实调用source_lock通过后才执行新库。
+
+原件`.local/agent-evaluations/parent-bound-a02-47895eda-v2-3346e75b1b274b228719b3d114ba28ae`：1通过、0跳过，42.656秒。实际Selector循环下依次完成真实父库claim/begin、6次续租、15次许可、独立解释器inspect/prepare/execute、两个Ask根SUCCEEDED及原生2次KNOWN调用（输入20/输出10/总30 Token）、事实/ToolCorrectness核对、4条CLI审计、ready和三份报告、真实PG原子导入。三个nonce及runtime/source/规则/摘要身份绑定一致。父队列为明确合成的工程fixture，admission只在本地对象替换以到达真实SQL；真实公开应用前后仍BLOCKED，无publication、bridge或consumer启动。
+
+非作者只读后记`.local/team-workspace/agent-evaluation/parent-a02-independent/review_033a7e083093/review.json`摘要`17b5157004c59c49fb6724755548ed8837ae23ef904aca4e104f25b99db314d7`，核对同次job `5862985e-551d-4080-8b88-da1421b0ad1e`、全部原件摘要、纯reader事实/用量/审计/ready及精确runtime/target进程已不存在。临时HMAC密钥不留存，实际MAC验证由当次固定driver完成；独立角色重算摘要/nonce/身份，不冒称离线重算MAC。PG导入一致由当次core实际断言支持，库回收后不伪造新SQL快照。
+
+原外层收据记录父17表归零、会话零、父子精确新库已删除；仅确认两个已知进程退出，不声称全部后代轨迹。原失败库未删除、既有服务和生产数据未动。本次是已有A02的完整父绑定工程复验，唯一案例覆盖仍13/20；剩余七例、受信bridge、B100/C/D、实际页面和生产发布尚未通过，真实供应商质量未评测。

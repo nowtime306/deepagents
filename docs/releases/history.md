@@ -96,3 +96,5 @@ Work详情修复提交`f2fd3c9aa7a07af9902b8e7bcd5046dcb8fbcf85`已正常推送�
 - 三例验收记录提交 `81ea3c59eefb7c2a9e4c6b4a3f31adf4e5521511` 已正常推送。后续 Java 签名保护 JV04 先独审关闭、独立48项工程测试，再实际单Coding八组源码及非作者只读原件核验通过，见 [Java专项审查](../agent-evaluation-java-review.md)。该范围尚非W02正式Work或新案例验收；其共享接线继续开发。
 - Java 签名保护提交 `475e8f20839782775928dae8e9b422370513e325` 已正常推送。F06固定并行评测下一增量完成独审修复、客户端353/profile71/真实PG预算契约1的分组QA，见 [并行评测审查](../agent-evaluation-parallel-review.md)。接下来固定候选后另建实际样本，不把工程测试计入已验收7/20；没有部署或正式标签。
 - F06实现候选 `8a15c8d78f022e191f53fbd6e96a1e9bb065d4dc` 已正常推送。随后单案例/一次重复正式执行PASS，经另一角色核原始四根、三分支、60事件/零用量、逐CLI审计及精确回收后，累计8/20不同案例限定验收。见 [阶段验收](../agent-evaluation-acceptance.md) 与 [并行专项](../agent-evaluation-parallel-review.md)；W01原FAIL及旧4627保留现场不回填，无生产迁移/部署/新标签。
+
+- Worker门禁修复候选 `47895eda157a4a86bd2059425270b19b3f02ffe1` 已推送核对，独立89项工程/17项真实PG通过。该候选的父绑定A02完整链另一次通过并经非作者只读核齐（后记17b5157004c59c49fb6724755548ed8837ae23ef904aca4e104f25b99db314d7）；覆盖仍13/20。首次路径清单断言失败现场保留；v2父子新库与精确进程已回收。公开入口仍BLOCKED，无新标签、迁移或生产部署，详见 [Worker QA](../agent-evaluation-worker-qa.md)。
