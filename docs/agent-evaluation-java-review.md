@@ -1,5 +1,17 @@
 # W02 保护验证器审查（进行中）
 
+## 当前阻断：JV05 输出正确但方法未返回
+
+2026-11-04 独立物理诊断确认：候选 `max` 先打印正确数值再 `System.exit(0)`，原验证器把三例均判通过，但方法没有返回结果。原证据 `.local/agent-evaluations/java-oracle-independent-e7019ad4dece45dbb168a249b3103ce3/receipt.json` 保持 `passed=false`、`gate=ORACLE_FALSE_POSITIVE_CONFIRMED`，不回填历史八控制或计入 W02 业务验收。一个自有 Coding 沙箱已释放，同命名空间容器及侧车末次清单为零。
+
+最初修复候选在私有目录 `services/evaluation/.local/java-oracle-fix/`，清单摘要 `fac685157882ff1da0c0058cd53ccdd3f3d72af27b73a66a65ccf32a93895b59`。非作者审查发现探针在封存前断言会丢失失败证据（O01/P2），第二版先保存原报告/摘要/预期与实际值后再断言。原候选、原错误与审查记录保留。
+
+第二版冻结 `java-oracle-fix-v2/manifest.json` 摘要 `fece23f251389623ab05ce8825b04899498da71f1eeedb438b9f9013b312242f`，O01关闭，独立工程12项通过；包含旧8项，不相加。实际新 Coding 中十一组固定源码按预期：正确方法通过；数值错误、假日志、签名错误及退出/halt/移除guard企图均失败，后五种终止企图编译成功且每种三次真实退出1。限定 JDK21 在候选初始化前安装guard，拒绝exit/halt和替换guard，保留原UID/seccomp/文件保护；不宣称通用恶意Java安全。
+
+实际原件 `.local/agent-evaluations/java-oracle-fixed-host-9e2feff3067f445880ab78dee0999b48/receipt.json` 摘要 `d3acba90544d51983234e29026623bce72eb4dba10ed8cfbdf811422743bf624`，gate PASS、十一控制、一个4 CPU/5 GiB Coding及其侧车已释放，精确本次命名空间库存为零，源码/素材/脚本摘要前后一致。最初受限运行未写任何创建意图，核对精确进程后停止，空诊断目录保留；实际验证使用正常审批的本机服务访问权限，没有重放创建。
+
+active程序已精确更新为实测字节 SHA256 `2c91f045fd9bdd7713255efed8b52588464c07bddad190d21d0b743008f14a62`；通用命令原始125仍保留，guard拒绝的exit(125)在本新策略下实际为异常退出1，不回写旧125探针。**W02仍未完成正式Agent→成果→第二leased验证任务验收，不进入READY，也不增加8/20任务覆盖。**
+
 日期：2026-11-04；审查者非实现作者。范围为固定目标模块、Linux 保护程序、launcher、对应测试和需求，不包含共享接线或真实 W02。
 
 1. **JV01 保护边界**：仅降低 UID 不能证明生成代码无法通过容器内控制接口修改保护测试。补充固定 amd64 ABI 的继承式 seccomp/no_new_privs，拒绝网络及相关旁路，关闭继承 socket；root SDK 控制通道不受此子进程过滤影响。强制 post-exec 的 UID/GID、网络拒绝、文件/父目录/编译结果保护探针；缺失不能 PASS。Docker 出站规则本身不被当作此证明。[OpenSandbox 官方 Execd 文档](https://github.com/opensandbox-group/OpenSandbox/blob/main/docs/architecture/data-plane/execd.md)说明了可选 token 与控制接口边界。

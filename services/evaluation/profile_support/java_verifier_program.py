@@ -14,8 +14,22 @@ import tempfile
 from pathlib import Path
 
 CASES = ((2, 8, 8), (-7, -3, -3), (4, 4, 4))
-ADAPTER = '''public final class AEInvokeMax {
+ADAPTER = '''public final class AEInvokeMax extends java.lang.SecurityManager {
+ @Override public void checkExit(int status) {
+  throw new java.lang.SecurityException("Fixed verifier forbids process exit");
+ }
+ @Override public void checkPermission(java.security.Permission permission) {
+  if (permission instanceof java.lang.RuntimePermission
+      && "setSecurityManager".equals(permission.getName())) {
+   throw new java.lang.SecurityException("Fixed verifier forbids guard replacement");
+  }
+ }
  public static void main(String[] args) throws ReflectiveOperationException {
+  AEInvokeMax guard = new AEInvokeMax();
+  java.lang.System.setSecurityManager(guard);
+  if (java.lang.System.getSecurityManager() != guard) {
+   throw new IllegalStateException("Fixed verifier guard was not installed");
+  }
   java.lang.reflect.Method method = Max.class.getDeclaredMethod("max", int.class, int.class);
   int modifiers = method.getModifiers();
   if (!java.lang.reflect.Modifier.isPublic(Max.class.getModifiers())
@@ -168,7 +182,7 @@ def main(payload):
         raise RuntimeError("Protected compiled classes probe failed")
     result["class_protection"] = {"adapter_blocked": True, "candidate_blocked": True, "digests_unchanged": True}
     for index, (a, b, expected) in enumerate(CASES):
-        execution, out, _ = command(["java", "-Xmx128m", "-cp", str(adapters) + ":" + str(candidate),
+        execution, out, _ = command(["java", "-Xmx128m", "-Djava.security.manager=allow", "-cp", str(adapters) + ":" + str(candidate),
                                       "AEInvokeMax", str(a), str(b)], seconds=5)
         passed = (execution["exit_code"] == 0 and not execution["timed_out"] and not execution["truncated"]
                   and out == str(expected).encode())

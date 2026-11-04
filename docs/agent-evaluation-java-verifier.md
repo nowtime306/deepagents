@@ -22,6 +22,8 @@ target-only固定executor按封存taskID分流，不依据名称或goal；验证
 
 固定保护例为`max(2,8)=8`、`max(-7,-3)=-3`、`max(4,4)=4`。这是三个测试的结果，不是通用Java正确性或安全证明。编译失败、签名不符、非整数/额外输出、超时或结果错误应保留FAIL；SDK传输或结果封存不确定为NEEDS_REVIEW。硬编码“测试通过”及System.exit(0)不构成结果。
 
+JDK21固定adapter在首次引用候选前安装同类SecurityManager并核对身份，拒绝退出/halt和替换guard；测试命令显式使用`-Djava.security.manager=allow`。这是针对先打印正确值再提前退出的已复现误判修复，不支持换用移除该能力的JDK版本。[JDK21 System](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/System.html)和[Runtime](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Runtime.html)说明退出及halt经过checkExit；现有OS隔离仍必需。十一控制实际结果见专项审查记录，不当作W02业务验收。
+
 退出码125也只作为普通命令的已知失败结果保留，不能仅凭它推断launcher未执行或把候选System.exit(125)改成环境UNKNOWN。初始隔离/文件/编译产物探针仍强制成功，缺失或失败不得进入可通过判定；本轮没有增加逐次启动握手协议来区分共享退出码。
 
 真实保护探针必须证明候选执行UID1000，尝试改写root比较器被拒绝且其摘要不变；该探针只能在隔离Coding验证，Windows工程替身不算这一门禁通过。保护目录/adapter只读条件、结果封存和降权失败均应阻断。没有真实探针的工程测试不得宣称受保护验证器已验收。
