@@ -1,5 +1,7 @@
 # Agent 评测阶段验收记录（开发中）
 
+最新限定覆盖：**10/20个不同案例各1次**，包含既有8例及c71候选独立核验的A03/A04；其中W01任务原FAIL保留为有效负控制，其余九例受控事实PASS。不是20项全部成功、100题/三次重复或真实模型质量验收。c71同批W02接口缺字段，保持NEEDS_REVIEW/RETAINED，不计新增通过。专项原件及复核见`agent-evaluation-knowledge-review.md`和`agent-evaluation-java-client-review.md`；以下各历史记录按当时范围保留。
+
 需求：`agent-evaluation-requirements.md`；开发：`agent-evaluation-development.md`；测试依据：`agent-evaluation-test-plan.md`。本篇不宣称全部阶段完成、20个业务任务通过、真实模型质量达标或已上线。
 
 ## 已完成的独立验收范围

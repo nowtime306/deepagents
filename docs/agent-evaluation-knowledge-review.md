@@ -22,3 +22,9 @@ v2/d805、v3/f5e8原件保留；最终v4清单摘要`8582f7ac5a0a7c3ce7c93941f12
 非作者在active路径执行新增客户端61、知识profile22、正式frame格式14项分别通过；均为受控HTTP/DB/SDK替身，不是实际知识库或模型执行。它们与完整回归覆盖重叠，不相加。最终客户端完整457通过、目标侧完整185通过，零失败/跳过（包含既有Java等组）。日志根包括`kb-active-client-10ba61fdcf7f47ddac28350aaedfc9d8`、`kb-active-profile-c718bbecb5d440aea3caad17a5e6854a`、`kb-stream-active-ef3d23ff71d14ed28c84016f2769e362`、`kb-final-client-b26142f034a647789003004e0c9d0bd6`及`kb-final-profile-43150dc93a1e4f11a5bb4ea2432b8354`，都位于`services/evaluation/.local/`。
 
 固定suite仅登记A03/A04处理器及保守沙箱预约，尚未运行它们的真实样本，不增加8/20验收数。仍须冻结候选，在全新独立目标走实际索引、Qdrant、Ask、原事实封存和精确回收，并由另一角色核验；真实供应商、页面、A20全批/B100及发布保持未完成。
+
+## c71候选实际限定验收
+
+候选`c71bed92579eb6dbf924a221eaa87f2adcb5dda7`的全新独立A03/A04各执行1次：正式索引/Qdrant/Ask、实际候选引用与不足拒答均PASS。另一角色只读复算同份事实、原文修订、逐项引文、原生及provider用量：每例索引1次7入0出，Ask三次27入10出，总4次34入10出；四次CLI审计、ready/三类报告身份及摘要一致。327份来源对应候选，138份原件前后字节不变。两例测试库已不存在、原目标PID已退、各自namespace为空。
+
+只读核验清单`.local/team-workspace/agent-evaluation/ops-development/suite-c71bed9-verification-manifest.json`摘要`03f935ea4e9a49b44a38e93885c7a919fc5b6a2ae6dbab6b95db6b5d90b34702`。同批W02为NEEDS_REVIEW并保留，父退出1而非全批PASS；不改写原报告。此处仅新增两个不同受控事实案例，不代表真实供应商语义质量、页面或部署。

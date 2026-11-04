@@ -64,6 +64,7 @@ async def owned(request: Request, identifier: UUID) -> dict:
     user = await identity(request)
     rows = await request.app.state.db.fetch(
         "SELECT id,task_id,owner_id,title,goal,status,result,error_code,environment,"
+        "model_id,model_revision,task_revision,"
         "used_tokens,model_calls,usage_unknown,input_files,pause_requested,created_at,updated_at,"
         "step_limit,token_limit,network_domains,allow_local_browser "
         "FROM work_queue_runs WHERE id=%s AND owner_id=%s",

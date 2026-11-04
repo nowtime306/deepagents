@@ -1,0 +1,3 @@
+services/evaluation/profile_support/java_verifier_program.py text eol=crlf
+services/evaluation/profile_support/java_verifier_launcher.py text eol=lf
+services/evaluation/src/evaluation_runner/fixed_run.py text eol=crlf

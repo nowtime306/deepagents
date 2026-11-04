@@ -24,3 +24,11 @@
 ## 放行边界
 
 固定suite登记W02处理器和最多两次沙箱创建，初始化器摘要同步到ed507df0c1f9ce7bbde954d9187789d0ffc527c118612e19920a85a73c82fad3；这只是允许全新隔离目标预检和后续正式样本，不代表任务已通过。仍须固定源码候选、隔离实际PG/队列/双Coding链路、原事实独立复算及回收；不得借本篇宣称A20/B100、真实模型效果、页面或生产上线完成。
+
+## c71候选实际失败与接口修复
+
+原批次`suite-w02-a03-a04-c71bed9-aa7de6e5de88441bbde22bb5a4223bf4`的W02已正式提交源码修复任务，随后因Work详情缺少`model_id`抛KeyError，尚未提交保护验证任务。run和cleanup的最新审计为ERROR；旧report仍是初始化状态，不能据此断言未提交。该环境保持NEEDS_REVIEW/RETAINED，原目标进程已停，诊断数据库保留，不补写原报告或复用重跑。
+
+修复仅在现有owner限定SELECT增加已提交的`model_id/model_revision/task_revision`，不连接当前配置、不暴露密钥。非作者静态复审关闭，收据摘要`c439bf44076b5bcc448da49cd6e43a9fcc5e1e6cfa9e0514625c9a2d01b180de`。新增真实PostgreSQL/HTTP回归：当前模型7/草稿4、历史运行3/2，读取必须返回历史版本且外部管理员404。原代码实际200后KeyError的红证据保留；修复后1通过、零业务副作用/零会话并精确回收新测试库，路径`.local/agent-evaluations/work-projection-green-9c4eb236b6e14f66a07a1af97e1e469e`。最初夹具缺work.read导致403的失败另行保留，不冒充产品缺陷。
+
+另补三项字节pin资产的精确Git换行规则，沿用原程序/初始化器CRLF和launcher LF，不修改源码字节或摘要。独立前缀在autocrlf=true下原launcher摘要不一致；统一LF尝试又改变另两项，失败证据均保留；最终三项按原换行检出摘要完全一致。非作者复核摘要`526988b7200ae3990bb207aa5849cabfb30671473ecde62c001a2ca4af4822b9`。后续须新候选、全新W02环境复验。
