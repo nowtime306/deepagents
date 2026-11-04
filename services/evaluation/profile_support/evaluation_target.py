@@ -17,20 +17,22 @@ from typing import Literal
 
 from app.resource_runtime import current_scope
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from psycopg.conninfo import conninfo_to_dict
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 CASES = {f"AET-{mode}{number:02}" for mode, size in (("A", 5), ("W", 8), ("F", 7))
          for number in range(1, size + 1)}
-LIMITS = MappingProxyType({case: (0 if case in {"AET-F02", "AET-F04", "AET-F06"} else 4 if case == "AET-A01" else 1 if case == "AET-A02" else 6,
-                                 16000 if case == "AET-W06" else 60 if case == "AET-A01"
-                                 else 0 if case in {"AET-F02", "AET-F04", "AET-F06"} else 15 if case == "AET-A02" else 90) for case in CASES})
+LIMITS = MappingProxyType({case: (1 if case == "AET-F01" else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F06"} else 4 if case == "AET-A01" else 1 if case == "AET-A02" else 6,
+                                 15 if case == "AET-F01" else 16000 if case == "AET-W06" else 60 if case == "AET-A01"
+                                 else 0 if case in {"AET-F02", "AET-F03", "AET-F04", "AET-F06"} else 15 if case == "AET-A02" else 90) for case in CASES})
 COUNTER_COMMAND = ("python3 -c \"from pathlib import Path; p=Path('counter.txt'); "
                    "p.write_text(str(int(p.read_text())+1))\"")
 A01_CASE_LIMIT = {"max_model_calls": 8, "max_tokens": 120, "max_roots": 2}
-CASE_LIMITS = {"AET-A01": A01_CASE_LIMIT, **{case: {"max_model_calls": 6, "max_tokens": 90, "max_roots": 2}
+CASE_LIMITS = {"AET-F01": {"max_model_calls": 4, "max_tokens": 60, "max_roots": 4},
+               "AET-F03": {"max_model_calls": 0, "max_tokens": 0, "max_roots": 3},
+               "AET-A01": A01_CASE_LIMIT, **{case: {"max_model_calls": 6, "max_tokens": 90, "max_roots": 2}
               for case in ("AET-W02", "AET-A03", "AET-A04")}}
 
 
@@ -209,6 +211,12 @@ class ControlledModel(BaseChatModel):
 
     def next_message(self, messages):
         # The real messages/checkpoint drive progression; constructing a new model never rewinds a script.
+        if self.case_id == "AET-F01":
+            prompts = [item.content for item in messages if isinstance(item, SystemMessage)]
+            inputs = [item.content for item in messages if isinstance(item, HumanMessage)]
+            if len(prompts) != 1 or len(inputs) != 1 or inputs[0] != "MiXeD" or prompts[0] not in {"AE-F01-upper-v1", "AE-F01-lower-v1"}:
+                raise ValueError("Unregistered F01 model input/instructions")
+            return AIMessage(content=inputs[0].upper() if prompts[0] == "AE-F01-upper-v1" else inputs[0].lower())
         last_user = max((i for i, value in enumerate(messages) if isinstance(value, HumanMessage)), default=-1)
         tools = [value for value in messages[last_user + 1:] if isinstance(value, ToolMessage)]
         seen = [tool.name for tool in tools]

@@ -16,6 +16,7 @@ from . import (
     fixed_evidence,
     fixed_knowledge_evidence,
     fixed_parallel_evidence,
+    fixed_versioned_workflow,
     fixed_workflow_evidence,
     fixed_workflow_observation,
     network,
@@ -27,10 +28,10 @@ from .journal import Journal, atomic_json, digest
 from .metrics import score
 
 RULES_ID = "controlled-a20-v1"
-IMPLEMENTED = {"AET-A01", "AET-A02", "AET-A03", "AET-A04", "AET-W01", "AET-W02", "AET-W03", "AET-W04", "AET-F02", "AET-F04", "AET-F06"}
+IMPLEMENTED = {"AET-F01", "AET-F03", "AET-A01", "AET-A02", "AET-A03", "AET-A04", "AET-W01", "AET-W02", "AET-W03", "AET-W04", "AET-F02", "AET-F04", "AET-F06"}
 WORK_CASES = {"AET-W01", "AET-W02", "AET-W03", "AET-W04"}
 KNOWLEDGE_CASES = {"AET-A03", "AET-A04"}
-NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01", "AET-F06"} | KNOWLEDGE_CASES
+NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01", "AET-F06"} | fixed_versioned_workflow.CASES | KNOWLEDGE_CASES
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "datasets/a20-fixed.json"
 
 
@@ -39,6 +40,8 @@ def catalog():
 
 
 def evidence_module(specimen):
+    if specimen.case_id in fixed_versioned_workflow.CASES:
+        return fixed_versioned_workflow
     if specimen.case_id in KNOWLEDGE_CASES:
         return fixed_knowledge_evidence
     if specimen.case_id == "AET-A02":
@@ -84,6 +87,8 @@ def readiness(platform, specimen):
         capabilities = platform.get("/api/v1/agent-evaluations/profiles/capabilities")
         if "root-model-context-v1" not in capabilities.get("observers", []):
             missing.append("Trusted root context observer is unavailable")
+        if specimen.case_id in fixed_versioned_workflow.CASES:
+            fixed_versioned_workflow.readiness(platform, specimen, capabilities)
         if specimen.case_id in KNOWLEDGE_CASES:
             fixed_knowledge_evidence.enforce_case_budget(capabilities, specimen)
         if specimen.case_id == "AET-A01":
@@ -132,7 +137,9 @@ def initialize(platform, journal, attempt, specimen):
         platform.expected_sandbox_namespace = namespace
     fixtures = FixedFixtures(platform, journal, attempt)
     model = fixtures.model(specimen.case_id)
-    if specimen.case_id in KNOWLEDGE_CASES:
+    if specimen.case_id in fixed_versioned_workflow.CASES:
+        attempt["fixture"] = fixed_versioned_workflow.initialize(fixtures, model, specimen)
+    elif specimen.case_id in KNOWLEDGE_CASES:
         attempt["fixture"] = fixed_knowledge_evidence.initialize(fixtures, model, specimen)
     elif specimen.case_id == "AET-A02":
         agent = fixtures.published_agent(specimen.case_id, model)
@@ -159,6 +166,8 @@ def initialize(platform, journal, attempt, specimen):
         fixed_automation_evidence.initialize(platform, journal, attempt, specimen)
     if specimen.case_id == "AET-F06":
         fixed_parallel_evidence.baseline(platform, journal, attempt, specimen)
+    if specimen.case_id in fixed_versioned_workflow.CASES:
+        fixed_versioned_workflow.baseline(platform, journal, attempt, specimen)
     if specimen.case_id in KNOWLEDGE_CASES:
         fixed_knowledge_evidence.baseline(platform, journal, attempt, specimen)
 
@@ -172,7 +181,7 @@ def execute(platform, journal, attempt, specimen, output):
     if specimen.case_id in NAMESPACE_CASES:
         platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
         platform.attest()
-    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W02", "AET-W03", "AET-W04", "AET-F06"} | KNOWLEDGE_CASES:
+    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W02", "AET-W03", "AET-W04", "AET-F06"} | KNOWLEDGE_CASES | fixed_versioned_workflow.CASES:
         snapshot = module.execute(platform, journal, attempt, specimen, cancelled=lambda: (output / "cancel.request").exists())
     else:
         if not attempt.get("submission_complete"):
@@ -196,7 +205,10 @@ def execute(platform, journal, attempt, specimen, output):
         except Exception as error:  # noqa: BLE001 -- Preserve already-persisted factual failures on scorer errors.
             metrics.append(Result(registered_id=check.registered_id, status="ERROR", reason=type(error).__name__))
     attempt["metric_results"] = [metric.model_dump() for metric in metrics]
-    if all(row.status == "PASS" for row in facts + metrics) and attempt["platform_status"] in {"SUCCEEDED", "COMPLETED"}:
+    accepted = attempt["platform_status"] in {"SUCCEEDED", "COMPLETED"}
+    if specimen.case_id == "AET-F03" and evidence.get("expected_failure_control") is True:
+        accepted = attempt["platform_status"] == "FAILED"
+    if all(row.status == "PASS" for row in facts + metrics) and accepted:
         attempt["task_outcome"] = "PASS"
     journal.save()
 
@@ -224,7 +236,7 @@ def cleanup(platform, journal, attempt):
         return "NEEDS_REVIEW"
     if specimen.case_id in WORK_CASES and not module.cleanup_ready(journal.directory, journal.data, attempt, specimen):
         return "NEEDS_REVIEW"
-    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-F06"} and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
+    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-F06"} | fixed_versioned_workflow.CASES and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
     if specimen.case_id in {"AET-A01", "AET-W02"} | KNOWLEDGE_CASES and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
