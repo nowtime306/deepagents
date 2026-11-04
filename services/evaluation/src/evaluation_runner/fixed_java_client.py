@@ -16,6 +16,7 @@ from evaluation_runner.journal import digest as intent_digest
 
 SHA = re.compile(r"^[a-f0-9]{64}$")
 ORIGINAL = "public class Max { public static int max(int a,int b){return a;} }"
+ORIGINAL_SHA = hashlib.sha256(ORIGINAL.encode()).hexdigest()
 EXPECTED = (8, -3, 4)
 PROGRAM_SHA = "2c91f045fd9bdd7713255efed8b52588464c07bddad190d21d0b743008f14a62"  # Private oracle correction candidate; pending review and physical controls.
 LAUNCHER_SHA = "f0523eb3cf4f92123621b7c7e647b181e9952112609c9a86c5970e5dc64a1dbe"
@@ -111,6 +112,20 @@ def protocol(report, source_sha256):
     return "PASS" if passed else "FAIL"
 
 
+def baseline_protocol(baseline, repaired):
+    if protocol(baseline, ORIGINAL_SHA) != "FAIL" or len(baseline["cases"]) != 3:
+        raise adapters.Blocked("Actual compiled original negative control is missing")
+    for row, actual in zip(baseline["cases"], (2, -7, 4), strict=True):
+        if not command({key: row[key] for key in ("exit_code", "timed_out", "truncated", "stdout_sha256", "stderr_sha256")}) or row["stdout_sha256"] != sha(str(actual).encode()):
+            raise adapters.Blocked("Actual original negative-control outputs differ")
+    for key in ("program_sha256", "tests_sha256", "java_version_sha256", "javac_version_sha256"):
+        if baseline[key] != repaired[key]:
+            raise ValueError("Original/repaired fixed program/tests/JDK differ")
+    if baseline["isolation"]["policy_sha256"] != repaired["isolation"]["policy_sha256"]:
+        raise ValueError("Original/repaired launcher policy differs")
+    return True
+
+
 def native_usage(value, *, calls):
     keys = {"calls", "reported_calls", "unknown_calls", "pending_calls", "input_tokens", "output_tokens"}
     expected = {"calls": calls, "reported_calls": calls, "unknown_calls": 0, "pending_calls": 0,
@@ -148,7 +163,8 @@ def readiness(platform, specimen, *, capabilities=None):
         raise adapters.Blocked("Signature-hardened W02 program is not reviewed; no business admission")
     capabilities = capabilities if capabilities is not None else platform.get("/api/v1/agent-evaluations/profiles/capabilities")
     expected = {"protocol": "java-max-v2", "initialized": True, "program_sha256": PROGRAM_SHA,
-                "launcher_sha256": LAUNCHER_SHA, "tests_sha256": TESTS_SHA, "observer": "java-verifier-owned-v1"}
+                "launcher_sha256": LAUNCHER_SHA, "tests_sha256": TESTS_SHA, "observer": "java-verifier-owned-v1",
+                "baseline_protocol": "original-repair-v1"}
     bound = capabilities.get("case_limits", {})
     if (digest(capabilities.get("java_verifier")) != digest(expected)
             or bound.get("schema_version") != 1 or type(bound.get("schema_version")) is not int
@@ -287,7 +303,7 @@ def observer_binding(candidate, attempt, verifier_run=None):
             "source_snapshot_id": candidate["root"]["result"]["snapshot_id"], "source_model_id": attempt["fixture"]["model_id"],
             "artifact_id": candidate["artifact_id"], "source_sha256": candidate["source_sha256"],
             "verifier_task_id": attempt["java_verifier_task"], "verifier_run_id": verifier_run,
-            "program_sha256": PROGRAM_SHA, "launcher_sha256": LAUNCHER_SHA, "tests_sha256": TESTS_SHA}
+            "baseline_source_sha256": ORIGINAL_SHA, "program_sha256": PROGRAM_SHA, "launcher_sha256": LAUNCHER_SHA, "tests_sha256": TESTS_SHA}
 
 
 def observer(value, candidate, attempt, *, final=False):
@@ -472,11 +488,12 @@ def evaluate(snapshot, specimen, attempt):
 
 def protected_verdict(verifier, candidate):
     result = verifier["result"]
-    keys(result, "case_id verifier_run_id source_run_id artifact_id source_sha256 verification")
+    keys(result, "case_id verifier_run_id source_run_id artifact_id source_sha256 baseline_verification verification")
     if (result["case_id"] != "AET-W02" or result["verifier_run_id"] != verifier["run_id"]
             or result["source_run_id"] != candidate["root"]["run_id"] or result["artifact_id"] != candidate["artifact_id"]
             or result["source_sha256"] != candidate["source_sha256"]):
         raise ValueError("Protected result belongs to another artifact or verifier")
+    baseline_protocol(result["baseline_verification"], result["verification"])
     grade = protocol(result["verification"], candidate["source_sha256"])
     if candidate["changed"] is not True or candidate["source_sha256"] == candidate["original_sha256"] or candidate["diff_sha256"] == sha(b""):
         grade = "FAIL"

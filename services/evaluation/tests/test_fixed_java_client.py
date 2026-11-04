@@ -25,6 +25,15 @@ def report():
                    "stdout_sha256": draft.sha(str(expected).encode())} for index, expected in enumerate(draft.EXPECTED)], "passed": True}
 
 
+def baseline_report():
+    value = report()
+    value.update(source_sha256=draft.ORIGINAL_SHA, passed=False)
+    for index, actual in enumerate((2, -7, 4)):
+        value["cases"][index]["stdout_sha256"] = draft.sha(str(actual).encode())
+        value["cases"][index]["passed"] = index == 2
+    return value
+
+
 def test_draft_stays_blocked_until_final_signature_program_is_frozen(monkeypatch):
     monkeypatch.setattr(draft, "PROGRAM_SHA", None)
     with pytest.raises(ValueError, match="Draft only"):

@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 import evaluation_java_observer as observer
 import httpx
 import pytest
+import test_java_verifier as fixtures
 from app.errors import APIError
 from evaluation_target import ProfileState
 from fastapi import FastAPI
@@ -20,7 +21,7 @@ from fastapi.responses import JSONResponse
     ("session-namespace", 200, False), ("active-session", 200, False), ("registered", 200, True),
     ("registered-with-run", 200, False), ("unknown-ledger", 200, False), ("manager-unknown", 200, False), ("manager-filter", 200, False),
     ("extra-terminal-root", 200, False), ("extra-task", 200, False), ("other-pending-native", 200, False),
-    ("other-unknown-native", 200, False), ("known-extra-operation", 200, False)])
+    ("other-unknown-native", 200, False), ("known-extra-operation", 200, False), ("missing-baseline", 200, False), ("jdk-drift", 200, False)])
 def test_fixed_observer_never_infers_confirmed_zero_from_absent_model_root(monkeypatch, fault, status, complete):
     ids = {key: str(uuid4()) for key in ("owner", "namespace", "environment", "source", "source-task", "snapshot", "task", "verifier", "artifact", "session1", "session2", "sandbox1", "sandbox2")}
     owner, task = UUID(ids["owner"]), UUID(ids["task"])
@@ -29,11 +30,13 @@ def test_fixed_observer_never_infers_confirmed_zero_from_absent_model_root(monke
     if fault != "missing-provider":
         state.roots[(ids["owner"], "work", ids["source"])] = {"case_id": "AET-W02", "calls": 3, "tokens": 45, "pending": 0,
                                                                "unknown": fault == "unknown-provider"}
-    report = {"private-canary": "not an actual protocol receipt"}
+    report = fixtures.report("b" * 64)
+    original = fixtures.baseline_report()
     job = {"owner_id": ids["owner"], "namespace": ids["namespace"], "source_run_id": ids["source"], "source_model_id": "sealed",
         "source_snapshot_id": ids["snapshot"], "artifact_id": ids["artifact"], "source_sha256": "b" * 64, "verifier_run_id": ids["verifier"],
         "phase": "RUNNING" if fault == "running-phase" else "COMPLETED", "report": report,
-        "program_sha256": "a" * 64, "isolation_sha256": "c" * 64, "tests_sha256": "d" * 64}
+        "program_sha256": fixtures.PROGRAM_SHA, "isolation_sha256": fixtures.LAUNCHER_SHA, "tests_sha256": fixtures.TESTS_SHA,
+        "baseline_source_sha256": fixtures.ORIGINAL_SHA, "baseline_report": original}
     if fault in {"registered", "registered-with-run"}:
         job.update(phase="REGISTERED", verifier_run_id=None)
     elif fault == "unknown-ledger":
@@ -41,7 +44,9 @@ def test_fixed_observer_never_infers_confirmed_zero_from_absent_model_root(monke
     source = {"id": ids["source"], "task_id": ids["source-task"], "model_id": "alias" if fault == "alias" else "sealed",
               "status": "COMPLETED", "result": {}, "namespace": ids["namespace"], "snapshot_id": ids["snapshot"]}
     result = {"case_id": "AET-W02", "verifier_run_id": ids["verifier"], "source_run_id": ids["source"],
-              "artifact_id": ids["artifact"], "source_sha256": "b" * 64, "verification": report}
+              "artifact_id": ids["artifact"], "source_sha256": "b" * 64, "baseline_verification": original, "verification": report}
+    if fault == "missing-baseline": job.pop("baseline_report")
+    if fault == "jdk-drift": original["java_version_sha256"] = "0" * 64
     target = {"id": ids["verifier"], "model_id": "sealed", "status": "COMPLETED", "result": result}
     queries = []
 

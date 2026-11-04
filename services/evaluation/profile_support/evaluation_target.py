@@ -402,7 +402,8 @@ def build_app(settings, *, sandbox_config=None):
                     await java.initialize()  # Before any Work consumer or target admission.
                     attach_java_verifier(application, java)
                     application.state.evaluation_java_capability = {"protocol": "java-max-v2", "initialized": True,
-                        "program_sha256": PROGRAM_SHA, "launcher_sha256": LAUNCHER_SHA, "tests_sha256": TESTS_SHA, "observer": "java-verifier-owned-v1"}
+                        "program_sha256": PROGRAM_SHA, "launcher_sha256": LAUNCHER_SHA, "tests_sha256": TESTS_SHA, "observer": "java-verifier-owned-v1",
+                        "baseline_protocol": "original-repair-v1"}
                     engine = WorkEngine(application.state.db, application.state.models, sandboxes,
                                         artifacts,
                                         application.state.runtime.saver, factory,

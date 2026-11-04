@@ -32,3 +32,15 @@
 修复仅在现有owner限定SELECT增加已提交的`model_id/model_revision/task_revision`，不连接当前配置、不暴露密钥。非作者静态复审关闭，收据摘要`c439bf44076b5bcc448da49cd6e43a9fcc5e1e6cfa9e0514625c9a2d01b180de`。新增真实PostgreSQL/HTTP回归：当前模型7/草稿4、历史运行3/2，读取必须返回历史版本且外部管理员404。原代码实际200后KeyError的红证据保留；修复后1通过、零业务副作用/零会话并精确回收新测试库，路径`.local/agent-evaluations/work-projection-green-9c4eb236b6e14f66a07a1af97e1e469e`。最初夹具缺work.read导致403的失败另行保留，不冒充产品缺陷。
 
 另补三项字节pin资产的精确Git换行规则，沿用原程序/初始化器CRLF和launcher LF，不修改源码字节或摘要。独立前缀在autocrlf=true下原launcher摘要不一致；统一LF尝试又改变另两项，失败证据均保留；最终三项按原换行检出摘要完全一致。非作者复核摘要`526988b7200ae3990bb207aa5849cabfb30671473ecde62c001a2ca4af4822b9`。后续须新候选、全新W02环境复验。
+
+## f2fd样本缺口与双阶段对照开发
+
+全新`suite-w02-f2fd3c9-fbc59bd6688944889707a2f681042db7`正式两任务/两会话执行，修复源码三项实际JVM用例全通过，原生源三调用30入15出、验证器六项零值；正式CLEAN并精确回收新库。独立核验发现原错误源码未在本批实际运行，静态推导2失败/1通过不能代替实际负对照。因此原代码PASS不冒充完整W02验收，累计案例数不增加。已回收后的Docker历史事件为空，保留历史覆盖限制，不伪造生命周期记录。
+
+后续最小修复沿用原PROGRAM/LAUNCHER字节pin、两任务和两沙箱：同一真实验证lease和第二个沙箱先运行固定原错源码、持久保存完整报告，再运行修复源码。可信bootstrap只选baseline/candidate两个固定阶段与固定目录，归档原保护目录后重建相同路径；不接受自由命令、路径或第三沙箱。原源码必须正常编译及实际运行三例输出2/-7/4，确认两项错误，不能拿编译失败、超时或缺报告作负对照。
+
+注册schema3仅新测试环境；BASELINE_RECORDED重建保留UNKNOWN、不重放。server、observer、客户端、离线及CLEAN共同核两报告、原/成果源码摘要、同JDK/program/launcher/tests身份，baseline保存失败或lease丢失不执行下一阶段。旧单报告目标在preflight阻断，原历史报告不回填。
+
+私有实现冻结摘要`29db3365efa4f4e6b1a2e92cd6b57d58fbeb39980765aa975e5a0fa6c65f50b0`经root非作者代码审查关闭，独立等层副本50项工程通过；只是协议/SDK/SQL/ASGI替身，未实际执行新Linux双阶段。可移植迁移仅替换导入、更新真实双阶段夹具及增加反例，保留原有断言；四项offline/CLEAN反例改用现有完整MockTransport fixture，不在仓库测试中依赖私有历史报告。迁移冻结摘要`a5da1fff3da8ed70808f43f0f448f96657927a3e2d8fd088c5d6adf74a5bb42b`待root复核后执行active工程测试和新正式样本。先前私有依赖历史报告的四项仅为合成QA，未改原报告。
+
+root复核并合入四源增量及六测试迁移：完整active客户端492通过、profile219通过，零失败/跳过，原件`services/evaluation/.local/java-baseline-active-a09306f603844751ac623804fab3a725`。包含既有488/199及新增4/20，不累计相加。target同时保留已审F01预算/温度补丁，只改变baseline capability一行；合入前目标原字节摘要acc978...与已审私有预算候选仅换行不同，规范化文本完全相同，未覆盖其改动。原PROGRAM/LAUNCHER字节未改。下一正式样本须固定候选并预先采集生命周期；当前11/20的限定案例覆盖不因本工程测试增加。

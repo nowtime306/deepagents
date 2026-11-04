@@ -1,17 +1,14 @@
-"""Private source-copy import + MockTransport only. Does not execute an Agent/Java/target."""
+"""Portable MockTransport engineering only. Does not execute an Agent/Java/target."""
 
-import importlib.util
 import json
 import sys
 from copy import deepcopy
-from pathlib import Path
 from uuid import UUID, uuid4, uuid5
 
 import httpx
 import pytest
-from test_fixed_java_client import report
+from test_fixed_java_client import baseline_report, report
 
-import evaluation_runner
 from evaluation_runner import fixed_audit
 from evaluation_runner import fixed_java_client as java
 from evaluation_runner.client import Platform
@@ -20,17 +17,7 @@ from evaluation_runner.journal import atomic_json
 
 @pytest.fixture
 def linked(monkeypatch):
-    path = Path(evaluation_runner.__file__).with_name("fixed_run.py")
-    name = "evaluation_runner._private_w02_fixed_run"
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, name, module)
-    monkeypatch.setitem(sys.modules, "evaluation_runner.fixed_java_client", java)
-    monkeypatch.setattr(evaluation_runner, "fixed_java_client", java, raising=False)
-    spec.loader.exec_module(module)
-    # The ready reader imports the reviewed fixed_run entry point. Only this test process sees the copy.
-    monkeypatch.setitem(sys.modules, "evaluation_runner.fixed_run", module)
-    monkeypatch.setattr(evaluation_runner, "fixed_run", module, raising=False)
+    from evaluation_runner import fixed_run as module
     monkeypatch.setattr(java, "PROGRAM_SHA", "a" * 64)
     return module
 
@@ -45,7 +32,8 @@ def fixture(tmp_path, monkeypatch, module, *, fault=None, functional_fail=False,
     caps = {"observers": ["root-model-context-v1"], "work_manager": {"ready": True},
         "sandbox_limits": {"enforcement": "controlled-sandbox-reserve-v1", "scope": "test-environment", "max_created": 2, "attempts": 0, "storage_healthy": True},
         "java_verifier": {"protocol": "java-max-v2", "initialized": True, "program_sha256": "a" * 64,
-            "launcher_sha256": java.LAUNCHER_SHA, "tests_sha256": java.TESTS_SHA, "observer": "java-verifier-owned-v1"},
+            "launcher_sha256": java.LAUNCHER_SHA, "tests_sha256": java.TESTS_SHA, "observer": "java-verifier-owned-v1",
+            "baseline_protocol": "original-repair-v1"},
         "case_limits": {"schema_version": 1, "enforcement": "controlled-case-reserve-v1", "scope": "evaluation-owner-and-case",
                         "profiles": {"AET-W02": {"max_model_calls": 6, "max_tokens": 90, "max_roots": 2}}}}
     environment = {"environment_id": ids["environment"], "owner_id": ids["owner"], "platform_commit": target.platform_commit,
@@ -60,7 +48,7 @@ def fixture(tmp_path, monkeypatch, module, *, fault=None, functional_fail=False,
         protocol["passed"] = False
     source_result = {"snapshot_id": ids["snapshot"]}
     final_result = {"case_id": "AET-W02", "verifier_run_id": ids["verifier"], "source_run_id": ids["source"],
-                    "artifact_id": ids["artifact"], "source_sha256": checksum, "verification": protocol}
+                    "artifact_id": ids["artifact"], "source_sha256": checksum, "baseline_verification": baseline_report(), "verification": protocol}
     state, requests, output = {"created": 0, "verifier": False}, [], tmp_path / "output"
 
     def counts(calls):
@@ -73,7 +61,7 @@ def fixture(tmp_path, monkeypatch, module, *, fault=None, functional_fail=False,
             "binding": {"source_run_id": ids["source"], "source_task_id": ids["task"], "source_snapshot_id": ids["snapshot"],
                 "source_model_id": ids["model"], "artifact_id": ids["artifact"], "source_sha256": checksum,
                 "verifier_task_id": ids["verifier-task"], "verifier_run_id": ids["verifier"] if final else None,
-                "program_sha256": "a" * 64, "launcher_sha256": java.LAUNCHER_SHA, "tests_sha256": java.TESTS_SHA},
+                "baseline_source_sha256": java.ORIGINAL_SHA, "program_sha256": "a" * 64, "launcher_sha256": java.LAUNCHER_SHA, "tests_sha256": java.TESTS_SHA},
             "zero_verifier": {"observed": final, "confirmed": final}, "native": {"source": counts(3), "verifier": counts(0) if final else None},
             "case_provider": {"observed": True, "complete": True, "calls": 3, "tokens": 45, "pending": 0, "unknown_roots": 0},
             "namespace_inventory": {"complete": True, "count": 0}, "sessions": [{"session_id": ids["session-source"],

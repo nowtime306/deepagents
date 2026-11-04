@@ -1,7 +1,9 @@
 """Offline protocol/lifecycle tests. SDK receipts are substitutes, not Linux protection proof."""
 import asyncio
+import base64
 import hashlib
 import json
+import shlex
 from pathlib import Path
 from threading import Lock
 from types import SimpleNamespace
@@ -11,6 +13,7 @@ import pytest
 from app.work_worker import CapacityUnavailable
 from evaluation_java_verifier import (
     LAUNCHER_SHA,
+    ORIGINAL_SHA,
     PROGRAM_SHA,
     TESTS_SHA,
     JavaVerifier,
@@ -36,6 +39,15 @@ def report(checksum):
         "passed": True, "cases": [{**command, "case_index": index, "passed": True,
             "stdout_sha256": hashlib.sha256(str(expected).encode()).hexdigest(),
             "expected_sha256": hashlib.sha256(str(expected).encode()).hexdigest()} for index, expected in enumerate((8, -3, 4))]}
+
+
+def baseline_report():
+    value = report(ORIGINAL_SHA)
+    value["passed"] = False
+    for index, actual in enumerate((2, -7, 4)):
+        value["cases"][index]["stdout_sha256"] = hashlib.sha256(str(actual).encode()).hexdigest()
+        value["cases"][index]["passed"] = index == 2
+    return value
 
 
 def fixture(tmp_path):
@@ -77,7 +89,8 @@ def fixture(tmp_path):
             assert command.startswith("python3 -I -c ") and opts.uid == opts.gid == 0
             if self.failure:
                 raise TimeoutError("Lost execution acknowledgement")
-            return SimpleNamespace(error=None, exit_code=0, text=json.dumps(self.value))
+            phase = json.loads(base64.b64decode(shlex.split(command)[-1]))["phase"]
+            return SimpleNamespace(error=None, exit_code=0, text=json.dumps(baseline_report() if phase == "baseline" else self.value))
     commands = Commands()
     class Sandboxes:
         maximum = 2
@@ -123,7 +136,8 @@ def test_actual_leased_dispatch_binds_source_and_consumes_only_second_slot(tmp_p
         result = await f.service.execute(f.run)
         assert result["verification"]["passed"] is True
         assert result["source_sha256"] == f.args[-1] and result["verifier_run_id"] == str(f.run["id"])
-        assert f.sandboxes.attempts == 2 and f.sandboxes.creates == f.sandboxes.releases == f.commands.calls == 1
+        assert f.sandboxes.attempts == 2 and f.sandboxes.creates == f.sandboxes.releases == 1
+        assert f.commands.calls == 2 and result["baseline_verification"] == baseline_report()
         assert f.reload().jobs[str(f.run["task_id"])]["phase"] == "COMPLETED"
         with pytest.raises(RuntimeError, match="no execution replay"):
             await f.service.execute(f.run)
@@ -168,7 +182,8 @@ def test_fences_unknown_and_release_failures_cannot_replay_or_allocate_extra(tmp
         if failure in {"lease", "bytes", "third_slot"}:
             assert f.sandboxes.creates == f.commands.calls == 0
         else:
-            assert f.sandboxes.creates == f.commands.calls == f.sandboxes.releases == 1
+            assert f.sandboxes.creates == f.sandboxes.releases == 1
+            assert f.commands.calls == (1 if failure == "transport" else 2)
             rebuilt = f.reload()
             assert rebuilt.jobs[str(f.run["task_id"])]["phase"] == "UNKNOWN"
             with pytest.raises(RuntimeError): await rebuilt.execute(f.run)

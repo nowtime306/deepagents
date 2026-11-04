@@ -9,6 +9,7 @@ from uuid import UUID
 from app.agent_evaluation_environment import environment
 from app.errors import fail
 from app.permissions import require_account
+from evaluation_java_verifier import ORIGINAL_SHA, validate_baseline_report, validate_pair
 from fastapi import Request
 from opensandbox.models.sandboxes import SandboxFilter
 
@@ -94,8 +95,15 @@ async def observe(request, task_id):
         complete = complete and not targets and run_id is None
     else:
         expected_result = {"case_id": "AET-W02", "verifier_run_id": run_id, "source_run_id": job["source_run_id"],
-                           "artifact_id": job["artifact_id"], "source_sha256": job["source_sha256"], "verification": job.get("report")}
-        complete = (complete and job["phase"] == "COMPLETED" and verifier is not None
+                           "artifact_id": job["artifact_id"], "source_sha256": job["source_sha256"],
+                           "baseline_verification": job.get("baseline_report"), "verification": job.get("report")}
+        try:
+            validate_baseline_report(job.get("baseline_report"))
+            validate_pair(job["baseline_report"], job["report"], job["source_sha256"])
+            paired = job.get("baseline_source_sha256") == ORIGINAL_SHA
+        except (ValueError, TypeError, KeyError):
+            paired = False
+        complete = (complete and paired and job["phase"] == "COMPLETED" and verifier is not None
                     and str(verifier["id"]) == run_id and verifier["model_id"] == job["source_model_id"] and verifier["status"] == "COMPLETED"
                     and target_known and isinstance(job.get("report"), dict) and digest(verifier["result"]) == digest(expected_result))
     identifiers = [UUID(job["source_run_id"]), *([UUID(run_id)] if run_id else [])]
@@ -129,7 +137,7 @@ async def observe(request, task_id):
             "binding": {"source_run_id": job["source_run_id"], "source_task_id": source["task_id"],
                 "source_snapshot_id": job["source_snapshot_id"], "source_model_id": job["source_model_id"],
                 "artifact_id": job["artifact_id"], "source_sha256": job["source_sha256"], "verifier_task_id": str(task_id),
-                "verifier_run_id": run_id, "program_sha256": job["program_sha256"], "launcher_sha256": job["isolation_sha256"], "tests_sha256": job["tests_sha256"]},
+                "verifier_run_id": run_id, "baseline_source_sha256": job["baseline_source_sha256"], "program_sha256": job["program_sha256"], "launcher_sha256": job["isolation_sha256"], "tests_sha256": job["tests_sha256"]},
             "zero_verifier": {"observed": zero, "confirmed": zero}, "native": {"source": source_usage, "verifier": target_usage},
             "case_provider": case_provider, "sessions": sessions,
             "namespace_inventory": namespace_inventory}

@@ -19,11 +19,24 @@ PROGRAM_SHA = hashlib.sha256(PROGRAM).hexdigest()
 LAUNCHER = Path(__file__).with_name("java_verifier_launcher.py").read_bytes()
 LAUNCHER_SHA = hashlib.sha256(LAUNCHER).hexdigest()
 TESTS_SHA = hashlib.sha256(b"[[2,8,8],[-7,-3,-3],[4,4,4]]").hexdigest()
+ORIGINAL = b'public class Max { public static int max(int a,int b){return a;} }'
+ORIGINAL_SHA = hashlib.sha256(ORIGINAL).hexdigest()
+BASELINE_PROTOCOL = "original-repair-v1"
 SHA = re.compile(r"^[a-f0-9]{64}$")
 BOOTSTRAP = '''import base64,json,os,sys
 from pathlib import Path
 body=json.loads(base64.b64decode(sys.argv[1],validate=True))
-base=Path('/opt/ae-java-verifier');base.mkdir(mode=0o755)
+phase=body.pop('phase')
+if phase not in {'baseline','candidate'}:raise ValueError('Unknown fixed phase')
+base=Path('/opt/ae-java-verifier');archive=Path('/opt/ae-java-verifier-baseline')
+if phase=='baseline':
+ if base.exists() or archive.exists():raise ValueError('Fixed baseline directory already exists')
+else:
+ if not base.is_dir() or base.is_symlink() or archive.exists():raise ValueError('Fixed baseline directory unavailable')
+ source=Path('/workspace/Max.java')
+ if source.is_symlink() or source.read_bytes()!=b'public class Max { public static int max(int a,int b){return a;} }':raise ValueError('Original source changed')
+ base.rename(archive)
+base.mkdir(mode=0o755)
 private=base/'private';private.mkdir(mode=0o700)
 program=private/'supervisor.py';program.write_bytes(base64.b64decode(body['program'],validate=True));program.chmod(0o400)
 launcher=base/'launch.py';launcher.write_bytes(base64.b64decode(body['launcher'],validate=True));launcher.chmod(0o444)
@@ -49,14 +62,15 @@ class JavaVerifier:
                 raise ValueError("Invalid verifier state")
             value = json.loads(self.path.read_text(encoding="utf-8"))
             if (set(value) != {"schema_version", "environment_id", "jobs"} or type(value["schema_version"]) is not int
-                    or value["schema_version"] != 2 or value["environment_id"] != self.environment_id or not isinstance(value["jobs"], dict)):
+                    or value["schema_version"] != 3 or value["environment_id"] != self.environment_id or not isinstance(value["jobs"], dict)):
                 raise ValueError("Verifier state belongs to another environment")
             self.jobs = value["jobs"]
             for task_id, job in self.jobs.items():
                 if (not isinstance(job.get("source_model_id"), str) or not 0 < len(job["source_model_id"]) <= 120
-                        or str(UUID(task_id)) != job["task_id"] or job.get("isolation_sha256") != LAUNCHER_SHA):
+                        or str(UUID(task_id)) != job["task_id"] or job.get("isolation_sha256") != LAUNCHER_SHA
+                        or job.get("baseline_source_sha256") != ORIGINAL_SHA):
                     raise ValueError("Verifier state lacks its sealed source model or isolation identity")
-                if job["phase"] in {"RUNNING", "RESULT_RECORDED"}:
+                if job["phase"] in {"RUNNING", "BASELINE_RECORDED", "RESULT_RECORDED"}:
                     job["phase"] = "UNKNOWN"
             self.save()
 
@@ -73,7 +87,7 @@ class JavaVerifier:
         temporary = self.path.with_suffix(".tmp")
         try:
             with temporary.open("w", encoding="utf-8") as stream:
-                json.dump({"schema_version": 2, "environment_id": self.environment_id, "jobs": self.jobs},
+                json.dump({"schema_version": 3, "environment_id": self.environment_id, "jobs": self.jobs},
                           stream, allow_nan=False)
                 stream.flush()
                 os.fsync(stream.fileno())
@@ -138,7 +152,7 @@ class JavaVerifier:
                "task_revision": tasks[0]["revision"], "source_run_id": str(source_run_id), "artifact_id": str(artifact_id),
                "source_model_id": row["model_id"], "isolation_sha256": LAUNCHER_SHA,
                "source_snapshot_id": str(row["snapshot_id"]), "source_sha256": source_sha256,
-               "program_sha256": PROGRAM_SHA, "tests_sha256": TESTS_SHA, "phase": "REGISTERED", "verifier_run_id": None}
+               "program_sha256": PROGRAM_SHA, "tests_sha256": TESTS_SHA, "baseline_source_sha256": ORIGINAL_SHA, "phase": "REGISTERED", "verifier_run_id": None}
         async with self.lock:
             if self.storage_failed:
                 raise RuntimeError("Verifier persistence is unavailable")
@@ -174,6 +188,7 @@ class JavaVerifier:
             job = self.jobs[task]
             if (job["phase"] != "REGISTERED" or job["program_sha256"] != PROGRAM_SHA
                     or job["tests_sha256"] != TESTS_SHA or job["isolation_sha256"] != LAUNCHER_SHA
+                    or job["baseline_source_sha256"] != ORIGINAL_SHA
                     or job["verifier_run_id"] not in {None, str(run["id"])}):
                 raise RuntimeError("Verifier requires review; no execution replay")
             await self.guard(run, job)
@@ -201,16 +216,12 @@ class JavaVerifier:
                 job.update(session_id=str(session["id"]), sandbox_id=str(sandbox.id))
                 self.save()
                 await self.guard(run, job)
-                payload = base64.b64encode(json.dumps({"source_base64": base64.b64encode(content).decode(),
-                                                      "source_sha256": job["source_sha256"]}).encode()).decode()
-                envelope = base64.b64encode(json.dumps({"program": base64.b64encode(PROGRAM).decode(),
-                    "launcher": base64.b64encode(LAUNCHER).decode(), "payload": payload}).encode()).decode()
-                result = await sandbox.commands.run(shlex.join(["python3", "-I", "-c", BOOTSTRAP, envelope]),
-                    opts=RunCommandOpts(uid=0, gid=0, timeout=timedelta(seconds=120)))
-                await self.guard(run, job)
-                if result.error or result.exit_code != 0 or len(result.text.encode()) > 131072:
-                    raise RuntimeError("Fixed verifier result is unavailable")
-                report = validate_report(json.loads(result.text), job["source_sha256"])
+                baseline = await self.run_fixed(run, job, sandbox, ORIGINAL, "baseline")
+                validate_baseline_report(baseline)
+                job.update(phase="BASELINE_RECORDED", baseline_report=baseline)
+                self.save()  # The actual negative control is durable before repaired execution.
+                report = await self.run_fixed(run, job, sandbox, content, "candidate")
+                validate_pair(baseline, report, job["source_sha256"])
                 job.update(phase="RESULT_RECORDED", report=report)
                 self.save()
         except CapacityUnavailable:
@@ -231,7 +242,46 @@ class JavaVerifier:
         job["phase"] = "COMPLETED"
         self.save()
         return {"case_id": "AET-W02", "verifier_run_id": str(run["id"]), "source_run_id": job["source_run_id"],
-                "artifact_id": job["artifact_id"], "source_sha256": job["source_sha256"], "verification": report}
+                "artifact_id": job["artifact_id"], "source_sha256": job["source_sha256"],
+                "baseline_verification": baseline, "verification": report}
+
+
+    async def run_fixed(self, run, job, sandbox, content, phase):
+        if phase not in {"baseline", "candidate"} or (phase == "baseline" and content != ORIGINAL):
+            raise ValueError("Only the fixed original/candidate phases are allowed")
+        await self.guard(run, job)
+        checksum = hashlib.sha256(content).hexdigest()
+        payload = base64.b64encode(json.dumps({"source_base64": base64.b64encode(content).decode(),
+                                              "source_sha256": checksum}).encode()).decode()
+        envelope = base64.b64encode(json.dumps({"program": base64.b64encode(PROGRAM).decode(),
+            "launcher": base64.b64encode(LAUNCHER).decode(), "payload": payload, "phase": phase}).encode()).decode()
+        result = await sandbox.commands.run(shlex.join(["python3", "-I", "-c", BOOTSTRAP, envelope]),
+            opts=RunCommandOpts(uid=0, gid=0, timeout=timedelta(seconds=120)))
+        await self.guard(run, job)
+        if result.error or result.exit_code != 0 or len(result.text.encode()) > 131072:
+            raise RuntimeError("Fixed verifier result is unavailable")
+        return validate_report(json.loads(result.text), checksum)
+
+
+def validate_baseline_report(report):
+    validate_report(report, ORIGINAL_SHA)
+    if report["passed"] is not False or len(report["cases"]) != 3:
+        raise ValueError("Compiled original negative control with three actual receipts is required")
+    for row, actual in zip(report["cases"], (2, -7, 4), strict=True):
+        if (row["exit_code"] != 0 or row["timed_out"] or row["truncated"]
+                or row["stdout_sha256"] != hashlib.sha256(str(actual).encode()).hexdigest()):
+            raise ValueError("Original negative control was not actually observed")
+    return report
+
+
+def validate_pair(baseline, candidate, checksum):
+    validate_baseline_report(baseline)
+    validate_report(candidate, checksum)
+    for key in ("program_sha256", "tests_sha256", "java_version_sha256", "javac_version_sha256"):
+        if baseline[key] != candidate[key]:
+            raise ValueError("Paired executions must use the same fixed program/tests/JDK")
+    if baseline["isolation"]["policy_sha256"] != candidate["isolation"]["policy_sha256"]:
+        raise ValueError("Paired launcher policy differs")
 
 
 def validate_report(value, checksum):
