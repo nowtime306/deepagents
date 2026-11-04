@@ -191,9 +191,10 @@ class UsageRecorder(AsyncCallbackHandler):
                 if self.mode == "work":
                     row = await (
                         await connection.execute(
-                            "SELECT step_limit,token_limit FROM work_queue_runs WHERE id=%s AND owner_id=%s "
-                            "AND status='RUNNING' AND lease_until>now() AND NOT cancel_requested",
-                            (self.run, self.owner),
+                            "UPDATE work_queue_runs SET resource_budgeted=true WHERE id=%s AND owner_id=%s "
+                            "AND status='RUNNING' AND lease_token=%s AND lease_until>now() AND NOT cancel_requested "
+                            "RETURNING step_limit,token_limit",
+                            (self.run, self.owner, self.lease_token),
                         )
                     ).fetchone()
                     if not row:

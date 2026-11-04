@@ -1,0 +1,47 @@
+# 评测恢复验收：2026-11-04
+
+分支 `onwer_agent`，本批实际候选 `732b16726d540d9b2f406b8467c20bad52168949`，350项源码清单不变。本记录区分实际通过、已知失败和按用户要求延期的项目；不代表全量上线。
+
+## 环境修复
+
+3100/3131前端、8101稳定后台/8100测试后台及独立Ask现已恢复，18180管理服务沿原解释器、配置、密钥和SQLite启动。没有停止或调整其他18个Docker容器，没有迁移生产schema79。
+
+管理服务恢复材料在 `.local/manager-restore-20261104-2228/`。本线程浏览器工具重试3131仍明确返回保存权限或管理策略拒绝；用户提供的另一轮浏览器成功记录另保留，不能替代本线程新增页面验收。本项依最新用户指令记为待用户回验，不再切换浏览器、地址或其他通道绕过。
+
+## 评测管理接口：实际HTTP通过
+
+只在 `owner_agent_rdc_browser_20261103_test` 安装085迁移；新增两个非管理员专用QA账号，权限仅评测读/管理/运行声明及必要只读权限，没有业务模型执行权限。原账号、角色和原11表原行摘要均保持。
+
+实际8100 HTTP复测33项符合预期：身份检查、能力/列表/预览、创建/编辑、CAS冲突、发布版本不可变、跨账号隔离、分页、人工脱敏确认、候选审核及实时撤权。评测执行仍BLOCKED，POST运行按最小业务权限返回403，执行队列/样本/模型用量及Ask、Work、Workflow运行均零；没有声称本环境已测试503或真实评测任务。
+
+收据 `.local/team-workspace/agent-evaluation/qa-metadata-extra/http-retest-270ea2492ce644569bd560ac172a93bd/receipt.json`，SHA256 `f7fccba80fe200cb660e5c48bd12efa0ea9d895bc9247fbf14e3096a21f38af2`。专用账号凭据只留私有文件，不写入文档。首轮测试误用发布前修订号导致409，原失败保留；改为正式GET读取实际修订后，以新样本复测，没有修改产品断言或重复迁移。
+
+## W05：本次真实执行发现缺陷，不能记通过
+
+用户明确批准的新批仅一次W05：300秒、10次本机受控模型调用、20000 Token、最多2个沙箱，不调用付费模型，不启动W06，不退旧两批预留。
+
+首次v2在3100健康检查处拒绝，尚无消费标记/输出/新任务；之后v3复查出现一次旧PID状态断言失败，原因未能追溯，原件保留。后续精确只读检查确认旧目标进程缺席、旧命名空间库存零，容量恢复至约6.27GB（已扣原1GiB余量）；再次启动前采样约6.31GB。本批沿同一授权和唯一输出、共享一次性消费标记启动，未分配额外批次。
+
+实际suite为 `.local/agent-evaluations/w05-732b1672-16d572d746f4475698fcce8401c0d69e`，root为 `56d5815c-030f-4056-8428-86b275b1cdd6`。发生真实成员文件读取、三次调用及成员超时：两次KNOWN调用各10输入/5输出，第三次UNKNOWN且Token为null；父NEEDS_REVIEW、成员UNKNOWN/TEAM_RESULT_UNKNOWN保留。
+
+独立复算发现唯一固定事实校验不符：父任务 `usage_unknown=false`，原生账本却有一条UNKNOWN。仅在私有内存副本把该标志改true，原评估函数才通过；这是定位反例，绝非实际修复后的通过。原正式fact、report gate和退出码仍FAIL/1，READY及四次CLI审计完整，不重写报告。`TARGET_RETAINED_CAPACITY_FULL`是套件保留分支文字，本例实际已执行三次调用，不能据该文字推断容量失败。
+
+缺陷单 `.local/team-workspace/agent-evaluation/qa-work-extra/w05_actual_review_372682624cc147fa843c090570e12ea8/defect.md`，SHA256 `755f9ef971a76354ae9e06df2173e550f5b5493aabc3a3b25e120d54b8d2af89`。独立复算收据SHA256 `0f363bbed301de3903467b69b79268fa41a953df3ac9396a1c38446a0a2ce18e`。
+
+运维独立确认目标进程退出、DB会话/Worker/租约均零、沙箱原记录RELEASED且该命名空间管理库存/Docker集合零。原数据库和UNKNOWN账本保留，不能改成CLEAN或把null补零。收据 `.local/w05-732b-independent-retention-ops/receipt.json`，SHA256 `cfb466d4ff9e28f45231c3a3832bc8bd412b08d3868c983a8b5adede53f52bfd`。
+
+补查确认该root `resource_budgeted=false`，开发正在核实原生团队预算分支未持久登记与 `sync_work` 严格条件之间的问题；不得凭错误码硬补标志或放宽租约栅栏。修复须先红例、最小代码、审查及独立隔离PG复测。真实W05本批已消费，不自动重跑或将旧失败回填新候选；若修复后真实任务复验受预算限制，依用户指令列待回验。
+
+### 该缺陷的代码修复已通过工程验收
+
+原因已确认：原生共享预算支路依据 `self.team_budget` 生效，却没有持久登记 `resource_budgeted`，导致严格 `sync_work` 更新被跳过。最小修复将原支路读取策略的SQL改为同一事务中 `UPDATE resource_budgeted=true ... RETURNING`，绑定owner、原有效租约、RUNNING、未取消；预算拒绝会回滚登记。既有未知同步栅栏、预算上限和旧运行数据均不改，不按case或错误字符串硬编码。
+
+作者真实PG先重现旧代码失败，再以私有候选验证九项；root审查通过后合入正式源码，非作者普通导入全新隔离PG复验 **9通过、零失败/错误/跳过**。包括已知结算回调两种顺序不重复计数、KNOWN/KNOWN/UNKNOWN同步及后继拒绝、五类无权/失效状态拒绝和预算失败事务回滚。只是回调和账本SQL，无实际模型/consumer/沙箱；不是W05业务复测。
+
+独立收据 `.local/team-workspace/agent-evaluation/qa-work-extra/usage_fix_formal_8eb5a05ed6de491798d8e281d780a5ae/independent-receipt.json`，SHA256 `2f2c47677fb9bcc26c61fa2863c1ad87d2fa2d0fef6d778fc2020bc685c8a268`。新库 `owner_agent_usage_fix_cd4b48203d324dd89420fa429f0710cf_test` 经五表零、会话零后精确回收；原失败库保留。
+
+正式usage单元及团队预算相关工程回归另 **132通过、零失败/错误/跳过**，收据 `.local/agent-evaluations/team-active-usage-team-750752b772384bdaaf9bedc193a3c640/receipt.json`，产品源码前后摘要一致。该组与之前F05的132组不同，不累计为业务任务。API完整配置Ruff及Git空白检查通过。实际修复文件SHA256 `a74b4c92548e605cdbb4f2e2af56c77599323f98874febb2457eea6ebc73e687`。真实修后W05仍待回验，原13/20验收计数保持。
+
+## 发布边界
+
+本轮管理接口已在测试环境可用，生产仍是原稳定核心。真实W05未通过，不增加原13/20受控验收案例。Work/Workflow/自动任务及新版评测执行不因这些接口或工程测试自动开放。正在准备元数据管理可单独发布的迁移、恢复、启动及回退验证；缺失可信执行链的部分保持禁用并明确延期。
