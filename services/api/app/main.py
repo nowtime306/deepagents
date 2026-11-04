@@ -25,6 +25,8 @@ from app.account_api import router as account_router
 from app.account_api import throttle
 from app.agent_api import router as agent_router
 from app.agent_evaluation_environment import router as agent_evaluation_environment_router
+from app.agent_evaluation_platform_api import router as agent_evaluation_platform_router
+from app.agent_evaluation_platform_extension_api import router as agent_evaluation_platform_extension_router
 from app.agent_versions import router as agent_version_router
 from app.agent_versions import selected as selected_agent_version
 from app.ask_automations import router as ask_automations_router
@@ -449,6 +451,8 @@ def create_app(
     app.include_router(knowledge_ocr_router)
     app.include_router(evaluation_router)
     app.include_router(agent_evaluation_environment_router)
+    app.include_router(agent_evaluation_platform_router)
+    app.include_router(agent_evaluation_platform_extension_router)
     app.include_router(message_feedback_router)
     app.include_router(search_router)
     app.include_router(workflow_router)

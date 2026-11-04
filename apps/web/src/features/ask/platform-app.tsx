@@ -586,7 +586,7 @@ export function PlatformApp() {
     if (mode === "账号管理") return isAdmin;
     if (mode === "监测大盘") return can("monitoring.read");
     if (mode === "自动任务") return can("automation.read");
-    if (mode === "能力中心") return ["knowledge.read", "skills.read", "tools.read", "memory.read"].some(can);
+    if (mode === "能力中心") return ["knowledge.read", "skills.read", "tools.read", "memory.read", "evaluation.read"].some(can);
     const required: Record<string,string> = {"代码仓库":"repositories.read","智能对话":"chat.read","任务工作台":"work.read","工作流":"workflows.read","运行记录":"chat.read","智能体管理":"agents.read","语音合成":"media.read","图片理解":"media.read","运营管理":"operations.read","组织管理":"organizations.read"};
     return !required[mode] || can(required[mode]);
   });

@@ -54,6 +54,10 @@ def route_permission(path: str, method: str) -> str | None:
     if path.startswith(("auth/", "admin/", "internal/")):
         return None
     if path.startswith("agent-evaluations"):
+        if method == "POST" and (path == "agent-evaluations/runs" or (
+            path.startswith("agent-evaluations/runs/") and path.endswith("/cancel")
+        )):
+            return "evaluation.run"
         return "evaluation.read" if reading else "evaluation.manage"
     if path.startswith("operations/monitoring"):
         return None if "/alerts/" in path else "monitoring.read"

@@ -7,6 +7,7 @@ import {
   BookOpen,
   Cable,
   FileCode,
+  FlaskConical,
   Plus,
   Upload,
   X,
@@ -18,6 +19,7 @@ import { MemoryCenter } from "./memory-center";
 import { HabitLearning } from "./habit-learning";
 import { BrowserSkills } from "./browser-skills";
 import { KnowledgeWorkspace, type Knowledge } from "./knowledge-workspace";
+import { AgentEvaluationWorkspace } from "./agent-evaluation-workspace";
 import "./capability-center.css";
 import "../ask/resource-list.css";
 
@@ -58,7 +60,7 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
   const canManageSkills = allowed("skills.manage");
   const canReadBindings = allowed("chat.read"), canBind = canReadBindings && allowed("chat.manage");
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState(() => allowed("knowledge.read") ? "knowledge" : allowed("skills.read") ? "skills" : allowed("tools.read") ? "mcp" : "memory");
+  const [tab, setTab] = useState(() => allowed("knowledge.read") ? "knowledge" : allowed("skills.read") ? "skills" : allowed("tools.read") ? "mcp" : allowed("memory.read") ? "memory" : "evaluation");
   const [listQuery, setListQuery] = useState("");
   const [skillView, setSkillView] = useState("library");
   const [browserDirty, setBrowserDirty] = useState(false);
@@ -89,7 +91,7 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
         tab === "knowledge" ? api<{ items: Knowledge[] }>("/capabilities/knowledge", { signal }) : null,
         tab === "skills" ? api<{ items: Skill[] }>("/capabilities/skills", { signal }) : null,
         tab === "mcp" ? api<{ items: MCP[] }>("/capabilities/mcp", { signal }) : null,
-        canReadBindings ? api<Bindings>("/capabilities/bindings", { signal }) : null,
+        canReadBindings && tab !== "evaluation" ? api<Bindings>("/capabilities/bindings", { signal }) : null,
       ]);
       if (signal?.aborted) return;
       if (kb) setKnowledge(kb.items);
@@ -202,7 +204,8 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
           ["mcp", "MCP 工具", Cable],
           ["skills", "Skills 技能", FileCode],
           ["memory", "长期记忆", BookOpen],
-        ].filter(([id]) => allowed(({ knowledge: "knowledge.read", skills: "skills.read", mcp: "tools.read", memory: "memory.read" } as Record<string, string>)[id as string])).map(([id, label, Icon]) => {
+          ["evaluation", "Agent 评测", FlaskConical],
+        ].filter(([id]) => allowed(({ knowledge: "knowledge.read", skills: "skills.read", mcp: "tools.read", memory: "memory.read", evaluation: "evaluation.read" } as Record<string, string>)[id as string])).map(([id, label, Icon]) => {
           const Glyph = Icon as typeof BookOpen;
           return (
             <button
@@ -242,9 +245,10 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
         </div>
       )}
       {tab === "memory" && <MemoryCenter />}
+      {tab === "evaluation" && <AgentEvaluationWorkspace />}
       {tab === "skills" && <nav className="browser-skill-views" aria-label="技能视图"><button type="button" aria-pressed={skillView === "library"} onClick={() => { if (!leaveBrowser()) return; setBrowserDirty(false); setSkillView("library"); }}>技能库与习惯学习</button><button type="button" aria-pressed={skillView === "browser"} onClick={() => setSkillView("browser")}>浏览器录制</button></nav>}
-      {tab !== "memory" && !(tab === "skills" && skillView === "browser") && !selected && <label className="resource-list-search"><input aria-label="搜索能力资源" placeholder={tab === "knowledge" ? "搜索知识库名称或描述" : "搜索资源名称"} value={listQuery} onChange={(event) => setListQuery(event.target.value)}/><span>{tab === "knowledge" ? `${visibleKnowledge.length} / ${knowledge.length} 个知识库` : `${tab === "mcp" ? servers.length : skills.length}项资源`}</span></label>}
-      <div className="capability-actions">
+      {tab !== "evaluation" && tab !== "memory" && !(tab === "skills" && skillView === "browser") && !selected && <label className="resource-list-search"><input aria-label="搜索能力资源" placeholder={tab === "knowledge" ? "搜索知识库名称或描述" : "搜索资源名称"} value={listQuery} onChange={(event) => setListQuery(event.target.value)}/><span>{tab === "knowledge" ? `${visibleKnowledge.length} / ${knowledge.length} 个知识库` : `${tab === "mcp" ? servers.length : skills.length}项资源`}</span></label>}
+      {tab !== "evaluation" && <div className="capability-actions">
         <p>
           {tab === "knowledge"
             ? "上传资料后可直接测试检索，勾选绑定后供助手调用。"
@@ -289,7 +293,7 @@ export function CapabilityCenter({ isAdmin, permissions, onOpenConversation }: {
             />
           </label>
         )}
-      </div>
+      </div>}
       {tab === "knowledge" && (
         <>
           {selected ? (

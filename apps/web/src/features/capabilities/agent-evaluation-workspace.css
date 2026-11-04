@@ -1,0 +1,286 @@
+.agent-eval-workspace {
+  color: #292524;
+  min-width: 0;
+}
+.agent-eval-workspace h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 22px;
+  margin: 0 0 10px;
+}
+.agent-eval-workspace :is(button, input, select, textarea),
+.agent-eval-dialog :is(button, input, select, textarea) {
+  font: inherit;
+}
+.agent-eval-workspace button,
+.agent-eval-dialog button {
+  cursor: pointer;
+}
+.agent-eval-workspace button:disabled,
+.agent-eval-dialog button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.agent-eval-workspace button:focus-visible,
+.agent-eval-dialog :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid #b53e2b;
+  outline-offset: 3px;
+}
+.agent-eval-workspace :is(p, small),
+.agent-eval-dialog p {
+  line-height: 1.8;
+  color: #78716c;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.agent-eval-admission {
+  background: #faf5e9;
+  border: 1px solid #eadfc4;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 15px 0;
+  font-size: 13px;
+}
+.agent-eval-admission ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+.agent-eval-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e7e5e4;
+  padding-bottom: 10px;
+}
+.agent-eval-tabs button {
+  flex-shrink: 0;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #78716c;
+}
+.agent-eval-tabs button[aria-pressed="true"] {
+  background: #f1edea;
+  color: #292524;
+}
+.agent-eval-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.agent-eval-toolbar button,
+.agent-eval-detail > button,
+.agent-eval-dialog button,
+.agent-eval-workspace .resource-list-heading > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #e2dfdb;
+  padding: 9px 13px;
+  border-radius: 8px;
+  background: white;
+}
+.agent-eval-list {
+  display: grid;
+  gap: 10px;
+}
+.agent-eval-workspace .agent-eval-row {
+  display: grid;
+  width: 100%;
+  gap: 9px;
+  text-align: left;
+  padding: 18px 20px;
+  background: white;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.agent-eval-row:hover {
+  border-color: #bdb5ad;
+  background: #fdfcfb;
+}
+.agent-eval-row strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.agent-eval-row span {
+  font-size: 12px;
+  color: #78716c;
+}
+.agent-eval-status {
+  display: inline-block;
+  font-size: 11px;
+  border-radius: 5px;
+  background: #f3f1ef;
+  color: #645c54;
+  padding: 3px 7px;
+}
+.agent-eval-status[data-status="PASS"],
+.agent-eval-status[data-status="CLEAN"] {
+  background: #edf4ee;
+  color: #31593b;
+}
+.agent-eval-status[data-status="FAIL"],
+.agent-eval-status[data-status="FAILED"],
+.agent-eval-status[data-status="ERROR"] {
+  background: #faefeb;
+  color: #a43b2b;
+}
+.agent-eval-status[data-status="NEEDS_REVIEW"],
+.agent-eval-status[data-status="UNKNOWN"] {
+  background: #faf1db;
+  color: #896822;
+}
+.agent-eval-empty {
+  display: grid;
+  justify-items: center;
+  padding: 48px 20px;
+  border: 1px dashed #e2ded9;
+  border-radius: 12px;
+  text-align: center;
+}
+.agent-eval-detail {
+  margin-top: 24px;
+}
+.agent-eval-detail form {
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+}
+.agent-eval-detail form fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+.agent-eval-detail form label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  margin: 12px 0;
+}
+.agent-eval-detail form :is(input, select, textarea) {
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid #dedbd7;
+  border-radius: 7px;
+  padding: 10px;
+  background: white;
+}
+.agent-eval-detail pre,
+.agent-eval-dialog pre {
+  font-size: 11px;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 15px;
+  border-radius: 8px;
+  background: #f6f5f3;
+}
+.agent-eval-detail summary,
+.agent-eval-dialog summary {
+  cursor: pointer;
+  padding: 14px 0;
+  font-size: 12px;
+}
+.agent-eval-overlay {
+  position: fixed;
+  inset: 0;
+  background: #1c191755;
+  z-index: 80;
+}
+.agent-eval-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 81;
+  width: min(680px, calc(100vw - 28px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  background: #fff;
+  color: #292524;
+  border: 1px solid #e7e5e4;
+  border-radius: 14px;
+  box-shadow: 0 24px 80px #0003;
+}
+.agent-eval-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px;
+  border-bottom: 1px solid #eee;
+}
+.agent-eval-dialog h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.agent-eval-dialog form {
+  padding: 22px;
+}
+.agent-eval-dialog fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.agent-eval-dialog label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 17px;
+  font-size: 12px;
+}
+.agent-eval-dialog :is(input:not([type="checkbox"]), select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dedbd7;
+  border-radius: 7px;
+  background: white;
+}
+.agent-eval-dialog textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.agent-eval-dialog label.agent-eval-check {
+  display: flex;
+  align-items: flex-start;
+}
+.agent-eval-dialog footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+.agent-eval-workspace button.settings-primary,
+.agent-eval-dialog button.settings-primary {
+  background: #b63f2d;
+  color: white;
+  border-color: #b63f2d;
+}
+@media (max-width: 600px) {
+  .agent-eval-workspace .resource-list-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .agent-eval-workspace .agent-eval-row {
+    padding: 15px;
+  }
+  .agent-eval-dialog > header,
+  .agent-eval-dialog form {
+    padding: 16px;
+  }
+  .agent-eval-toolbar > span {
+    width: 100%;
+  }
+}
