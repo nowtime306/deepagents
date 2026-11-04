@@ -34,6 +34,20 @@ active源码独立执行完整客户端493通过、完整profile221通过、六�
 
 新增五模块与公开PG测试Lint通过；十个修改的已有Python文件以同一检查器和HEAD逐文件对照，未增加规则/消息数量。原suite脚本18项、target脚本4项既有问题如实保留，不宣称它们全量Lint通过。首次按完整源码行比较的四项B023差异，是原四条回调闭包提示所在行增加parent_run参数造成；原始收据保留，复核记录`worker-lint-comparison-b4d8d8c84a2546a1b4dda93a8226e9c8/identity-receipt.json`摘要`2a6c2a71f5c3c65dada25e0a33a4f9e013b33aab08656edc442c1f80ef12d8e7`。未顺带清理无关代码。
 
+## 66项工程测试的正式路径迁移
+
+ops提供v2迁移冻结`e00923b5f02272692681fcf528f5acec6702760c07c28ee88c0e0807e8c69561`。root独立确认原31个测试函数、48条assert、全部参数化及pytest.raises均按AST保持；四文件普通导入active模块，两个含连字符的CLI仍按固定仓库路径加载。首版只依赖外部pythonpath配置，root审查提出默认收集问题后，v2改为专用`tests/integration_tests/evaluation_worker/`目录内的八行conftest，只加三个固定本仓测试导入根，不改生产环境或安装依赖。首次apply后仅conftest发生换行转换，检查阻断并恢复已审原字节后再测试；两个active文件另按实际API路径整理导入分组，无业务断言变化。
+
+root已用普通API pytest配置、不覆盖pythonpath实际复验：66通过/16.74秒、0跳过，全部受测源码前后字节一致。原件`.local/agent-evaluations/active-worker-protocol-283cd93e5feb4dfab17e8f641fc109b7`，receipt摘要`01cd667be0dc7eb7538f2020de9aa814174b71d860e803d4d51376f88f8383c8`。本批确实使用自己的回环HTTP服务、PowerShell子进程和两个独立解释器/实际评测安装，不是缺环境时用模拟补绿；需要Windows、pwsh及分别安装的API/evaluation环境。没有实际PG、目标API、业务Agent、manager或供应商调用。与此前私有66为同范围复验，不累加为132或A20案例。
+
+PG两批原件另经ops只读复核：63e清单、四私有文件、九依赖与两组JUnit/日志/receipt一致，收据`worker-pg5-readonly-post-verification.json`摘要`e01de16bad60e3be03ad43c7ec80dd41d6505dbc7305dfb38d8719e6f209bd57`。这是后记核对，不冒充原始清理收据或额外现场查库。
+
+## 真实许可HTTP与PostgreSQL的组合验证
+
+root新增三参数工程测试，ops静态审查关闭后执行。普通导入active PermitServer与实际目标侧require_permit客户端，真实本机HTTP第一次许可成功；随后分别在随机测试库实际取消、撤回owner权限、令租约过期，再次调用同一许可接口，三者都抛出拒绝且合成后继计数不增加。没有缓存先前许可，未把布尔值替身当作真实接口结果。测试仅替换本地Worker对象的admission.inspect以到达真实SQL许可边界；合成队列、私有fixture、公开应用仍BLOCKED，没有publication、可信bridge、consumer、实际业务tool或target执行。
+
+原件`.local/agent-evaluations/worker-http-pg-06e9cc64dfd543bf83dbcedbf8f0fbd9`：3通过/1.73秒、0跳过，七类实际业务效果零、库会话零、精确自有新库已删除，原receipt摘要`74b1307bd1121b289a8f0284ac24023b6a54a231db472d768109c8516b22a827`；本机服务上下文已关闭。ops另只读核对JUnit三参数、原manifest/五依赖、日志/receipt，以及portable66的全部断言/前后源码，收据`worker-http-pg3-and-portable66-independent-post-verification.json`摘要`f6353b632891ec58d829bebf0148fc5edcc93d645e38041ce140c8a9854f210c`。该组合验证弥补此前SQL与HTTP分测的缺口，仍不等于完整target/实际Agent链或生产发布。
+
 ## 发布准备的限定验证
 
 root另独立执行运维候选46项纯发布门禁逻辑、六份PowerShell静态解析及port patch check，均通过，未应用/执行部署脚本。收据`root-static-policy-qa.json`摘要`394f69aa7b9e0fafbe27055abedf2718f489b67369919756551eb6a164b03187`位于私有ops-development。纯布尔门禁最多表示等待操作员审查，不替代可信事实或生产发布许可；独立Web发布器、鲜备份/恢复验证及其余业务门禁仍未闭合。
