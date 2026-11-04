@@ -32,8 +32,13 @@ def isolated_scope():
         pytest.skip("Requires explicit independent TEST_DATABASE_URL and TEST_DATA_DIR")
     path = Path(data)
     config = conninfo_to_dict(url)
-    if (not config.get("dbname", "").endswith("_test") or config.get("host") not in {"localhost", "127.0.0.1", "::1"}
-            or not path.is_absolute() or not path.name.endswith("_test") or not path.is_dir()):
+    if (
+        not config.get("dbname", "").endswith("_test")
+        or config.get("host") not in {"localhost", "127.0.0.1", "::1"}
+        or not path.is_absolute()
+        or not path.name.endswith("_test")
+        or not path.is_dir()
+    ):
         pytest.fail("Only an explicitly isolated _test database/data directory is permitted")
     if any(item.is_symlink() or item.is_junction() for item in (path, *path.parents)):
         pytest.fail("Test data links are forbidden")
@@ -57,6 +62,7 @@ def client():
 
     def no_provider(_):
         raise AssertionError("Response contract must not execute a model")
+
     app = FastAPI(lifespan=lifespan)
     app.state.db, app.state.models = database, ModelRegistry(database, CredentialVault(data / "response-contract.key"))
     app.state.capabilities, app.state.runtime = SimpleNamespace(), SimpleNamespace(model_factory=no_provider)
@@ -77,11 +83,16 @@ def client():
 
     with TestClient(app, backend_options={"loop_factory": factory}) as connection:
         owner, token = uuid4(), uuid4().hex
-        connection.portal.call(database.execute,
+        connection.portal.call(
+            database.execute,
             "INSERT INTO users(id,username,password_hash,is_admin,role_id) VALUES(%s,%s,%s,true,'admin')",
-            (owner, "response-contract-" + uuid4().hex, "fixture-real-session-no-login"))
-        connection.portal.call(database.execute,
-            "INSERT INTO auth_sessions(token_hash,owner_id,expires_at) VALUES(%s,%s,now()+interval '1 hour')", (token_digest(token), owner))
+            (owner, "response-contract-" + uuid4().hex, "fixture-real-session-no-login"),
+        )
+        connection.portal.call(
+            database.execute,
+            "INSERT INTO auth_sessions(token_hash,owner_id,expires_at) VALUES(%s,%s,now()+interval '1 hour')",
+            (token_digest(token), owner),
+        )
         connection.cookies.set(COOKIE, token)
         yield connection, app, owner
 
@@ -90,30 +101,54 @@ def test_real_put_responses_are_ids_while_read_models_and_workflow_revisions_are
     from evaluation_runner import fixed_versioned_workflow as facts
 
     connection, app, owner = client
-    body = {"name": "F01 contract " + uuid4().hex, "model": "eval::AET-F01::v1", "base_url": "http://controlled.invalid",
-            "kind": "chat", "provider": "custom", "protocol": "openai", "supports_tools": True, "max_output_tokens": 4096}
+    body = {
+        "name": "F01 contract " + uuid4().hex,
+        "model": "eval::AET-F01::v1",
+        "base_url": "http://controlled.invalid",
+        "kind": "chat",
+        "provider": "custom",
+        "protocol": "openai",
+        "supports_tools": True,
+        "max_output_tokens": 4096,
+    }
     created = connection.post("/api/v1/admin/models", headers=ORIGIN, json=body)
     assert created.status_code == 201, created.text
     model = created.json()["id"]
-    maintained = connection.put("/api/v1/admin/models/" + model, headers=ORIGIN, json={**body, "revision": 1, "temperature": 0.4})
+    maintained = connection.put(
+        "/api/v1/admin/models/" + model, headers=ORIGIN, json={**body, "revision": 1, "temperature": 0.4}
+    )
     assert maintained.status_code == 200 and maintained.json() == {"id": model}
     selected = next(row for row in connection.get("/api/v1/admin/models").json()["items"] if row["id"] == model)
     assert selected["revision"] == 2 and selected["temperature"] == 0.4
-    assert connection.put("/api/v1/admin/models/" + model, headers=ORIGIN, json={**body, "revision": 1}).status_code == 409
+    assert (
+        connection.put("/api/v1/admin/models/" + model, headers=ORIGIN, json={**body, "revision": 1}).status_code == 409
+    )
 
     workflow_body = {"name": "F01 workflow " + uuid4().hex, "model_id": model, "definition": facts.graph("upper")}
     created = connection.post("/api/v1/workflows", headers=ORIGIN, json=workflow_body)
     assert created.status_code == 201, created.text
     workflow = created.json()["id"]
-    changed = connection.put("/api/v1/workflows/" + workflow, headers=ORIGIN,
-        json={**workflow_body, "revision": 1, "definition": facts.graph("lower")})
+    changed = connection.put(
+        "/api/v1/workflows/" + workflow,
+        headers=ORIGIN,
+        json={**workflow_body, "revision": 1, "definition": facts.graph("lower")},
+    )
     assert changed.status_code == 200 and changed.json() == {"id": workflow}
     row = next(item for item in connection.get("/api/v1/workflows").json()["items"] if item["id"] == workflow)
     assert row["revision"] == 2 and row["definition"] == facts.graph("lower")
-    assert connection.put("/api/v1/workflows/" + workflow, headers=ORIGIN, json={**workflow_body, "revision": 1}).status_code == 409
-    counts = connection.portal.call(app.state.db.fetch,
+    assert (
+        connection.put(
+            "/api/v1/workflows/" + workflow, headers=ORIGIN, json={**workflow_body, "revision": 1}
+        ).status_code
+        == 409
+    )
+    counts = connection.portal.call(
+        app.state.db.fetch,
         "SELECT (SELECT count(*) FROM model_usage WHERE owner_id=%s) AS model_calls,"
-        "(SELECT count(*) FROM workflow_runs r JOIN workflows w ON w.id=r.workflow_id WHERE w.owner_id=%s) AS workflow_runs,"
+        "(SELECT count(*) FROM workflow_runs r JOIN workflows w ON w.id=r.workflow_id "
+        "WHERE w.owner_id=%s) AS workflow_runs,"
         "(SELECT count(*) FROM work_queue_runs WHERE owner_id=%s) AS work_runs,"
-        "(SELECT count(*) FROM work_sandbox_sessions WHERE owner_id=%s) AS sessions", (owner,) * 4)[0]
+        "(SELECT count(*) FROM work_sandbox_sessions WHERE owner_id=%s) AS sessions",
+        (owner,) * 4,
+    )[0]
     assert counts == {"model_calls": 0, "workflow_runs": 0, "work_runs": 0, "sessions": 0}
