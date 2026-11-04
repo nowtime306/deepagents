@@ -1,6 +1,7 @@
 """Task-bound OpenSandbox admission persisted across worker restarts."""
 
 import asyncio
+import logging
 from datetime import timedelta
 from uuid import UUID, uuid4
 
@@ -10,11 +11,14 @@ from opensandbox.manager import SandboxManager
 from opensandbox.models.sandboxes import SandboxFilter
 from opensandbox.sandbox import Sandbox
 from psycopg.errors import UniqueViolation
+from psycopg.types.json import Jsonb
 
-from app.host_resources import resource_budget
+from app.host_resources import budget_observation, resource_budget
 from app.sandbox_service import IMAGES, RESOURCES, SandboxKind
 from app.storage import Database
 from app.work_network import policy
+
+logger = logging.getLogger(__name__)
 
 EVALUATION_EFFECT_GUARD_VERSION = 'platform-effect-permit-v1'
 
@@ -39,7 +43,10 @@ class DurableSandboxes:
         """Derive owner from an unexpired run lease, never from model parameters."""
         if kind not in IMAGES:
             raise ValueError("Unsupported sandbox type")
+        budget_observation(reset=True)
         budget = await resource_budget()
+        observation = budget_observation()
+        reserved, reason, rows = None, None, []
         needed = 5 * 1024**3 if kind == "coding" else 3 * 1024**3
         try:
             async with self.database.pool.connection() as connection:
@@ -58,18 +65,48 @@ class DurableSandboxes:
                 )).fetchone()
                 reserved += media["used"]
                 if reserved + needed > budget:
-                    return None
-                rows = await (
-                    await connection.execute(
-                        "INSERT INTO work_sandbox_sessions(id,run_id,owner_id,kind,state) "
-                        "SELECT %s,id,owner_id,%s,'CREATING' FROM work_queue_runs WHERE id=%s AND status='RUNNING' "
-                        "AND lease_token=%s AND lease_until>now() AND NOT cancel_requested RETURNING *",
-                        (uuid4(), kind, run_id, token),
-                    )
-                ).fetchall()
-            return rows[0] if rows else None
+                    reason = "BUDGET_INSUFFICIENT"
+                else:
+                    rows = await (
+                        await connection.execute(
+                            "INSERT INTO work_sandbox_sessions(id,run_id,owner_id,kind,state) "
+                            "SELECT %s,id,owner_id,%s,'CREATING' FROM work_queue_runs WHERE id=%s AND status='RUNNING' "
+                            "AND lease_token=%s AND lease_until>now() AND NOT cancel_requested RETURNING *",
+                            (uuid4(), kind, run_id, token),
+                        )
+                    ).fetchall()
+                    if not rows:
+                        reason = "LEASE_PREDICATE_REJECTED"
         except UniqueViolation:
+            reason = "RESERVATION_CONFLICT"
+        if reason is not None:
+            await self.capacity_refused(run_id, kind, reason, needed=needed, reserved=reserved,
+                                        budget=budget, sample=observation)
             return None
+        return rows[0]
+
+    async def capacity_refused(self, run_id, kind, reason, *, needed=None, reserved=None, budget=None, sample=None):
+        """Append bounded refusal facts after admission exits; diagnostics cannot grant capacity."""
+        from datetime import UTC, datetime
+
+        try:
+            data = {"schema_version": 1, "reason": reason, "kind": kind, "run_id": str(run_id),
+                    "observed_at": datetime.now(UTC).isoformat(), "needed_bytes": needed,
+                    "reserved_bytes": int(reserved) if reserved is not None else None,
+                    "budget_bytes": budget, "sample": sample}
+            async with self.database.pool.connection() as connection:
+                row = await (await connection.execute(
+                    "UPDATE work_queue_runs SET next_event_id=next_event_id+1 WHERE id=%s "
+                    "RETURNING owner_id,next_event_id", (run_id,))).fetchone()
+                if row is None:
+                    logger.warning("capacity_diagnostic_run_missing")
+                    return
+                data["owner_id"] = str(row["owner_id"])
+                await connection.execute(
+                    "INSERT INTO work_run_events(run_id,event_id,event,data) VALUES(%s,%s,%s,%s)",
+                    (run_id, row["next_event_id"], "sandbox.capacity_refused", Jsonb(data)))
+        except Exception:  # noqa: BLE001 -- A failed diagnostic never admits, retries SDK creation, or hides an original admission error.
+            logger.warning("capacity_diagnostic_failed")
 
     async def create(self, run_id: UUID, token: UUID, kind: SandboxKind) -> tuple[dict, Sandbox] | None:
         """Keep ambiguous creations reserved until remote inventory is reconciled."""
@@ -83,6 +120,7 @@ class DurableSandboxes:
             (run_id, token),
         )
         if not rows:
+            await self.capacity_refused(run_id, kind, "CREATE_LEASE_UNAVAILABLE")
             return None
         network = await policy(rows[0]["network_domains"])
         session = await self.reserve(run_id, token, kind)

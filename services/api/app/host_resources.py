@@ -7,11 +7,23 @@ import re
 import subprocess
 import threading
 import time
+from contextvars import ContextVar
+from datetime import UTC, datetime
 from pathlib import Path
 
 GIB = 1024**3
 _cache = (0.0, 0)
 _lock = threading.Lock()
+_cache_observation = None
+_observation = ContextVar("resource_budget_observation", default=None)
+
+
+def budget_observation(*, reset=False):
+    """Return only this caller's actual sample, never manufacture a new historic observation."""
+    value = _observation.get()
+    if reset:
+        _observation.set(None)
+    return dict(value) if value is not None else None
 
 
 def bytes_size(value: str) -> int:
@@ -75,24 +87,46 @@ def docker(arguments: list[str]) -> str:
 
 
 def sample() -> int:
-    global _cache
+    global _cache, _cache_observation
     with _lock:
         if time.monotonic() - _cache[0] < 5:
+            _observation.set({**_cache_observation, "cached": True} if _cache_observation else None)
             return _cache[1]
+        started = time.monotonic()
+        observation = {"sampled_at": datetime.now(UTC).isoformat(), "cached": False,
+                       "host_available_bytes": None, "docker_total_bytes": None, "docker_used_bytes": None,
+                       "margin_bytes": GIB, "probe_stage": "docker_total", "error_type": None, "status": "OK"}
         try:
             total = int(docker(["info", "--format", "{{.MemTotal}}"]).strip())
+            observation.update(docker_total_bytes=total, probe_stage="docker_used")
             used = sum(
                 bytes_size(line.split("/", 1)[0])
                 for line in docker(["stats", "--no-stream", "--format", "{{.MemUsage}}"]).splitlines()
                 if line.strip()
             )
-            budget = max(0, min(host_available(), total - used) - GIB)
-        except (OSError, ValueError, subprocess.SubprocessError):
+            observation.update(docker_used_bytes=used, probe_stage="host_available")
+            available = host_available()
+            observation["host_available_bytes"] = available
+            budget = max(0, min(available, total - used) - GIB)
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
             budget = 0
+            names = {OSError, PermissionError, FileNotFoundError, ValueError,
+                     subprocess.SubprocessError, subprocess.TimeoutExpired, subprocess.CalledProcessError}
+            observation.update(
+                status="ERROR", error_type=type(error).__name__ if type(error) in names else "OtherProbeError")
+        observation.update(budget_bytes=budget, elapsed_ms=round((time.monotonic() - started) * 1000))
+        _cache_observation = observation
+        _observation.set(dict(observation))
         _cache = (time.monotonic(), budget)
         return budget
 
 
 async def resource_budget() -> int:
     """Reserve one GiB margin and count current container use plus platform reservations conservatively."""
-    return await asyncio.to_thread(sample)
+    def observed():
+        budget_observation(reset=True)
+        result = sample()
+        return result, budget_observation()
+    result, observation = await asyncio.to_thread(observed)
+    _observation.set(observation)
+    return result
