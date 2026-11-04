@@ -246,11 +246,11 @@ def test_actual_controlled_child_protocol_no_auto_replay_and_env_only_secrets(
     monkeypatch.setenv("OPENAI_API_KEY", "must-not-inherit")
     monkeypatch.setenv("CONFIDENT_API_KEY", "must-not-inherit")
     observed = []
-    original = asyncio.create_subprocess_exec
+    original = worker.Popen
 
-    async def spawn(*args, **kwargs):
+    def spawn(args, **kwargs):
         observed.append((args, kwargs["env"]))
-        assert args[1:3] == ("-I", str(tmp_path / "fixed-entry.py"))
+        assert args[1:3] == ["-I", str(tmp_path / "fixed-entry.py")]
         assert "EVALUATION_PLATFORM_PERMIT_SECRET" not in str(args)
         assert "OPENAI_API_KEY" not in kwargs["env"] and "CONFIDENT_API_KEY" not in kwargs["env"]
         directory = tmp_path / ".local/agent-evaluations/platform-worker" / str(row["id"])
@@ -270,17 +270,12 @@ def test_actual_controlled_child_protocol_no_auto_replay_and_env_only_secrets(
                 "p.with_name('result-ready.json').write_text(json.dumps(receipt)); "
             )
         code += "raise SystemExit(" + str(exit_code) + ")"
-        return await original(
-            sys.executable,
-            "-I",
-            "-c",
-            code,
-            str(directory / "result.json"),
-            json.dumps(response),
+        return original(
+            [sys.executable, "-I", "-c", code, str(directory / "result.json"), json.dumps(response)],
             **kwargs,
         )
 
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
+    monkeypatch.setattr(worker, "Popen", spawn)
     permit = SimpleNamespace(origin="http://127.0.0.1:23456", secret="s" * 40)
 
     async def cancelled():

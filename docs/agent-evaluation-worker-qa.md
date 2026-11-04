@@ -55,3 +55,19 @@ root另独立执行运维候选46项纯发布门禁逻辑、六份PowerShell静�
 ## 仍须验证
 
 真实父绑定target HTTP全链路、效果撤权/取消与子进程的实际协作、证据导入和受信bridge；完整A20七个剩余案例；B100/C/D与实际页面。当前固定案例覆盖仍13/20，五项PG和46项纯逻辑不增加业务任务数。保持生产数据、密钥、既有测试服务及失败诊断现场；真实供应商联调继续跳过。
+
+### 完整链路前发现的Windows启动阻断
+
+root审查实际链路准备时发现，数据库要求的Windows Selector事件循环与driver使用的asyncio子进程API不兼容。实际API解释器在Selector loop下尝试固定`python -I -c pass`得到NotImplementedError，未启动子进程、数据库或目标；原件`.local/team-workspace/agent-evaluation/windows-selector-subprocess-probe.json`保留。这与[Python 3.12平台限制](https://docs.python.org/3.12/library/asyncio-platforms.html#windows)及[Psycopg异步兼容说明](https://www.psycopg.org/psycopg3/docs/advanced/async.html)一致，不能通过切换到不兼容数据库的默认loop解决。
+
+此前66项的一部分进程协议测试确实启动固定实际Python孩子，但沿用Windows默认loop，没有覆盖API数据库使用的Selector loop，不能据其宣称这处生产运行方式已通过。
+
+ops首份私有修复候选60b6用可取消asyncio Task承接Popen创建，root审查又发现内部Task被全局取消时会忙循环并丢失创建结果。旧冻结未合入；独立有界分支摘录探针保留原1000次异常及固定孩子实际退出证据，退出1/acceptance=false，不能当作完整旧driver执行或修复验收。原件`.local/agent-evaluations/selector-legacy-red-053c1a9f29e849bd9f53f361a5acaf40`。
+
+最终v2冻结`85dc3d6415494e755c2ac14f3b0de4534f7cf4d9b888962a4859d6f64f150350`经root复审后合入默认关闭源码：私有原子文件提供stdin，不等待孩子读取管道；自己的线程池原生Future保存创建结果，异步轮询可继续响应取消，取得真实句柄后记录STARTED，再按原规则请求合作取消并留存RETAINED。没有按未知PID杀进程、自动重试或假CLEAN。OS创建本身永不返回时仍可能LAUNCHING未知，不能承诺操作系统绝对抢占。
+
+root在active普通测试目录实跑71项/25.79秒、零失败/跳过，源码前后字节一致；原件`.local/agent-evaluations/active-worker-protocol-f348f905cd0142efb02768dbd1e3f33a`，receipt摘要`b50961922931a88ba659165ab9227d8b5b85d37035584d644d1ad94fc8bb602c`。这是原66加四个实际Selector子进程场景、一个创建OSError控制，不累加旧66。物理场景覆盖文件stdin与MAC/nonce、孩子不读大输入仍进入监督、重复取消、全任务取消后取得准确PID/留存并等待自己的固定孩子退出；线程回收亦有断言。运行器身份/任务事实在这些进程场景仍是明确的协议替身，不冒充实际业务Agent。
+
+rdc_index另作非作者只读核验：85dc原冻结及active三文件逐字节相同，71项JUnit/日志/13份源码前后摘要与临时物理进程见证一致；旧red严格为有界摘录、原NotImplemented探针未启动孩子。后记`.local/team-workspace/agent-evaluation/selector-worker-independent-recheck/review_74695b1f8adf/review.json`摘要`ee35255a1e6e21c032e5c6269b5c4964b1186bcacb7d2b050f8126e0a454f8c7`。该角色未重跑或触及服务。
+
+受控A02的父许可—真实target—MAC结果—PG导入工程链继续准备。新链只用明确的本地合成队列和私有对象fixture，公开admission继续BLOCKED，不伪造A20 publication或bridge；实际执行前不填通过。

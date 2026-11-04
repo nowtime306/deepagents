@@ -10,8 +10,11 @@ import hmac
 import json
 import os
 import secrets
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from subprocess import Popen
 from uuid import UUID, uuid4
 
 from psycopg.types.json import Jsonb
@@ -568,32 +571,46 @@ class FixedSuiteDriver:
         started = asyncio.get_running_loop().time()
         try:
             envelope = self.runtime_envelope("execute", str(identifier))
-            process = await asyncio.create_subprocess_exec(
-                *self.process_command(),
-                cwd=config.repository,
-                env=env,
-                stdout=logs[0],
-                stderr=logs[1],
-                stdin=asyncio.subprocess.PIPE,
-            )
-            process.stdin.write(json.dumps(envelope).encode())
-            await process.stdin.drain()
-            process.stdin.close()
+            # A regular file cannot block on a child that does not consume stdin.
+            atomic(directory / "runtime-envelope.json", envelope)
+            atomic(directory / "process.json", {"run_id": str(identifier), "status": "LAUNCHING"})
+            interrupted = False
+            with (directory / "runtime-envelope.json").open("rb") as input_file:
+                executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="evaluation-launch")
+                try:
+                    launching = executor.submit(
+                        Popen,
+                        self.process_command(),
+                        cwd=config.repository,
+                        env=env,
+                        stdout=logs[0],
+                        stderr=logs[1],
+                        stdin=input_file,
+                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+                    )
+                    # asyncio shutdown cannot cancel this native Future or discard its handle.
+                    while not launching.done():
+                        try:
+                            await asyncio.sleep(0.05)
+                        except asyncio.CancelledError:
+                            interrupted = True
+                    process = launching.result()
+                finally:
+                    executor.shutdown(wait=False)
             atomic(
                 directory / "process.json",
                 {"run_id": str(identifier), "pid": process.pid, "status": "STARTED"},
             )
-            while process.returncode is None:
+            if interrupted:
+                raise asyncio.CancelledError
+            while process.poll() is None:
                 elapsed = asyncio.get_running_loop().time() - started
                 if elapsed > row["budgets"]["max_seconds"] + 180:
                     raise TimeoutError("Cooperative process teardown exceeded its bound")
                 if elapsed > row["budgets"]["max_seconds"] or await cancelled():
                     (directory / "suite").mkdir(exist_ok=True)
                     (directory / "suite/cancel.request").touch()
-                try:
-                    await asyncio.wait_for(process.wait(), timeout=1)
-                except TimeoutError:
-                    continue
+                await asyncio.sleep(1)
             result = await asyncio.to_thread(
                 authenticated_result, directory, result_secret, identifier, row["owner_id"]
             )
@@ -617,7 +634,7 @@ class FixedSuiteDriver:
             self.verify_source()
             return result
         finally:
-            if process is not None and process.returncode is None:
+            if process is not None and process.poll() is None:
                 (directory / "suite").mkdir(exist_ok=True)
                 (directory / "suite/cancel.request").touch()
                 # Do not kill an uncertain child or claim its resources are released.
