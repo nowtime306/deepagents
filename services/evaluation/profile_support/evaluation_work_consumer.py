@@ -44,8 +44,9 @@ class ObservedWorker(WorkWorker):
 
 
 class ConsumerController:
-    def __init__(self, engine, profiles, sandboxes, state_path):
+    def __init__(self, engine, profiles, sandboxes, state_path, *, execute=None):
         self.engine, self.db = engine, engine.database
+        self.execute = execute if execute is not None else engine.execute
         self.profiles, self.sandboxes, self.path = profiles, sandboxes, state_path
         self.lock, self.records, self.storage_failed = asyncio.Lock(), {}, False
         self.worker, self.stop, self.task = None, None, None
@@ -69,7 +70,7 @@ class ConsumerController:
             raise
 
     def start(self):
-        self.worker = ObservedWorker(self.db, self.engine.execute)
+        self.worker = ObservedWorker(self.db, self.execute)
         self.engine.events = self.worker
         self.stop = asyncio.Event()
         self.task = asyncio.create_task(self.worker.serve(self.stop))

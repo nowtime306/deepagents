@@ -26,8 +26,8 @@ from .journal import Journal, atomic_json, digest
 from .metrics import score
 
 RULES_ID = "controlled-a20-v1"
-IMPLEMENTED = {"AET-A01", "AET-A02", "AET-W01", "AET-W03", "AET-W04", "AET-F02", "AET-F04", "AET-F06"}
-WORK_CASES = {"AET-W01", "AET-W03", "AET-W04"}
+IMPLEMENTED = {"AET-A01", "AET-A02", "AET-W01", "AET-W02", "AET-W03", "AET-W04", "AET-F02", "AET-F04", "AET-F06"}
+WORK_CASES = {"AET-W01", "AET-W02", "AET-W03", "AET-W04"}
 NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01", "AET-F06"}
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "datasets/a20-fixed.json"
 
@@ -45,6 +45,9 @@ def evidence_module(specimen):
         return fixed_parallel_evidence
     if specimen.case_id in fixed_workflow_observation.CASES:
         return fixed_workflow_evidence
+    if specimen.case_id == "AET-W02":
+        from . import fixed_java_client
+        return fixed_java_client
     if specimen.case_id == "AET-W01":
         from . import fixed_work_evidence
         return fixed_work_evidence
@@ -85,6 +88,8 @@ def readiness(platform, specimen):
             bound = proof.get("execution_limits", {}).get("profiles", {}).get(specimen.case_id, {})
             if bound.get("max_model_calls") != 0 or bound.get("max_tokens") != 0:
                 missing.append("The fixed readonly profiles require enforced zero model calls/tokens")
+        if specimen.case_id == "AET-W02":
+            evidence_module(specimen).readiness(platform, specimen, capabilities=capabilities)
         if specimen.mode == "work":
             if specimen.case_id == "AET-W04" and "work-consumer-rebuild-v1" not in capabilities.get("observers", []):
                 missing.append("The real cooperative Work consumer rebuild controller is unavailable")
@@ -155,7 +160,7 @@ def execute(platform, journal, attempt, specimen, output):
     if specimen.case_id in NAMESPACE_CASES:
         platform.expected_sandbox_namespace = attempt["sandbox_namespace"]
         platform.attest()
-    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W03", "AET-W04", "AET-F06"}:
+    if specimen.case_id in fixed_workflow_observation.CASES | {"AET-A01", "AET-W02", "AET-W03", "AET-W04", "AET-F06"}:
         snapshot = module.execute(platform, journal, attempt, specimen, cancelled=lambda: (output / "cancel.request").exists())
     else:
         if not attempt.get("submission_complete"):
@@ -209,7 +214,7 @@ def cleanup(platform, journal, attempt):
         return "NEEDS_REVIEW"
     if specimen.case_id in fixed_workflow_observation.CASES | {"AET-F06"} and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
-    if specimen.case_id == "AET-A01" and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
+    if specimen.case_id in {"AET-A01", "AET-W02"} and module.cleanup(platform, journal, attempt, specimen) != "CLEAN":
         return "NEEDS_REVIEW"
     if root["mode"] == "work":
         receipts = platform.get(root["path"] + "/operations")["items"]

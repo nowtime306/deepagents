@@ -30,6 +30,7 @@ LIMITS = MappingProxyType({case: (0 if case in {"AET-F02", "AET-F04", "AET-F06"}
 COUNTER_COMMAND = ("python3 -c \"from pathlib import Path; p=Path('counter.txt'); "
                    "p.write_text(str(int(p.read_text())+1))\"")
 A01_CASE_LIMIT = {"max_model_calls": 8, "max_tokens": 120, "max_roots": 2}
+CASE_LIMITS = {"AET-A01": A01_CASE_LIMIT, "AET-W02": {"max_model_calls": 6, "max_tokens": 90, "max_roots": 2}}
 
 
 class ProfileState:
@@ -120,13 +121,14 @@ class ProfileState:
             raise ValueError("Invalid controlled token reservation")
         with self.lock:
             root_key = key[:3]
-            if case_id == "AET-A01":
+            if case_id in CASE_LIMITS:
+                bound = CASE_LIMITS[case_id]
                 roots = [(root_id, value) for root_id, value in self.roots.items()
                          if root_id[0] == str(scope.owner) and value["case_id"] == case_id]
                 if (any(value["unknown"] or value["pending"] for _, value in roots)
-                        or sum(value["calls"] for _, value in roots) >= A01_CASE_LIMIT["max_model_calls"]
-                        or sum(value["tokens"] for _, value in roots) + cost > A01_CASE_LIMIT["max_tokens"]
-                        or root_key not in dict(roots) and len(roots) >= A01_CASE_LIMIT["max_roots"]):
+                        or sum(value["calls"] for _, value in roots) >= bound["max_model_calls"]
+                        or sum(value["tokens"] for _, value in roots) + cost > bound["max_tokens"]
+                        or root_key not in dict(roots) and len(roots) >= bound["max_roots"]):
                     raise RuntimeError("Controlled case budget blocked generation before provider effect")
             root = self.roots.setdefault(root_key, {"case_id": case_id, "calls": 0, "tokens": 0, "unknown": False, "pending": 0})
             calls, tokens = LIMITS[case_id]
@@ -333,7 +335,7 @@ def build_app(settings, *, sandbox_config=None):
             factory = lambda configuration: model_factory(configuration, state)
             application.state.evaluation_profiles = state
             application.state.evaluation_case_limits = {"schema_version": 1, "enforcement": "controlled-case-reserve-v1",
-                "scope": "evaluation-owner-and-case", "profiles": {"AET-A01": dict(A01_CASE_LIMIT)}}
+                "scope": "evaluation-owner-and-case", "profiles": {case: dict(bound) for case, bound in CASE_LIMITS.items()}}
             application.state.evaluation_execution_limits = {
                 "schema_version": 1, "enforcement": "controlled-model-factory-v1", "scope": "resource-run-root",
                 "profiles": {case: {"mode": "ask" if "-A" in case else "work" if "-W" in case else "workflow",
@@ -360,8 +362,23 @@ def build_app(settings, *, sandbox_config=None):
                     application.state.evaluation_bounded_sandboxes = sandboxes
                     if application.state.browser_workbench is not None:
                         application.state.browser_workbench.sandboxes = sandboxes
+                    from evaluation_java_verifier import (
+                        LAUNCHER_SHA,
+                        PROGRAM_SHA,
+                        TESTS_SHA,
+                        JavaVerifier,
+                        attach_java_verifier,
+                    )
+
+                    artifacts = WorkArtifacts(application.state.db, settings.data_dir / "work-artifacts")
+                    java = JavaVerifier(application.state.db, sandboxes, artifacts, application.state.models, state,
+                                        environment_id=settings.evaluation_instance_id, state_path=settings.data_dir / "evaluation-java-verifiers.json")
+                    await java.initialize()  # Before any Work consumer or target admission.
+                    attach_java_verifier(application, java)
+                    application.state.evaluation_java_capability = {"protocol": "java-max-v2", "initialized": True,
+                        "program_sha256": PROGRAM_SHA, "launcher_sha256": LAUNCHER_SHA, "tests_sha256": TESTS_SHA, "observer": "java-verifier-owned-v1"}
                     engine = WorkEngine(application.state.db, application.state.models, sandboxes,
-                                        WorkArtifacts(application.state.db, settings.data_dir / "work-artifacts"),
+                                        artifacts,
                                         application.state.runtime.saver, factory,
                                         capabilities_factory=lambda run: CapabilityService(
                                             application.state.db,
@@ -371,8 +388,11 @@ def build_app(settings, *, sandbox_config=None):
                     application.state.evaluation_work_engine = engine
                     from evaluation_work_consumer import ConsumerController
 
+                    async def dispatch(run):
+                        return await java.execute(run) if java.handles(run["task_id"]) else await engine.execute(run)
+
                     work_consumer = ConsumerController(engine, state, sandboxes,
-                                                       settings.data_dir / "evaluation-work-consumers.json")
+                                                       settings.data_dir / "evaluation-work-consumers.json", execute=dispatch)
                     application.state.evaluation_work_consumer = work_consumer
                     work_consumer.start()
                 yield
@@ -398,6 +418,9 @@ def build_app(settings, *, sandbox_config=None):
     from evaluation_work_consumer import attach_consumers
 
     attach_consumers(app)
+    from evaluation_java_observer import attach_observer
+
+    attach_observer(app)
 
     from app.agent_evaluation_environment import environment
     from app.errors import fail

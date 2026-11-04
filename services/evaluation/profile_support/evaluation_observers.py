@@ -101,5 +101,8 @@ def attach_observers(app):
         return {"schema_version": 1, "fixture_profile": {"id": "controlled-v1", "version": 1},
                 "observers": ["root-model-context-v1", "owned-sandbox-states-v1", "readonly-workflow-effects-v1", "single-automation-lifecycle-v1",
                               *(["work-consumer-rebuild-v1"] if getattr(request.app.state, "evaluation_work_consumer", None) else [])],
+                "java_verifier": (getattr(request.app.state, "evaluation_java_capability", None)
+                    if getattr(request.app.state, "evaluation_java_verifier", None) and request.app.state.evaluation_java_verifier.ready
+                    and not request.app.state.evaluation_java_verifier.storage_failed else None),
                 "case_limits": getattr(request.app.state, "evaluation_case_limits", None),
                 "sandbox_limits": service.capability() if service else None, "work_manager": manager}
