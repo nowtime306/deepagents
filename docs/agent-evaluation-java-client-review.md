@@ -44,3 +44,11 @@
 私有实现冻结摘要`29db3365efa4f4e6b1a2e92cd6b57d58fbeb39980765aa975e5a0fa6c65f50b0`经root非作者代码审查关闭，独立等层副本50项工程通过；只是协议/SDK/SQL/ASGI替身，未实际执行新Linux双阶段。可移植迁移仅替换导入、更新真实双阶段夹具及增加反例，保留原有断言；四项offline/CLEAN反例改用现有完整MockTransport fixture，不在仓库测试中依赖私有历史报告。迁移冻结摘要`a5da1fff3da8ed70808f43f0f448f96657927a3e2d8fd088c5d6adf74a5bb42b`待root复核后执行active工程测试和新正式样本。先前私有依赖历史报告的四项仅为合成QA，未改原报告。
 
 root复核并合入四源增量及六测试迁移：完整active客户端492通过、profile219通过，零失败/跳过，原件`services/evaluation/.local/java-baseline-active-a09306f603844751ac623804fab3a725`。包含既有488/199及新增4/20，不累计相加。target同时保留已审F01预算/温度补丁，只改变baseline capability一行；合入前目标原字节摘要acc978...与已审私有预算候选仅换行不同，规范化文本完全相同，未覆盖其改动。原PROGRAM/LAUNCHER字节未改。下一正式样本须固定候选并预先采集生命周期；当前11/20的限定案例覆盖不因本工程测试增加。
+
+## f047双阶段正式限定验收通过
+
+新候选`f047aea6b7876c184865c1b54bdf688c84f559fd`在全新`suite-w02-baseline-f047aea-1bb02c81a7af4e4e95441e5ee18bd59a`实际执行。原源码正常编译，三次JVM实际输出2/-7/4，两项FAIL一项PASS；修复版三项PASS，两报告同JDK/program/launcher/tests，registry持久baseline/report与正式结果相合。真实源三调用30入15出，验证器六项原生零且实际provider无调用，差异/成果原字节可重算。
+
+预先启动的只读生命周期观察捕获两真实容器/会话和精确run/owner/namespace：每个create→start→die→destroy各一次，源容器destroy早于验证容器create，六次manager样本及末尾库存零，错误为空。lifecycle原摘要`710241e0f232aeed0bc4bd57d3b4aae42313167cf09217d2d9139200161bcd6e`。非作者另核57原件未变、328来源对应原Git候选、四CLI当前审计/ready及父子报告一致；现场只读库不存在、两个原进程已退、namespace与两精确egress-sidecar均零。
+
+独立清单`.local/team-workspace/agent-evaluation/ops-development/w02-baseline-f047aea-verification-manifest.json`摘要`c7070d61f8ff045833081e307fbf7f97009e29faf4380e3faf3fa1fdb1fb0304`，后记摘要`2e6534ccae1d4f47d192725e4b0d504665e360de839f3720928359ec257e08a6`。后查Docker历史为空不覆盖执行时完整原事件。此次只计一个受控修复案例/一次独立重复；旧c71和f2fd结论保留，不代表全A20、真实供应商质量、页面或部署。

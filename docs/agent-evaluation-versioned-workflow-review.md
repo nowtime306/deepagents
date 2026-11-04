@@ -43,3 +43,9 @@ d727新样本的两个初始化运行/发布、current选择及模型维护均�
 冻结摘要`3dcf5730cef2f411573888706c8935fdbcc688b6098e5b48b4dd861125ad3931`经非作者审查关闭，独立客户端32项及真实正式router处理器2项通过；其身份/存储为替身。独立收据`760ce996de1fceb6b78bb891ddae565da74bfde2b97f0aa6d7144924459535c0`。另补显式新测试库、私有vault、真实opaque session/权限/ModelRegistry及正式router的PG合同测试；外层创建随机库，失败保留，成功须核零业务计数和零会话后精确回收。该测试不启动主应用、worker、模型或manager。可移植当前代码回归不加载历史错误源码，原旧源码红证据留在私有冻结。
 
 root合入后active32客户端/2正式router替身通过，路径`services/evaluation/.local/f01-response-active-f69751f11f724a668187a2ffd8d57e5e`。新随机PG真实合同1通过、0跳过，实际id-only响应、GET修订2/温度.4、两类过期CAS409均成立；七类运行效果零、库会话零并精确回收。收据`.local/agent-evaluations/f01-response-pg-96e0ca0a40e043cbb16fb4f238c849a3/receipt.json`摘要`2ffcfba04cb0dc955cfddcaba5506b2445dc4fb5892597cfb6ee58716f3d1e9e`。PG测试导入评测模块放在显式环境验证之后，默认无独立测试环境时跳过，避免普通API测试收集要求生产安装DeepEval。上述仍不是正式F01任务成功，须后续新样本。
+
+## 69d240b候选F01限定验收通过
+
+正式样本`suite-f01-69d240b-81612003ac3b47658152ff47e27f2be6`父进程退出0。另一角色只读38项事实重算及9项宿主后记链接：四真实根SUCCEEDED、四调用40入20出、24原生事件，初始化模型修订1/1、主运行2/2与温度.4，实际used配置和原v1/v2发布定义不变；正式current=1读取与显式v2执行结果相符，owner效果/provider四调用/沙箱零，四CLI当前审计及ready三摘要、父子报告和328来源均一致。51原件字节未变。
+
+独立记录`.local/f01-independent-review/run_0c8d30f35199/final-review.json`摘要`bb087e903933f1720551b2762dcecaeb897c29b59e158b73c71b54f2bc57f8f8`。root执行后只读确认库不存在、会话零、两个PID已退、namespace的manager/Docker库存零，后记`f01-69d240b-host-observation.json`摘要`652d4d7731cac36deb02a8fb4ef9fc5acff026882237950f1db9e46564abae7b`；它不是原签名生命周期。私有首次复核harness把prior_run_refs字典当list产生KeyError的失败原件保留，只修harness，不改样本/重POST。旧d072/d727失败现场均保留。本次增加一个不同案例的一次限定受控验收，不代表真实外部模型、页面或全阶段完成。
