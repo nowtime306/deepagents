@@ -57,7 +57,7 @@ def result(row, outcome="FAIL"):
         "usage": None,
     }
     files = {
-        "json": json.dumps({"task_outcome": outcome}),
+        "json": json.dumps({"task_outcome": outcome, "gate_verdict": outcome, "samples": [sample]}),
         "junit": "<testsuite/>",
         "markdown": outcome,
     }
@@ -71,6 +71,7 @@ def result(row, outcome="FAIL"):
     return {
         "schema_version": 1,
         "verified": True,
+        "gate_verdict": outcome,
         "run_id": str(row["id"]),
         "owner_id": str(row["owner_id"]),
         "samples": [sample],

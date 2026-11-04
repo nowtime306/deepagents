@@ -71,3 +71,15 @@ root在active普通测试目录实跑71项/25.79秒、零失败/跳过，源码�
 rdc_index另作非作者只读核验：85dc原冻结及active三文件逐字节相同，71项JUnit/日志/13份源码前后摘要与临时物理进程见证一致；旧red严格为有界摘录、原NotImplemented探针未启动孩子。后记`.local/team-workspace/agent-evaluation/selector-worker-independent-recheck/review_74695b1f8adf/review.json`摘要`ee35255a1e6e21c032e5c6269b5c4964b1186bcacb7d2b050f8126e0a454f8c7`。该角色未重跑或触及服务。
 
 受控A02的父许可—真实target—MAC结果—PG导入工程链继续准备。新链只用明确的本地合成队列和私有对象fixture，公开admission继续BLOCKED，不伪造A20 publication或bridge；实际执行前不填通过。
+
+### 完整链执行前的门禁传播阻断
+
+核心e847与600秒生命周期6845已锁767候选、333源和13基线，仅完成只读审查，未建新测试库或启动目标。root进一步核对发现：sample_projection只看原事实TaskOutcome及cleanup，忽略suite child的NEEDS_REVIEW/infrastructure_error；collect和Worker.commit又只按TaskOutcome重算，有把原执行待复核升级PASS的风险。纯函数反例保持原事实PASS、child NEEDS_REVIEW/exit3和CLEAN清理，投影仍给PASS；私有收据`worker-projection-infrastructure-red.json`摘要`b1fa51554428905a7e148d6a14ec5a274a971e6ee9d4bc95d21af32ca37667a1`，没有DB、目标或publication。
+
+实际链因此暂缓。修复须保留原TaskOutcome事实，独立合并child/suite/基础设施/stopped及样本/总门禁，并确保报告JSON、Markdown、JUnit与导入数据库一致；不能改写事实来掩盖待复核，也不能放宽原FAIL。新修复审查/工程QA后固定新的源码候选，再新包重基完整链，不能只修改外部lock来绕过旧source pin。
+
+该问题现以冻结`441daf2e4a52787fb55d8209e0906a35ac1d39d0ec1610d2d1088ed6ad112fb1`修复：原TaskOutcome与事实计数保持，样本/批次验收门禁按更严格背景传播；报告JSON/Markdown/JUnit与数据库gate一致，无效、缺失或不一致的新输入在导入事务前拒绝。仅升级两个明确合成packet helper的gate/samples合同，原PG26条及协议16条断言AST未变；历史报告不迁移或重写，公开consumer仍未注册。
+
+root独立运行active普通目录89项/28.60秒、零跳过，包含原71及新增18个投影/报告反例；原件`active-worker-protocol-a7ed1b423c9e4833aefc02f9f3ba6196`，receipt摘要`fec68d287964a3971de49235d46429b2ef331391604ffb93123f073ca2a5a86e`。另在全新随机库17项/4.86秒通过、零跳过，包含原PG5、HTTP3和新增导入9（2合法、7无效/不一致）；七业务效果零、会话零，精确本次库已删除，原件`gate-import-pg-6a36fb229c6243aa8c9b1aadf550832c`，receipt摘要`dc377569d497d5bfb62f348c64b98293589af58d19b06e5bc95902848e721577`。组间范围不与旧批累加为任务数。
+
+rdc_index独立只读核对六active文件、89项日志/JUnit/14源前后、PG17日志/JUnit/原收据及原反例，后记`gate441-independent-postscript/review_1031bb5b1558/review.json`摘要`b407b58566919d4857f1c056bbb6e5ca82f629abb67fe0c1fa29002920c2f5e5`。其未重跑或查库；不把收据核对夸成额外完整JSON/PG快照对账。该缺陷范围闭合，A02完整链仍待新候选重基后实际执行。

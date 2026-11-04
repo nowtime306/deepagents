@@ -156,12 +156,27 @@ def sample_projection(child, row, ready):
         return [{"registered_id": item["registered_id"], "status": item["status"]} for item in rows]
 
     outcome = actual.get("task_outcome", "NEEDS_REVIEW")
-    if any(item["status"] == "FAIL" for item in facts):
-        outcome = "FAIL"
+    if outcome not in {"PASS", "FAIL", "NEEDS_REVIEW", "NOT_RUN"}:
+        raise ValueError("Invalid original task outcome")
     if not facts and outcome == "PASS":
         raise ValueError("An empty fact set cannot pass")
     metric_status = (
         "NOT_REQUIRED" if not metrics else "ERROR" if any(item["status"] == "ERROR" for item in metrics) else "COMPLETE"
+    )
+    cleanup = "CLEAN" if child["cleanup"] == "DATABASE_REMOVED_EVIDENCE_RETAINED" else "RETAINED"
+    verdicts = [row.get("gate", "NEEDS_REVIEW"), ready.get("gate", "NEEDS_REVIEW"), child.get("status", "NEEDS_REVIEW")]
+    if any(value not in {"PASS", "FAIL", "NEEDS_REVIEW"} for value in verdicts):
+        raise ValueError("Invalid original child gate")
+    gate = (
+        "FAIL"
+        if outcome == "FAIL" or "FAIL" in verdicts or any(item["status"] == "FAIL" for item in facts)
+        else "NEEDS_REVIEW"
+        if outcome != "PASS"
+        or any(value != "PASS" for value in verdicts)
+        or "infrastructure_error" in child
+        or cleanup != "CLEAN"
+        or any(item["status"] != "PASS" for item in metrics)
+        else "PASS"
     )
     root_refs = []
     for root in child.get("root_run_ids", []):
@@ -171,8 +186,8 @@ def sample_projection(child, row, ready):
         "repeat_index": child["repeat_ordinal"],
         "task_outcome": outcome,
         "metric_status": metric_status,
-        "gate_verdict": outcome if outcome in {"PASS", "FAIL"} else "NEEDS_REVIEW",
-        "cleanup_status": "CLEAN" if child["cleanup"] == "DATABASE_REMOVED_EVIDENCE_RETAINED" else "RETAINED",
+        "gate_verdict": gate,
+        "cleanup_status": cleanup,
         "facts": results(facts),
         "metrics": results(metrics),
         "root_refs": root_refs,
@@ -231,12 +246,22 @@ def collect(request, directory, registered):
             raise ValueError("Foreign target or case receipt")
         report = value(base / "result/report.json", expected=ready["files"]["report.json"])
         samples.append(sample_projection(child, report, ready))
+    suite_gate = suite.get("gate", "NEEDS_REVIEW")
+    if suite_gate not in {"PASS", "FAIL", "NEEDS_REVIEW"}:
+        raise ValueError("Invalid original suite gate")
+    if suite.get("stopped_reason") and suite_gate == "PASS":
+        suite_gate = "NEEDS_REVIEW"
+    for sample in samples:
+        if "FAIL" in {sample["gate_verdict"], suite_gate}:
+            sample["gate_verdict"] = "FAIL"
+        elif "NEEDS_REVIEW" in {sample["gate_verdict"], suite_gate}:
+            sample["gate_verdict"] = "NEEDS_REVIEW"
     cleanup = "CLEAN" if all(item["cleanup_status"] == "CLEAN" for item in samples) else "RETAINED"
     gate = (
         "FAIL"
-        if any(item["task_outcome"] == "FAIL" for item in samples)
+        if any(item["gate_verdict"] == "FAIL" for item in samples)
         else "PASS"
-        if cleanup == "CLEAN" and all(item["task_outcome"] == "PASS" for item in samples)
+        if cleanup == "CLEAN" and all(item["gate_verdict"] == "PASS" for item in samples)
         else "NEEDS_REVIEW"
     )
     public = {
@@ -248,7 +273,13 @@ def collect(request, directory, registered):
         "cost": {"external_models": "NOT_EXECUTED", "infrastructure": "NOT_PRICED", "complete_total": None},
         "samples": samples,
     }
-    xml = ET.Element("testsuite", name="agent-platform", tests=str(len(samples)))
+    xml = ET.Element(
+        "testsuite",
+        name="agent-platform",
+        tests=str(len(samples)),
+        failures=str(sum(sample["gate_verdict"] == "FAIL" for sample in samples)),
+        errors=str(sum(sample["gate_verdict"] == "NEEDS_REVIEW" for sample in samples)),
+    )
     for sample in samples:
         node = ET.SubElement(
             xml,
@@ -256,11 +287,11 @@ def collect(request, directory, registered):
             classname=sample["case_id"],
             name=str(sample["repeat_index"]),
         )
-        if sample["task_outcome"] != "PASS":
+        if sample["gate_verdict"] != "PASS":
             ET.SubElement(
                 node,
-                "failure" if sample["task_outcome"] == "FAIL" else "error",
-                message=sample["task_outcome"],
+                "failure" if sample["gate_verdict"] == "FAIL" else "error",
+                message=sample["gate_verdict"],
             )
     files = {
         "json": json.dumps(public, ensure_ascii=False, allow_nan=False),
@@ -269,7 +300,9 @@ def collect(request, directory, registered):
         + gate
         + "。受控工程结果，未执行真实模型效果或UI验收。\n\n"
         + "\n".join(
-            f"- {sample['case_id']} / {sample['repeat_index']}：{sample['task_outcome']}" for sample in samples
+            f"- {sample['case_id']} / {sample['repeat_index']}：门禁 {sample['gate_verdict']}，"
+            f"任务事实 {sample['task_outcome']}"
+            for sample in samples
         ),
     }
     manifest = {
@@ -287,6 +320,7 @@ def collect(request, directory, registered):
         "run_id": request["run_id"],
         "owner_id": request["owner_id"],
         "verified": True,
+        "gate_verdict": gate,
         "samples": samples,
         "cleanup_status": cleanup,
         "report": {

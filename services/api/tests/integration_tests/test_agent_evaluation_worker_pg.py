@@ -97,7 +97,7 @@ def packet(row):
     }
     files = {
         "json": json.dumps(
-            {"scope": "synthetic PG import fixture only", "samples": [sample]}
+            {"scope": "synthetic PG import fixture only", "samples": [sample], "gate_verdict": "PASS"}
         ),
         "junit": '<testsuite name="synthetic-pg-fixture" tests="1"/>',
         "markdown": "Synthetic PG import fixture; no Agent execution or acceptance evidence.",
@@ -121,6 +121,7 @@ def packet(row):
     return {
         "schema_version": 1,
         "verified": True,
+        "gate_verdict": "PASS",
         "samples": [sample],
         "cleanup_status": "CLEAN",
         "report": report,

@@ -751,13 +751,32 @@ class Worker:
                     "NOT_RUN": "not_run",
                 }[sample["task_outcome"]]
             ] += 1
+        if any(sample["task_outcome"] == "PASS" and not sample["facts"] for sample in samples):
+            raise ValueError("An empty fact set cannot pass")
+        verdicts = [result.get("gate_verdict"), *(sample.get("gate_verdict") for sample in samples)]
+        if any(value not in {"PASS", "FAIL", "NEEDS_REVIEW"} for value in verdicts):
+            raise ValueError("Invalid or missing result gate")
         gate = (
             "FAIL"
             if counts["fail"]
+            or "FAIL" in verdicts
+            or any(fact.get("status") == "FAIL" for sample in samples for fact in sample["facts"])
             else "NEEDS_REVIEW"
-            if counts["needs_review"] or counts["not_run"] or result["cleanup_status"] != "CLEAN"
+            if counts["needs_review"]
+            or counts["not_run"]
+            or result["cleanup_status"] != "CLEAN"
+            or "NEEDS_REVIEW" in verdicts
+            or any(sample["cleanup_status"] != "CLEAN" for sample in samples)
             else "PASS"
         )
+        report_json = json.loads(result["report"]["files"]["json"])
+        if (
+            not isinstance(report_json, dict)
+            or report_json.get("gate_verdict") != gate
+            or report_json.get("samples") != samples
+            or result["gate_verdict"] != gate
+        ):
+            raise ValueError("Report, process and imported gates disagree")
         async with self.db.pool.connection() as conn:
             fence = await (
                 await conn.execute(
