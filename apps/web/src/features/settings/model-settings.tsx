@@ -436,7 +436,7 @@ export function ModelSettings({
       )}
       <p className="settings-footnote">
         <CircleHelp size={14} />{" "}
-        大语言和文本向量模型可发送简短请求检测；其他类型可先保存配置，等待相应业务接入。配置保存不代表连通性已验证。
+        大语言、文本向量和重排模型按各自接口检测；其他用途请按模型卡片提示在对应业务中验证，未适配的协议暂不支持调用。配置保存不代表连通性已验证。
       </p>
       {editing !== undefined && catalog && (
         <ModelDialog

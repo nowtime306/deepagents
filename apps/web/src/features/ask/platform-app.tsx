@@ -821,7 +821,7 @@ export function PlatformApp() {
                   disabled={!!run || !!agentId}
                   onChange={(event) => setModelId(event.target.value)}
                 >
-                  {!models.length && <option value="">尚未配置模型</option>}
+                  {!models.length && <option value="">暂无可用对话模型</option>}
                   {models.map((model) => (
                     <option
                       key={model.id}
@@ -904,7 +904,7 @@ export function PlatformApp() {
                 <div className="configuration-note">
                   {isAdmin ? (
                     <button onClick={() => setSection("设置")}>
-                      尚未接入模型，前往“设置 → 模型管理”添加
+                      请在设置中检查对话模型的配置与启用状态
                     </button>
                   ) : (
                     "暂无可用模型，请联系管理员配置。"
