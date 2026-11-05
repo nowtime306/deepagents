@@ -123,7 +123,11 @@ def verify(root: Path, version: str) -> dict:
     return record
 
 
-def complete(root: Path, version: str, qa_path: Path, deployment_path: Path, health_path: Path) -> dict:
+def complete(
+    root: Path, version: str, qa_path: Path, deployment_path: Path, health_path: Path,
+    *, web_dist: Path | None = None,
+) -> dict:
+    """Seal verified release evidence, optionally binding an explicitly served build directory."""
     record = verify(root, version)
     if git(root, "rev-parse", record["tag"] + "^{commit}") != record["commit"]:
         raise ValueError("发布标签未固定到已归档提交")
@@ -150,9 +154,34 @@ def complete(root: Path, version: str, qa_path: Path, deployment_path: Path, hea
            or not (root / name).is_file() or not matches_source(root / name, digest, worktree[name])
            for name, digest in record["source_sha256"].items()):
         raise ValueError("当前业务源码与发布提交不同")
+    directory = root / "apps/web/.next" if web_dist is None else web_dist
+    if not directory.is_absolute():
+        directory = root / directory
+    directory = directory.absolute()
+    if web_dist is not None:
+        paths = [directory / "BUILD_ID", directory, *directory.parents]
+        if (
+            ".." in directory.parts
+            or not directory.resolve().is_relative_to(root.resolve())
+            or not directory.is_relative_to(root.absolute())
+            or any(path.is_symlink() or path.is_junction() for path in paths if path.is_relative_to(root.absolute()))
+            or not (directory / "BUILD_ID").is_file()
+        ):
+            raise ValueError("实际构建目录必须位于项目内且不含链接")
+    build_id = (directory / "BUILD_ID").read_text(encoding="utf-8").strip()
+    if web_dist is not None and (
+        not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", build_id)
+        or qa.get("web_build_id") != build_id
+        or deployment.get("build_id") != build_id
+        or health.get("web_build_id") != build_id
+        or deployment.get("web_dist") != directory.relative_to(root.absolute()).as_posix()
+    ):
+        raise ValueError("实际构建与测试、部署或健康记录不一致")
     record.update(status="deployed", deployed_at=deployment["time"], backup=deployment.get("backup"),
-                  build_id=(root / "apps/web/.next/BUILD_ID").read_text().strip(), health=health,
+                  build_id=build_id, health=health,
                   qa_record=str(qa_path.relative_to(root)), worktree_sha256=worktree)
+    if web_dist is not None:
+        record["web_dist"] = directory.relative_to(root.absolute()).as_posix()
     save(release_directory(root, version), record)
     return record
 
@@ -166,13 +195,19 @@ def main() -> None:
     parser.add_argument("--qa-record", type=Path)
     parser.add_argument("--deployment-record", type=Path, default=ROOT / ".local/platform-deployment.json")
     parser.add_argument("--health-record", type=Path, default=ROOT / ".local/platform-health.json")
+    parser.add_argument("--web-dist", type=Path, help="complete: verified served build directory within the project")
     arguments = parser.parse_args()
+    if arguments.web_dist is not None and arguments.action != "complete":
+        parser.error("--web-dist仅用于complete")
     if arguments.action == "prepare":
         record = prepare(ROOT, arguments.version, arguments.commit, arguments.report)
     elif arguments.action == "complete":
         if not arguments.qa_record:
             parser.error("complete需要--qa-record")
-        record = complete(ROOT, arguments.version, arguments.qa_record.resolve(), arguments.deployment_record, arguments.health_record)
+        record = complete(
+            ROOT, arguments.version, arguments.qa_record.resolve(), arguments.deployment_record,
+            arguments.health_record, web_dist=arguments.web_dist,
+        )
     else:
         record = verify(ROOT, arguments.version)
         if arguments.action == "fail":
