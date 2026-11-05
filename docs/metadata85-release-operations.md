@@ -59,3 +59,45 @@ API停止文件为原data下 `services/api.stop`，Ask为 `services/ask.stop`。
 运维独立验真最新39备份文件、351业务+依赖/操作入口、727固定Web文件、18已服务资源及停止原件；私有交接手册 `.local/metadata-production-release-handoff-ops-20261105-v1/runbook.md`，SHA256 `4121a93656e08ac7b7cc9cd7eb1b538a7aeb7880eff87c18a7aa574f9e7d5318`；其内容验真收据SHA256 `7447872586695c654951c8afea8131d63a606b1062453e3db92c0672076908be`。运维工具本身看不到主机OS/PG的限制明确保留，实时健康由root和测试真实复核，不混为该角色亲测。
 
 普通使用地址为 <http://localhost:3100>，沿原账号密码。新Web的私有停止token仅在本机身份文件中，交接文档不公开；后续需要停止时使用该token/PID创建专属停止文件，由本进程既有Next处理器清理，不按历史PID结束进程。其他3131/8100测试服务及18180管理服务保持，其他18个Docker容器没有重启或变更。
+
+## 2026-11-05 08:23 验收环境补齐（ENV-20261105）
+
+本次只完成环境准备，不提交业务任务，不变更生产执行开关，不增加A20通过数。正式服务仍为前述受限版本，真实外部模型仍跳过。分支 `onwer_agent`，启动时固定提交 `bf0ebc883dc5a8ff986e155e79a1de6d4f646bfe`；本节后续文档提交不替换正在运行的应用源码。
+
+### 已完成及实际验证
+
+- 沿仓库 `infra/sandbox-images/browser/Dockerfile` 构建 `owner-agent/browser:dev`，镜像ID `sha256:5c5092b2fafdf6dc00c6d5d4e082ed1a64e28968f075f5a14fe2fb4821fe11f2`。Playwright 1.56.0、系统Chromium 156.0.8078.79、Noto CJK字体可用。网络完全关闭的临时容器完成中文DOM、按钮点击和截图检查，已确认销毁。
+- 通过原OpenSandbox 18180管理服务实际创建3Gi/2CPU Browser沙箱；默认拒绝出网，最长存活180秒、命令限30秒。只对离线页面执行点击和截图，命令退出0；销毁后按唯一commissioning元数据复查剩余0。未访问被浏览器工具拒绝的站点。
+- 使用已有 `scripts/evaluation-target.py` 建立全新隔离目标：数据库 `owner_agent_evaluation_0f95d297299c48c19e026f128427852f_test`，环境 `0f95d297-299c-48c1-9e02-6f128427852f`，沙箱命名空间 `450776c7-6888-4375-8188-9a481063695f`，仅监听 `http://127.0.0.1:58456`，当前进程24196。不能凭历史PID结束进程。
+- 隔离库85迁移齐全；真实HTTP登录与环境/账号身份对应；Ask、Work新鲜心跳各1。平台默认受控A02模型仅建配置，未调用；Ask任务、Work任务、Workflow任务、评测批次、模型用量和平台沙箱记录均为0。账号与数据库凭据仅存当前用户受限目录，不复制生产模型密钥。
+- 正式3100和独立3131首页均200；生产模型用量仍61。原数据库、账号密码、加密密钥、生产执行开关及其他容器保持。3131原后端8100未切换到新目标；它仍适合管理页面检查，不能据此声称完整评测页面链路已就绪。
+
+镜像检查参考 [Playwright Docker官方文档](https://playwright.dev/python/docs/docker) 及 [BrowserType官方API](https://playwright.dev/python/docs/api/class-browsertype)。本次局部运行通过不代表所有浏览器网站兼容性均已验收，也不替代浏览器工具对3100/3131的真实页面验收。
+
+### 资源与未闭合项
+
+08:22采样：宿主可用6639534080字节、Docker总量8328163328字节、现有容器使用393750773字节；保留1GiB后实际可用预算5565792256字节（约5.18GiB）。维持Coding 5Gi/4CPU、Browser 3Gi/2CPU配置；只串行准入并在创建前重新采样。此时不能保证Coding+Browser并发8GiB或两个Coding并发10GiB；不关闭其他工作负载、不改WSL/Docker上限，不调低沙箱资源以伪造通过。
+
+需要用户配合的是桌面应用Google Chrome的实际站点规则：移除并重新添加 `http://localhost:3100` 与 `http://127.0.0.1:3131` 为始终允许，随后由工具重新验证。最近一次真实工具仍返回已保存权限拒绝，不能用SDK浏览器、换域名或其他控制路径绕开。若用户要求并发专项，还需先释放宿主内存并根据Docker上限安排资源；目前可先串行，无需用户提供新的模型密钥。
+
+完整平台评测持久驱动、可信发布门禁以及W05修后真实复测和其他专项证据，属于尚未闭合的开发/测试项；环境启动不解决这些问题，也不开放生产Work/Workflow/评测执行。历史批次额度、停止规则、旧失败和UNKNOWN保持；环境调试不复用旧批预算，后续实际案例仍按原审批和候选冻结流程执行。
+
+### 运维操作和证据
+
+私有目标目录：`.local/agent-evaluations/environment-setup-bc645d1da1f6485a8ddee0c76451dc55`。`credentials.json`、`server-private.json`、`admin-connection.private`均继承目标目录的当前用户/SYSTEM/管理员ACL；不要输出到聊天或提交仓库。`server.log`、目标源码逐项摘要、身份与端口证据同目录保留。新目标仍保留为空闲验收环境，没有自动派发业务任务。
+
+需要停止时，在仓库根目录运行已有合作停止入口：
+
+```powershell
+& .\services\api\.venv\Scripts\python.exe -I .\scripts\evaluation-target.py stop --state .\.local\agent-evaluations\environment-setup-bc645d1da1f6485a8ddee0c76451dc55
+```
+
+随后检查该目录 `stopped.json` 的同一environment_id和 `graceful: true`、监听与真实心跳退出。不要重跑start覆盖该目录，不自动cleanup/drop数据库；后续重新准备使用新目标目录，诊断原件继续保留。
+
+本地复核入口 `.local/environment-setup-20261105/verify.py` 只进行HTTP身份、数据库只读计数、资源与镜像检查，不提交任务。收据位于 `.local/environment-setup-20261105/`：
+
+- `environment-receipt.json` SHA256 `00be6f3470f82e1c9b9a17ec3985fcccb3e39d4e18c7b2ad1ee9767496b19efa`；含原始源码逐项指纹与环境证明。
+- `browser-smoke-result.json` SHA256 `62c12e9391635c58aa1d467a63281929e770e41776b491a8d78132d6c6a0c527`。
+- `manager-smoke-result.json` SHA256 `49f62aed1c216145dd745ea3e3a60cde473f280f6b09320603deb4c86d6f6da4`。
+
+首次本地镜像检查的测试脚本引号错误已修正，失败原件 `browser-smoke-fixture-error.json` 保留。首次管理服务命令尝试使用新版SDK的argv形式，而固定execd v1.1.0只接受字符串，返回400；随后沿现有产品的POSIX字符串参数形式复测通过。原失败保存为 `manager-smoke-incompatible-argv.json`，原沙箱已另行核实回收；未升级SDK/execd、未修改产品业务代码，两个管理服务调试沙箱均已回收。
