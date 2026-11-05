@@ -63,3 +63,30 @@
 现有 `platform_release.complete` 固定读取 `apps/web/.next/BUILD_ID`，不能用于本轮已独立部署的自定义冻结dist，否则登记的构建可能属于另一旧产物。主根负责最小适配：新增仅complete使用的可选 `--web-dist`，默认旧调用保持。显式目录必须位于项目根内、不是符号链接或junction；读取其真实BUILD_ID，并同时匹配QA的web_build_id、部署的build_id/web_dist和健康记录的web_build_id。缺失或不一致拒绝登记，不复制或改写BUILD_ID伪造产物。
 
 原Git标签/源码归档一致性、独立测试及浏览器验收、完整部署和健康门禁全部保留；新参数不能把未验浏览器、部分部署或未提交源码标成通过。先用隔离假仓库验证旧行为、自定义正确目录、错误ID/目录/链接拒绝，再独审；正式记录仍须后续真实证据。
+
+## 9. TEST API 更新后的独立运维核验（2026-11-05 21:27 北京时间）
+
+此节更新前文的准备阶段状态：主协调者已单次冻结候选 `9f1c53f2d7ed2f0f897ed405ff6ffe55e059f60e`，并完成 TEST API8100 替换；正式3131/API8101此时仍是原C85应用，未进入本轮正式更新。测试Web3100是已独审的新XQ构建，正式候选Web为Cq/8101包，不能用旧I1或8b源证明替代。
+
+第一次TEST stop在创建marker前因原data/services父不存在失败，原claim/现场保留。主协调者核验原UUID租约、目录身份后仅建空TEST父目录，再用独立v3包的同字节controller/host/合同执行新的stop/launch；没有重跑旧claim、重新进入维护或恢复旧数据库。独立运维收据为 `.local/team-workspace/remaining-cases-20261105/ops/test-api-v020-v3/ops-independent-postlaunch.json`。
+
+- 新TEST wrapper41536/实际23308的原生创建FILETIME、CIM参数和唯一8100监听均与启动收据一致；源清单414文件、manifest摘要 `c373d8b46febe04256160f0bbf63b09f71f085fc480b3672034c88b55e36897b` 与已审合同一致，schema85，注册服务仅该候选API。受限Settings绑定保持Ask inline（独立Ask worker=false），Work/自动任务/评测/media均false、测试cookie独立。该配置证据来自不可变宿主/Settings与真实进程参数/注册信息，不声称读取了进程内存。
+- 原3个模型、独立key及原3次KNOWN调用的逐call归属与输入142/输出0保持；新旧停止前全部业务快照相等，launch收据在代码强制启动后全表等值检查通过后生成。产品并行授权登录随后合法改变auth_sessions和auth_rate_windows，单独记为登录元数据；其他受保护业务表仍全部等值，不删除登录或用量记录以追求零变化。
+- 测试维护状态已通过原UUID的精确CAS释放，lease/job均NULL；8100 ready、3100页面及代理注册配置GET、8101 ready、3131页面均200。本运维检查没有登录、模型调用或浏览器操作；产品页面及真实Ask SSE验收另行记录。
+- 正式原5个进程的原生身份及原库模型/用量/schema/key与冻结时一致。正式data/services父目录已存在且无链接，api.stop/ask.stop均无；其中17个既有控制.lock/.log/.json文件必须保留，目录并非空目录，也无需为写本轮exclusive stop marker而清空。此事实避免重复TEST父目录缺失问题，不授权删除原文件。
+
+正式维护、停止、离线备份/clone验证、新源发布及最终版本登记仍须等待TEST页面与后续准入。以上当前快照不能替代实际正式维护窗口的GATE drain、原生身份及数据重新核验；本次文档更新未提交。
+
+## 10. 正式新版本启动后的独立运维核验（2026-11-05 22:01 北京时间）
+
+主协调者已按独审合同完成正式维护准入、五个旧进程合作退出及真实离线备份，再单独完成runtime复核和新版本启动；本节替代前述“正式尚未更新”的阶段状态。候选仍为 `9f1c53f2d7ed2f0f897ed405ff6ffe55e059f60e`，原owner_agent/schema85/data/key继续使用，未恢复旧数据库覆盖新数据。
+
+原备份验证第一次因65字节clone名称超过PostgreSQL的63字节限制、被截断而失败。原失败claim/intent/截断库和真实备份均保留；独立审查后的最小恢复脚本仅复用原dump，创建57字节的新clone并实际核对current_database、全部manifest表数量、精确85迁移名称和模型密钥解密后，写明恢复过程的真实收据。没有再次备份、迁移、drop或伪造旧失败为成功。新clone为 `owner_agent_release_restore_c727ea610b3e4f6fa65d4ea5_test`，真实备份manifest SHA为 `6d637f7d8fd960ac5c927f403b04da9a5548b3faeff11220a39ec877da8c7454`。
+
+独立收据 `.local/team-workspace/remaining-cases-20261105/ops/production-release-v2/ops-independent-postlaunch.json` 已核：新API36732/wrapper37296、Ask39768/wrapper14028及Web20928的原生FILETIME/参数/父子关系，8101/3131唯一监听；API/Ask唯一新鲜注册均绑定该候选，414文件冻结源和冷入口import-origin守卫、Cq实际构建、1137运行资产加2配置及18必需文件均匹配。受限开关保持Ask独立worker=true、Work/自动任务/评测/media=false，原生产cookie保留。
+
+正式登录前另封存142个保护表的原始快照 `ops-raw-postlaunch-business.json`（SHA `f07ee2d39eb16a292fa4877a819cf9a31613d3ae9399c1e75112178b943a5558`）：仅ask_worker_instances因新Ask心跳注册改变，其余141表完全同停止前。主协调者后续授权登录触及auth_rate_windows，单独记作认证元数据；当前其余保护业务表、3模型、61用量、原key均不变。正式维护已释放、lease/job均NULL，备份文件重新校验通过，新旧clone均保留。
+
+TEST正常保留3模型和4次KNOWN调用，合计输入202/输出17（含主协调者另行批准的真实SSE调用60/17）；原3条RAG调用与两套key保留。独立运维GET核正式ready/首页/代理注册配置/真实Cq静态manifest和TEST ready/首页均200，没有登录、模型调用、浏览器操作或服务/数据库写入。
+
+此为部署与数据保护实证，不替代最终正式浏览器、业务质量或版本登记；模型字面响应质量、限定受控案例与完整业务覆盖须分别说明。最终上线验收和版本记录由主协调者依据实际证据完成，旧故障与未覆盖项继续保留。

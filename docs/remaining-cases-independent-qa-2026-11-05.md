@@ -265,3 +265,39 @@ fresh PG唯一根NEEDS_REVIEW、唯一已批准操作UNKNOWN且未finished，唯
 原始记录：`formal-final-r6-evaluation.xml`、`formal-final-r6-profile-green.xml`、原失败profile日志；私有reviewer/f07-init-r6独立审查与封存红绿收据。此节不宣告新F07完整业务验收、部署或整体发布。
 
 R6-style独审通过：manifest `15ae8238530b7aa884ef5ff67e827748ef2b503809cb9c1be7d4ea93df1c7940`，仅导入移动一行加空行，普通Ruff及独跑9项通过。主Agent精确集成；未改运行源码、initializer pin或旧失败现场。
+
+## Canonical R6 同候选 F07/A05/W07 独立验收（2026-11-05）
+
+候选 `9f1c53f2d7ed2f0f897ed405ff6ffe55e059f60e`，按主Agent已实际完成的新独立批逐一复核；未自行启动任务。
+
+- F07：`.local/agent-evaluations/canonical-r6-aet-f07-be66bf08d16e434fbb56216794ebfe8d`。final ready、init及run完整身份审计、control PASS；fresh只读PG核4根/实际节点事件、3SUCCEEDED及1模型FAILED无fallback，两个纯timeout真实cancel证明及JSON错误fallback均吻合。provider唯一1次/15UNKNOWN，native唯一用量UNKNOWN且输入输出NULL，估算与输出预留64保留。controller CLOSED/原120秒anchor、formalcleanup1/stop0，0Work/Ask/MCP/沙箱/operation/worker及其他连接，进程监听退出，全source/六依赖匹配。业务/suite仍NEEDS_REVIEW、DBRETAINED，父预留不退。
+- A05：`.local/agent-evaluations/canonical-r6-aet-a05-f74977c31437480cb339bd1db0a7467d`。final ready/control及预期拒绝通过，4KNOWN输入40/输出20=60合成Token，receiver各lookup1/write0并CLOSED，原UNKNOWN ToolMessage保留；formalcleanup/stop/drop0，新库fresh确认不存在/连接0，PID1720/16996及监听无，全source匹配。
+- W07：`.local/agent-evaluations/canonical-r6-aet-w07-5a3d73213fb0404883758e068bf045fe`。final ready/control PASS、formalcleanup1/stop0，业务NEEDS_REVIEW/DBRETAINED；freshPG未知操作及已消费审批1、唯一KNOWN10+5，SQLite1attempt/1effect，换consumer前后同checkpoint/receiver/provider/operation事实不变。2RELEASED、manager精确namespace0、worker/租约/连接0，进程监听退出，全source匹配；父5/1000/2预留保留。
+
+各批 `reviewer-independent-verification.json` 与 `reviewer/verify-canonical-r6-{f07,a05,w07}.py` 保存独立结果。三个新批属于同一候选的控制迁移复验，不新增不同案例数；旧F07 init失败、旧W07 cleanup错误/UNKNOWN、全部旧消费保留，无任何回填/退款。W08同候选新批仍待核。
+
+## Canonical R6 同候选四例限定发布意见（2026-11-05）
+
+最后W08新批 `.local/agent-evaluations/canonical-r6-aet-w08-a5172cd30ff14560b80ac014b5ec3040` 已自然结束，独立valid ready、control/business PASS、6KNOWN输入60/输出30=90/provider6/90、Linux物理边界/最新Delta/HTTP成果封存重算通过；fresh两持久文件各10字节SAFE_INPUT及SHA一致，cleanup/stop/drop0、新库确不存在/连接0、进程监听退出、认证manager精确namespace0，全部源与六运行依赖匹配9f1。正常删库后未重新创建/读取原生表，明确区分原执行封存证明与fresh资源核查。
+
+四例均属于同候选 `9f1c53f2d7ed2f0f897ed405ff6ffe55e059f60e`，各有本批独立receipt，汇总见 `.local/team-workspace/remaining-cases-20261105/reviewer/canonical-r6-four-case-summary.json`。总8个实际根、11次KNOWN调用/输入110输出55共165Token；另F07唯一UNKNOWN provider调用保留15合成预留，原生输入输出NULL，不把180受控合成账视为已知实际模型Token。原批、错误ready、UNKNOWN及消费均未回填或退款。
+
+限定结论：四项canonical CLI v2控制复验齐全，可进入已审源码/受控CLI范围的最终source与contract准备，生产切换仍须独立部署门禁。A05/W08预期业务通过并清理；W07/F07业务及JUnit仍NEEDS_REVIEW、未知操作或用量/DBRETAINED及精确cleanup语义不变。不是新增4种业务案例，不授予平台UI v2/B100/外部裁判或真实供应商质量验收，不代表全平台功能无缺陷。0独立复核新POST/模型/目标启停/正式源码修改。
+
+## TEST真实模型 Ask/SSE v3 独立复核（2026-11-05）
+
+`.local/acceptance-resume-20261105-root/real-ask-sse-v3` 已完成只读独立核证，另写 `reviewer-independent-verification.json`；原 `receipt.json` 的 FAILED_OR_UNKNOWN_RETAINED 状态及SHA保持，不改写为通过。
+
+传输/Runtime/账本限定通过：封存SSE的5个有序原生事件id1–5与fresh PG事件逐项吻合，delta和完成消息为“好的”，终态SUCCEEDED；重连封存只有snapshot/end，fresh该会话只有一个run，无新增/重试。唯一原生KNOWN账输入60/输出17=77Token（供应商统计包含推理），cost/currency为NULL，owner/run/model归属正确；会话两条消息及原生checkpoint最新消息channel版本/create_agent integration存在，未重执行图。保存硬政策12calls/64000Token与当前ASK_POLICY一致。
+
+内容逐字指令未通过：用户固定输入Only reply OK.，实际返回“好的”。原失败正确保留，不能以中文近义内容替代逐字OK验收。clone的supports_tools非True，实际为plain create_agent分支；不把事件中的通用harness标签当作DeepAgents工具loop/委派已验证。
+
+另fresh核test/prod不同数据库身份及role，三个原模型声明字段/凭证匹配生产源，生产三行完整digest与原同步证据一致，两环境密钥文件SHA未变，clone密钥仅在内存与原chat配置核等。0HTTP POST/模型调用/清理/源码或HEAD修改。保留完整run/用量/checkpoint/原失败收据；会话归档及自有clone清理留主Agent按明确授权处理，不清账。
+
+## 生产发布与可丢弃配置清理最终只读收口（2026-11-05）
+
+独立fresh TEST SQL确认合成会话已归档、自有临时clone已删除，唯一原SUCCEEDED run/KNOWN60输入17输出/5事件及原最新checkpoint仍保留；原FAILED receipt SHA `34ff664ac4cbeb1627db2438216fa73690b0858430d532d48d63ebd101cf692f` 与之前独证及root手工清理回执相同。未将“好的”改作逐字OK成功。TEST仅原3模型、4KNOWN累计202输入17输出；PROD fresh仍3模型/61用量/14会话/23run/1workflow，完整生产模型digest匹配原同步，三个test原配置声明和凭证与生产源一致，两key文件SHA未变。
+
+对现成生产证据交叉核对：ops-independent-postlaunch实际SHA203c84e7…、候选9f1/CqIHyLGWG6citMBt3aQis构建、source manifest哈希、备份/恢复新clone与prelaunch142业务表/未restore原库、运行gate0、维护已退出、受限flags一致；现成HTTP6GET/新登录/两个cookie隔离/登出不影响生产及原61用量逻辑吻合。此次未重复HTTP、登录、浏览器、模型、启停或数据库写，不把他人现成证据冒称自己刚执行。
+
+独立收据 `.local/acceptance-resume-20261105-root/final-independent-closeout.json`，脚本 `reviewer/verify-final-production-closeout.py`。限定接受当前已审源码与受限生产发布、受控CLI及HTTP读取/独立归类真实SSE。PROD浏览器实际手验尚未通过，完整平台driver/B100与真实模型质量未通过；不授予full-scope tag或宣称全平台所有需求完成。原失败、UNKNOWN、用量、checkpoint及还原clone均按原事实保留。
