@@ -284,3 +284,10 @@
     width: 100%;
   }
 }
+
+.agent-eval-discard-overlay { z-index: 82; }
+.agent-eval-discard-dialog {
+  z-index: 83;
+  width: min(440px, calc(100vw - 32px));
+  padding: 24px;
+}

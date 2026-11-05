@@ -945,10 +945,15 @@ function CreateEvaluation({
       });
     return () => controller.abort();
   }, [view, datasetId, version]);
+  const [initial] = useState(() => ({
+    name, description, definition, budgets: JSON.stringify(budgets),
+  }));
+  const [discarding, setDiscarding] = useState(false);
+  const continueEditing = useRef<HTMLButtonElement>(null);
   const dirty = Boolean(
-    name ||
-    description ||
-    definition ||
+    name !== initial.name ||
+    description !== initial.description ||
+    definition !== initial.definition ||
     input ||
     expected ||
     authorization ||
@@ -957,23 +962,13 @@ function CreateEvaluation({
     baseline ||
     candidate ||
     version !== 1 ||
-    JSON.stringify(budgets) !==
-      JSON.stringify(
-        capability.default_budgets || {
-          max_seconds: 300,
-          max_model_calls: 20,
-          max_tokens: 20000,
-          max_sandboxes: 2,
-        },
-      ),
+    JSON.stringify(budgets) !== initial.budgets,
   );
   const close = () => {
-    if (
-      !busy &&
-      (!dirty ||
-        window.confirm("放弃尚未完成的评测配置？已提交的批次仍保留在列表中。"))
-    )
-      onClose();
+    if (busy) return;
+    if (discarding) setDiscarding(false);
+    else if (dirty) setDiscarding(true);
+    else onClose();
   };
   function payload(): object {
     if (view === "datasets")
@@ -1344,6 +1339,33 @@ function CreateEvaluation({
               </button>
             </footer>
           </form>
+          <Dialog.Root open={discarding} onOpenChange={setDiscarding}>
+            <Dialog.Portal>
+              <Dialog.Overlay className="agent-eval-overlay agent-eval-discard-overlay" />
+              <Dialog.Content
+                role="alertdialog"
+                className="agent-eval-dialog agent-eval-discard-dialog"
+                onOpenAutoFocus={(event) => {
+                  event.preventDefault();
+                  continueEditing.current?.focus();
+                }}
+                onEscapeKeyDown={(event) => event.stopPropagation()}
+              >
+                <Dialog.Title>放弃未保存的更改？</Dialog.Title>
+                <Dialog.Description>
+                  未保存的内容将被放弃，已保存的草稿和已提交的批次不受影响。
+                </Dialog.Description>
+                <footer>
+                  <button type="button" disabled={busy} ref={continueEditing} onClick={() => setDiscarding(false)}>
+                    继续编辑
+                  </button>
+                  <button type="button" disabled={busy} className="settings-primary" onClick={onClose}>
+                    放弃更改
+                  </button>
+                </footer>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
