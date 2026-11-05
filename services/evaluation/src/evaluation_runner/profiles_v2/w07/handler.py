@@ -150,6 +150,10 @@ def cleanup(platform,journal,attempt,specimen):
         raise ValueError('Foreign original evidence')
     before = platform.get(BASE+'/observations')
     validate(before,attempt)
+    if before.get('closed') is True:
+        return confirm_closed(journal,attempt,specimen,before,retained)
+    if 'w07_closed' in attempt:
+        raise ValueError('Previously confirmed receiver reopened; no cleanup action authorized')
     if before != retained['body']:
         raise ValueError('Original unknown facts drifted; no cleanup action authorized')
     alive(attempt)
@@ -159,4 +163,21 @@ def cleanup(platform,journal,attempt,specimen):
     if not after['closed'] or after['facts'] != before['facts'] or after['recovery'] != before['recovery']:
         raise UnknownSubmission('Receiver close or original unknown facts not confirmed')
     save_evidence(journal,attempt,'w07_closed',after)
+    return 'CLEAN_RECEIVER_UNKNOWN_OPERATION_RETAINED'
+
+
+def confirm_closed(journal,attempt,specimen,current,retained):
+    """Confirm the exact prior close without performing another write or replay."""
+    from ..lifecycle import verified
+
+    closed = load(journal.directory,attempt['w07_closed'],'w07-v2')
+    intent = attempt.get('submission_intents',{}).get('w07-close-receiver',{})
+    if (closed.get('schema_version') != 1 or closed.get('kind') != 'w07-v2'
+            or closed.get('stage') != 'w07_closed' or closed.get('binding') != binding(journal.data,attempt)
+            or retained['body'].get('closed') is not False
+            or closed['body'] != {**retained['body'],'closed':True} or current != closed['body']
+            or intent.get('status') != 'CONFIRMED' or intent.get('path') != BASE+'/close'
+            or intent.get('payload_digest') != digest({})):
+        raise ValueError('Closed receiver lacks unchanged bound facts and confirmed original close')
+    verified(journal.directory,journal.data,attempt,specimen)
     return 'CLEAN_RECEIVER_UNKNOWN_OPERATION_RETAINED'

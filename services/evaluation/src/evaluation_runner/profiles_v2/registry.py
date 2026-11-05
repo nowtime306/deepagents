@@ -24,7 +24,7 @@ SOURCE_PINS: dict[str, str] = {
     "a05/protocol.py": "857d203cd2e1d12128aae58bae4f38a01b7df30d96ff41ce8235c71ab3373435",
     "f07/contract.py": "77180bbf8c60c64e2f9937cecd86658b0be92b4c273ad955f632ab762f8f4269",
     "f07/handler.py": "2aa8190c894232cd1f60ae2084806762efcfe5c153e815ea2737c92520baaa91",
-    "w07/handler.py": "aed703a0b7bbdd3c233b1225fb2968ff8add2a52b816f8dd94ed31691bf6f010",
+    "w07/handler.py": "cfdaf7c02861af9ea3db55366faf8a4ca51ac39addb7c2f852f958195e876bf7",
     "w08/contract.py": "bf100ea8ab726dcf724c8d945864f0abd578fb0f5f98981efbcb4fed64872dcd",
     "w08/handler.py": "7aacb2dfa042f98245c60b4872010ecba3bcb240d2a96e09fd34c0ac73928427",
     "w08/validation.py": "b68e24e9d5de9843a3eeea27f9ef98269f3520d3fad1e1108be77d7161e424b5"

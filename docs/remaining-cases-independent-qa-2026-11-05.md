@@ -206,3 +206,25 @@ manifest SHA256 `e13e3bbf79ffd06b10348fa2870e9ad878cf7f7ea2ea6dc7d81e715f4d46162
 manifest SHA256 `033f8edf5377a14d3ffe8576eec468ef6a2ae80184a0b63daf37896fa2ca87eb`：20项精确before/after及84项正式最终postimage独立逐SHA匹配；R1/R2/R3 manifest与全部私有源原件仍匹配。完整读取20项diff，导入/格式/未用项、lambda局部函数、合并with、endswith tuple均为等价质量修复；F07循环reader的默认参数只绑定本轮base/root/responses，同步观察时不引入新副作用。四处registry raw pin更新符合对应实际字节；initializer和两caps字节与修改前一致。
 
 独立使用正式evaluation环境运行两个受影响正常测试文件，56/56通过、0跳过、3.89秒，结果 `reviewer/canonical-r4-affected.xml`。包含pin/reader事实重算、六依赖、ready/context和真实suite版本闭环。未泛跑631/221，未生成新业务。结论：R4代码审查通过，可由主Agent固定候选提交；必须重新构建wheel并核验新字节，再按新实际canonical批验收。旧wheel/旧业务不能替代。本次0正式修改、0PG/服务/模型/沙箱动作，旧UNKNOWN与预算保留。
+
+## Canonical A05 v2 标准 CLI 完整批独立验收（2026-11-05）
+
+新批 `.local/agent-evaluations/canonical-v2-a05-1f1bf643f8e5461f853cf52728af373d`、candidate `e08eb2135b66c72fa671a887c86366652e33f0c0`，标准suite→target→fixed阶段。独立重算sealed ready/网络审计/绑定事实、用量、receiver SQLite和provider持久账，业务/控制/清理分别成立：注入场景根SUCCEEDED；撤权场景根FAILED/MCP_TOOL_DENIED为预期拒绝，最后unknown ToolMessage和tool.interrupted仍保留。每receiver真实lookup1、write0；每根2次已知受控调用/30合成Token，总4次、输入40/输出20=60，原父预留5次/75不返还，0sandbox。两receiver记录CLOSED，封存清理复算CLEAN。
+
+fresh admin只读确认新库确不存在、连接0；原生wrapper14028/server12552均无，API51854无监听；receiver同server进程退出。formal cleanup/stop/target cleanup均0。完整源指纹与六个真实API运行依赖当前匹配。没有重开/重放或POST；已删原库未进行事后原表SQL复验，原生结果依封存证据，不能声称真实供应商模型抗注入已验证。
+
+收据：上述新batch的 `reviewer-independent-verification.json`；脚本 `reviewer/verify-canonical-a05.py`。结论为canonical A05迁移后的限定控制验收通过、预期拒绝业务通过、清理通过，不增加不同业务case数；旧私有A05、失败、UNKNOWN与已消费预算均保留。
+
+## Canonical W07 v2 首批现场独立复核：控制成立，清理失败（2026-11-05）
+
+新批 `.local/agent-evaluations/canonical-v2-w07-f1b3bc3a1ea546b1a7dac7abc05acbd8`。独立fresh只读PG核1根NEEDS_REVIEW、1项真实已批准操作UNKNOWN且finished_at仍NULL；唯一审批approve已消费，模型账唯一KNOWN输入10/输出5，provider持久记录1次/15。真实receiver SQLite只有1attempt/1effect；consumer UUID换前后checkpoint、操作摘要、receiver和provider事实一致。无重放、无后继调用，原预算不返还。
+
+业务控制重算PASS，原业务NEEDS_REVIEW/未知操作保留。两sandboxes均RELEASED，receiver CLOSED、MCP disabled且密文空串，worker实例/租约/其他连接0；双原生进程及API/receiver监听无，认证manager精确namespace库存0。完整source/六依赖与e08冻结一致。
+
+**完整CLI未通过**：formal_cleanup_exit=2（ValueError），stop_exit=0，库保持RETAINED。cleanup失败后的publish_error已移除最终report-ready.json，partial-report明确acceptance_ready=false/ValueError；之前report内控制PASS事实仍可独立重算，但不能称最终封存ready或完整清理通过。缺陷已交开发做私有R5幂等修复，旧journal/报告/UNKNOWN/库均不改不重放。收据为本新batch的 `reviewer-independent-verification.json`，脚本 `reviewer/verify-canonical-w07.py`。没有新POST、模型或目标启停。
+
+## W07 重复清理 R5 窄独审（2026-11-05）
+
+manifest SHA256 `73fe6680d6f76f1e9cddb9ce2d612cfa3ce56cb6d1eee668935f76202074cab3` 三项正式基线及私有postimage逐SHA匹配。关闭态仅在原关闭证据hash/binding/stage、唯一CONFIRMED close intent（路径及空payload摘要）、当前整body与原关闭body相同且相对after只有closed=true时只读确认；仍复用完整before/after/recovery/v2facts校验。不发送POST/save，不延长开放态deadline，返回原保留UNKNOWN字符串。缺证据、漂移、关闭未知、重新开放均拒绝。
+
+独立用本次真实canonical保留现场11个文件只读复现旧ValueError→新连续两次确认；11项哈希和journal结构不变，0网络/SQL/写。收据 `reviewer/r5-retained-red-green.json`。独立针对性工程37/37通过（1.09秒，`reviewer/canonical-r5-affected.xml`），新wheel58源/JSON原字节匹配且SHA符合manifest。结论：准主Agent精确复制3项、固定新commit后登记新完整CLI批；这不修复或回填旧失败ready/journal，旧UNKNOWN、库和已消费账保留，不把只读回放称真实新业务验收。
