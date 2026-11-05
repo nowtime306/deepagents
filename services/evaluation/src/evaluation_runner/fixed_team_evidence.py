@@ -208,6 +208,9 @@ def index_baseline(platform, attempt):
     if len(docs) != 1 or len(chunks) != 1 or len(operations) != 1:
         raise adapters.Blocked("Original single document/index/chunk is not complete")
     row, chunk, operation = docs[0], chunks[0], operations[0]
+    usage = operation["usage"]
+    if not isinstance(usage, dict) or usage.get("run_id") != operation["id"]:
+        raise ValueError("Original index usage belongs to another operation")
     if (
         row["id"] != document
         or row["revision"] != 1
@@ -231,7 +234,9 @@ def index_baseline(platform, attempt):
         "document_revision": 1,
         "content": chunk["content"],
         "operation_id": operation["id"],
-        "usage": operation["usage"],
+        "usage": {key: usage[key] for key in (
+            "calls", "reported_calls", "unknown_calls", "pending_calls", "input_tokens", "output_tokens"
+        )},
         "trace": trace(platform, "resource", operation["id"]),
         "provider": platform.get(
             f"/api/v1/agent-evaluations/profiles/runs/resource/{operation['id']}/observations"
