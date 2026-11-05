@@ -2,7 +2,7 @@
   "schema_version": 1,
   "profile_version": 2,
   "rules_id": "controlled-a20-v2",
-  "initializer_sha256": "8bb5f7223edbb9ad613fb28db221663585133dd7f7738d4cf2e04b25a400016d",
+  "initializer_sha256": "6655b70f916d719403b27281075814a73da72b178f13e1dd4765ed8155ab5d7a",
   "sandbox_bounds": {
     "AET-A05": 0,
     "AET-W07": 2,

@@ -506,6 +506,9 @@ def main():
                     if (output / "cancel.request").exists() and args.action in {"init", "run"}:
                         raise adapters.Blocked("Cancelled before further dispatch")
                     if args.action == "init":
+                        if args.profile_version == 2 and specimen.case_id == "AET-F07":
+                            attempt['initialization_audit_session_id'] = session.data['session_id']
+                            journal.save()
                         initialize(platform, journal, attempt, specimen)
                     elif args.action == "run":
                         if specimen.case_id != "AET-F05":

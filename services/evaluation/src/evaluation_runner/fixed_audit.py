@@ -44,6 +44,26 @@ def seal(directory: Path, session: network.Session, status: str) -> dict:
     return reference
 
 
+def initialization_audit(directory: Path, data: dict, attempt: dict) -> str:
+    """Recognize only the observed v2 F07 timer root created during initialization."""
+    roots = attempt.get('f07_runs', {})
+    specimen = Case.model_validate(attempt['case_snapshot'])
+    if (attempt.get('profile_version') != 2 or data['suite_context'].get('profile_version') != 2
+            or specimen.case_id != 'AET-F07' or specimen.fixture_profile.version != 2
+            or set(roots) != {'timer-init'} or roots['timer-init'].get('state') != 'OBSERVED'
+            or roots['timer-init'].get('scene') != 'timer'
+            or attempt.get('versioned_submission_unknown') is not False
+            or attempt.get('versioned_roots') != [{'id': roots['timer-init']['root_id'], 'mode': 'workflow'}]
+            or set(attempt.get('f07_refs', {})) != {'timer-init'}):
+        raise ValueError('Only the exact observed initialization root may use an init audit')
+    from .fixed_evidence import binding
+    blob = load(directory, attempt['f07_refs']['timer-init'], 'f07-v2')
+    if (blob.get('binding') != binding(data, attempt) or blob['body']['run_id'] != roots['timer-init']['root_id']
+            or blob['body']['scene'] != 'timer'):
+        raise ValueError('Initialization evidence belongs to another root or binding')
+    return attempt['initialization_audit_session_id']
+
+
 def validate(directory: Path, data: dict, *, pending_session: str | None = None) -> list[dict]:
     sessions = index(directory)["sessions"]
     values, references, pending = {}, [], set()
@@ -70,6 +90,10 @@ def validate(directory: Path, data: dict, *, pending_session: str | None = None)
         if not attempt.get("started"):
             continue
         identifier = attempt.get("run_audit_session_id")
+        action = 'run'
+        if identifier is None and attempt.get('initialization_audit_session_id'):
+            identifier = initialization_audit(directory, data, attempt)
+            action = 'init'
         if identifier in pending:
             continue
         value = values.get(identifier)
@@ -77,7 +101,7 @@ def validate(directory: Path, data: dict, *, pending_session: str | None = None)
         specimen = Case.model_validate(attempt["case_snapshot"])
         required = {"execution", "export"} | ({"import", "metric"} if specimen.metrics else set())
         phases = {row["name"] for row in value["phases"] if row["status"] == "COMPLETE"} if value else set()
-        if (not value or value["action"] != "run" or value["status"] != "COMPLETE"
+        if (not value or value["action"] != action or value["status"] != "COMPLETE"
                 or not required.issubset(phases) or any(not event["allowed"] for event in value["events"])
                 or identity.get("environment_id") != data["environment_id"]
                 or identity.get("owner_id") != data["owner_id"]

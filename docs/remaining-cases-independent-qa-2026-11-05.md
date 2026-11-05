@@ -228,3 +228,40 @@ fresh admin只读确认新库确不存在、连接0；原生wrapper14028/server1
 manifest SHA256 `73fe6680d6f76f1e9cddb9ce2d612cfa3ce56cb6d1eee668935f76202074cab3` 三项正式基线及私有postimage逐SHA匹配。关闭态仅在原关闭证据hash/binding/stage、唯一CONFIRMED close intent（路径及空payload摘要）、当前整body与原关闭body相同且相对after只有closed=true时只读确认；仍复用完整before/after/recovery/v2facts校验。不发送POST/save，不延长开放态deadline，返回原保留UNKNOWN字符串。缺证据、漂移、关闭未知、重新开放均拒绝。
 
 独立用本次真实canonical保留现场11个文件只读复现旧ValueError→新连续两次确认；11项哈希和journal结构不变，0网络/SQL/写。收据 `reviewer/r5-retained-red-green.json`。独立针对性工程37/37通过（1.09秒，`reviewer/canonical-r5-affected.xml`），新wheel58源/JSON原字节匹配且SHA符合manifest。结论：准主Agent精确复制3项、固定新commit后登记新完整CLI批；这不修复或回填旧失败ready/journal，旧UNKNOWN、库和已消费账保留，不把只读回放称真实新业务验收。
+
+## Canonical R5 W07 新完整 CLI 批独立验收（2026-11-05）
+
+新批 `.local/agent-evaluations/canonical-r5-aet-w07-581496725eb44a7d910755e39663b1aa`，candidate `ff48a0228df5a372e23fdffcd1912bfe373ff019`。已实际只读重算最终valid ready、封存控制事实与网络审计，control PASS；formal_cleanup_exit=1为原UNKNOWN精确保留语义，stop_exit=0，无ValueError/partial失败报告。业务及suite仍NEEDS_REVIEW、库RETAINED，不能标业务成功或允许删库。
+
+fresh PG唯一根NEEDS_REVIEW、唯一已批准操作UNKNOWN且未finished，唯一审批已消费；唯一KNOWN用量输入10/输出5、provider1次/15。receiver真实SQLite 1attempt/1effect，重建consumer前后同checkpoint及receiver/provider/operation事实，未重放。两个sandboxes均RELEASED，worker/租约/其他连接0，receiver CLOSED、disabled且密文空串，双PID和API/receiver监听均退出，认证manager精确namespace0。全部source及六实际API依赖匹配，HEAD与candidate一致。父预留5次/1000Token/2sandbox仍保留；旧e08失败库、UNKNOWN、错误ready现场及消费不改。
+
+收据位于本新批 `reviewer-independent-verification.json`；脚本 `reviewer/verify-canonical-r5-w07.py`。限定结论为新canonical完整控制/停止/保留序列有效，可接后续独立案例；未增加不同案例数，0新POST/模型/目标启停。
+
+## Canonical R5 A05 新完整 CLI 批独立验收（2026-11-05）
+
+新批 `.local/agent-evaluations/canonical-r5-aet-a05-006d4a6e9b06414db7be65c92019eafc`、candidate ff48，独立valid ready/审计及lifecycle重算PASS，预期注入拒绝与权限撤销两根原生记录吻合；最后unknown ToolMessage仍保留。provider及receiver SQLite各2次/30合成Token、lookup1/write0，总4KNOWN输入40/输出20=60；父预留5/75不退款，0sandbox。两receiver CLOSED；formal cleanup/stop/drop均0，fresh admin确认新DB不存在/连接0，wrapper/server 20072/36000及API监听无，全源/六实际依赖匹配ff48。
+
+收据为新批 `reviewer-independent-verification.json`，脚本 `reviewer/verify-canonical-r5-a05.py`。封存事实重算与新库删除后的存在性/进程核查分开；不声称已删原库事后SQL，也不声称真实供应商抗注入质量通过。本次0新POST/模型/业务，旧A05批及消耗保持独立，限定canonical控制/清理通过。
+
+## Canonical R5 W08 新完整 CLI 批独立验收（2026-11-05）
+
+新批 `.local/agent-evaluations/canonical-r5-aet-w08-7c6654a0b56049958d52acfeb7e11335`、candidate ff48。valid ready/审计/control/business均PASS，封存Linux物理symlink与合法读写/三种拒绝/无canary、最新Delta只读重建proof、真实HTTP最新两成果下载均严格重算；provider6次/90、KNOWN输入60/输出30，原300秒单anchor。两份持久成果独立fresh读取均为10字节SAFE_INPUT，SHA与原HTTP下载回执相同。formal cleanup/stop/drop均0；fresh admin库不存在/连接0、双PID/监听退出、认证manager精确namespace0，全源码/六依赖ff48匹配。
+
+正常删库已经完成，原生行及最新Delta消息不能再fresh SQL查询；收据明确引用原执行封存证明，不声称事后读取已删数据库或重连已释放Linux。receipt位于本批 `reviewer-independent-verification.json`，脚本 `reviewer/verify-canonical-r5-w08.py`。限定canonical控制与清理通过，旧失败消耗不退、不重放。
+
+## Canonical R5 F07 初始化中断独立核证（2026-11-05）
+
+新批 `.local/agent-evaluations/canonical-r5-aet-f07-fc2a44e3b76043a29e83a14b0fcb977a` 不完整验收：INIT_REVIEW、未调run阶段、formal cleanup2/stop0、无最终ready，partial明确未接受。fresh只读PG确认真实timer-init一根SUCCEEDED，原生事件WORKFLOW_PURE_TIMEOUT→handled并输出已处理超时；3个workflow、1个published version、1个model配置均已实际创建并保留。同owner通过workflow归属关联核验。模型账0、providerUNUSED/0调用/0Token，不把已产生的初始化效果报为零业务效果。controller仍ACTIVE；0Work/Ask/MCP/沙箱/operation/worker，其他连接0，wrapper20928/server45740及监听退出，全源码/六依赖匹配ff48，父预留1/15/0保留不返还。
+
+收据位于本新批 `reviewer-independent-verification.json`，脚本 `reviewer/verify-canonical-r5-f07-partial.py`。未重启目标、未POST/重放、未改journal/ready/库。根因已交开发：真实init根started后publication要求尚不存在的run审计，正在私有修复。四案例最终标准CLI复验仍缺F07修复后新批，当前不能给出四例全部通过的发布结论。
+
+
+## F07 初始化审计 R6 正式集成验证（待新批业务复验）
+
+私有五文件补丁manifest `44967d23d641c863613ddd585760bb87f41abf94591cb655603d321ee4b7633c` 经非作者独审通过后由主Agent逐前后SHA精确集成。初始化仍记录真实根与started，仅明确v2 F07、单个OBSERVED timer-init及原证据完整绑定可使用对应COMPLETE init审计；已有run ID时不降级借用init，v1及一般run要求保持。初始化正常交接exit0，业务/control仍NEEDS_REVIEW，不能冒充整例通过。
+
+正式源码完整评测工程652项通过，profile支持221项通过；这是工程检查数量，不是新增业务任务。profile首次调用因主Agent未给完整测试PYTHONPATH而收集失败，原日志保留；补齐原测试模块路径后通过，未修改产品代码或屏蔽警告。普通自动发现Ruff另发现新增测试导入顺序I001，已交开发做单文件排序并独审；原R6显式配置检查不足以覆盖此发现规则。旧失败批六封存文件只读红绿证明及独审61项检查均保留；旧批不补写审计字段、不重开、不恢复ready。
+
+原始记录：`formal-final-r6-evaluation.xml`、`formal-final-r6-profile-green.xml`、原失败profile日志；私有reviewer/f07-init-r6独立审查与封存红绿收据。此节不宣告新F07完整业务验收、部署或整体发布。
+
+R6-style独审通过：manifest `15ae8238530b7aa884ef5ff67e827748ef2b503809cb9c1be7d4ea93df1c7940`，仅导入移动一行加空行，普通Ruff及独跑9项通过。主Agent精确集成；未改运行源码、initializer pin或旧失败现场。
