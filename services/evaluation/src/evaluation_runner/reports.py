@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 from .journal import atomic_json
 
 
-def write_report(directory: Path, data: dict) -> dict:
+def write_report(directory: Path, data: dict, *, evidence_directory: Path | None = None) -> dict:
     attempts = data.get("attempts", [])
     counts = dict(Counter(row.get("task_outcome", "NEEDS_REVIEW") for row in attempts))
     gate = "PASS" if attempts and all(row.get("task_outcome") == "PASS" for row in attempts) else "NEEDS_REVIEW"
@@ -20,6 +20,9 @@ def write_report(directory: Path, data: dict) -> dict:
               "environment_id": data.get("environment_id"), "dataset_digest": data.get("dataset_digest"),
               "gate": gate, "counts": counts, "expected_attempts": expected,
               "unexecuted_attempts": max(0, expected - len(attempts)), "attempts": attempts}
+    if data.get('suite_context',{}).get('profile_version')==2:
+        from .profiles_v2.lifecycle import control_report
+        report.update(control_report(evidence_directory or directory,data))
     atomic_json(directory / "report.json", report)
     suite = ET.Element("testsuite", name="agent-evaluation", tests=str(len(attempts)),
                        failures=str(counts.get("FAIL", 0)),
@@ -39,6 +42,9 @@ def write_report(directory: Path, data: dict) -> dict:
         ET.SubElement(ET.SubElement(suite, "testcase", name="unexecuted"), "error", message="Partial or cancelled batch")
     ET.ElementTree(suite).write(directory / "results.xml", encoding="utf-8", xml_declaration=True)
     lines = ["# Agent 评测报告", "", f"门禁：{gate}。仅受控工程验证，未执行真实模型效果或 UI 验收。", ""]
+    if 'control_gate' in report:
+        lines.extend([f"固定受控断言门禁：{report['control_gate']}；业务门禁与JUnit仍保留 {gate}。",
+                      '受控断言完成不代表未知业务已解决、费用已结算或允许回收/退款/继续下一批。',''])
     for row in attempts:
         lines.append(f"- {row['case_id']} / repeat {row['repeat_index']}：{row.get('task_outcome', 'NEEDS_REVIEW')}；"
                      f"cleanup={row.get('cleanup_status', 'UNKNOWN')}")

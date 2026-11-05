@@ -2,6 +2,8 @@
 import argparse
 import asyncio
 import importlib.util
+import importlib
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -15,7 +17,9 @@ from uuid import UUID, uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'services/api'))
 sys.path.insert(0, str(ROOT / 'scripts'))
-from evaluation_sources import source_fingerprint
+sys.path.insert(0, str(ROOT / 'services/evaluation/src'))
+from evaluation_sources import DEPENDENCIES, source_fingerprint
+from evaluation_profiles import identity as profile_identity,recorded as recorded_profile,reviewed_contract
 os.environ['PYTHON_DOTENV_DISABLED'] = '1'
 import psycopg
 from psycopg import sql
@@ -33,6 +37,7 @@ def read_state(directory):
     identifier = UUID(state['environment_id']).hex
     if state['database_name'] != 'owner_agent_evaluation_' + identifier + '_test':
         raise ValueError('Recorded database is not this environment test database')
+    recorded_profile(state)
     return state
 
 
@@ -80,8 +85,19 @@ def platform_parent(directory, commit, expected_run=None):
     return {key:value[key] for key in ('schema_version','contract','parent_run_id','parent_owner_id','candidate_commit')} | {'case_id':context['case_id']}
 
 
-def start(directory, admin_file, manager_key_file, parent_run_id=None):
-    from app.config import Settings
+def start(directory, admin_file, manager_key_file, parent_run_id=None,profile_version=1,case_id=None):
+    selected=profile_identity(profile_version,case_id)
+    context=None
+    if profile_version==2:
+        context=json.loads((directory.parent/'suite-context.json').read_text(encoding='utf-8'))
+        if context.get('profile_version')!=2 or context.get('case_id')!=case_id or context.get('rules_id')!='controlled-a20-v2':
+            raise ValueError('Explicit v2 target must belong to this recorded suite context')
+        if bool(manager_key_file)!=selected['work']:
+            raise ValueError('Fixed v2 target sandbox setting differs from selected case')
+        factory_path=ROOT/'services/evaluation/profile_support'/Path(*selected['factory'].split('.'))
+        if not factory_path.with_suffix('.py').is_file():
+            raise ValueError('Registered canonical v2 factory is not packaged; no database provisioned')
+    reviewed,contract_sha=reviewed_contract(ROOT,selected,context)
     from app.manage import add_user, migrate
     from app.models import CredentialVault
     if (directory / 'target-state.json').exists():
@@ -96,8 +112,12 @@ def start(directory, admin_file, manager_key_file, parent_run_id=None):
     commit = subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip()
     parent = platform_parent(directory, commit, parent_run_id)
     state = {'environment_id': str(identifier), 'database_name': name, 'platform_commit': commit,
-             'data_dir': str(data), 'status': 'PROVISIONING', 'pid': None}
-    state['source_sha256'] = source_fingerprint(ROOT)
+             'data_dir': str(data), 'status': 'PROVISIONING', 'pid': None,
+             'profile_version':profile_version,'profile_case_id':case_id if profile_version==2 else None}
+    if profile_version==2:
+        state['profile_contract_sha256']=contract_sha
+        state['profile_context']=context
+    state['source_sha256'] = source_fingerprint(ROOT,profile_version=profile_version)
     state['tracked_source_diff'] = subprocess.check_output(['git','diff','--name-only','--','services','scripts'], cwd=ROOT, text=True).splitlines()
     save(directory / 'target-state.json', state)
     with psycopg.connect(**params, autocommit=True) as admin:
@@ -113,12 +133,11 @@ def start(directory, admin_file, manager_key_file, parent_run_id=None):
         migrations = [row[0] for row in database.execute('SELECT version FROM schema_migrations ORDER BY version')]
     sys.path.insert(0, str(ROOT / "services/evaluation/profile_support"))
     import f05_deadline_contract as f05
-    reviewed = json.loads((ROOT / "services/evaluation/profile_support/suite-capabilities.json").read_text(encoding="utf-8"))
-    guard_state = f05.initialize_target(directory.parent, str(identifier), owner, namespace, commit, reviewed.get("f05_deadline", {}))
+    guard_state = f05.initialize_target(directory.parent, str(identifier), owner, namespace, commit, reviewed.get("f05_deadline", {})) if profile_version==1 else {}
     state.update(guard_state)
     marker = {'environment_id': str(identifier), 'owner_id': owner, 'database_name': name,
               'platform_commit': commit, 'sandbox_namespace': namespace,
-              'fixture_profile': {'id': 'controlled-v1', 'version': 1}}
+              'fixture_profile': selected['fixture_profile']}
     save(data / 'evaluation-instance.json', marker)
     if parent is not None:
         save(data / 'evaluation-parent.json', {**parent, 'environment_id':str(identifier), 'owner_id':owner})
@@ -153,7 +172,7 @@ def start(directory, admin_file, manager_key_file, parent_run_id=None):
                 proof.raise_for_status()
                 if proof.json()['environment_id'] != str(identifier) or proof.json()['owner_id'] != owner:
                     raise RuntimeError('Target identity did not match newly provisioned environment')
-                if not guard_state:
+                if not guard_state and profile_version==1:
                     response = client.post('/api/v1/admin/models', json={
                         'name': 'AE AET-A02 lead ' + identifier.hex[:8], 'model': 'eval::AET-A02::v1',
                         'base_url': origin + '/controlled-model', 'kind': 'chat', 'protocol': 'openai',
@@ -166,8 +185,8 @@ def start(directory, admin_file, manager_key_file, parent_run_id=None):
                         'case_id': 'AET-A02', 'role': 'lead', 'model_id': model_id}).raise_for_status()
             save(directory / 'target-manifest.json', {'schema_version': 1, 'environment_id': str(identifier),
                  'api_base_url': origin, 'platform_commit': commit, 'owner_id': owner,
-                 'required_migrations': migrations, 'fixture_profile': {'id':'controlled-v1','version':1},
-                 'resource_bindings': {} if guard_state else {'AET-A02': model_id}})
+                 'required_migrations': migrations, 'fixture_profile': selected['fixture_profile'],
+                 'resource_bindings': {} if guard_state or profile_version==2 else {'AET-A02': model_id}})
             state['status'] = 'READY_WORK_ENABLED' if manager_key_file else 'READY_NON_WORK'
             save(directory / 'target-state.json', state)
             return
@@ -184,14 +203,27 @@ def serve(directory):
     from app.config import Settings
     private = json.loads((directory / 'server-private.json').read_text(encoding='utf-8'))
     state = read_state(directory)
-    if source_fingerprint(ROOT)!=state['source_sha256']:
+    selected=recorded_profile(state)
+    if selected['profile_version']==2:
+        if Path(sys.executable).resolve()!=(ROOT/'services/api/.venv/Scripts/python.exe').resolve():
+            raise RuntimeError('Versioned target must execute in the reviewed API interpreter')
+        if any(Path(importlib.util.find_spec(name).origin).resolve()!=(ROOT/relative).resolve()
+               for name,(relative,_) in DEPENDENCIES.items()):
+            raise RuntimeError('Versioned target loaded a different API runtime dependency')
+        _,contract_sha=reviewed_contract(ROOT,selected,state['profile_context'])
+        if contract_sha!=state['profile_contract_sha256']:
+            raise RuntimeError('Registered versioned profile contract changed after provisioning')
+    if source_fingerprint(ROOT,profile_version=selected['profile_version'])!=state['source_sha256']:
         raise RuntimeError('Target source changed after provisioning; no mixed target startup')
     profile_path = ROOT / 'services/evaluation/profile_support/evaluation_target.py'
     sys.path.insert(0, str(profile_path.parent))
-    spec = importlib.util.spec_from_file_location('registered_evaluation_target', profile_path)
-    profile = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = profile
-    spec.loader.exec_module(profile)
+    if selected['profile_version']==1:
+        spec = importlib.util.spec_from_file_location('registered_evaluation_target', profile_path)
+        profile = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = profile
+        spec.loader.exec_module(profile)
+    else:
+        profile=importlib.import_module(selected['factory'])
     listener = socket.socket()
     listener.bind(('127.0.0.1', 0))
     listener.listen(128)
@@ -208,9 +240,13 @@ def serve(directory):
     settings = Settings(database_url=private['database_url'], data_dir=Path(private['data_dir']),
                         web_origin=origin, internal_api_url=origin, work_enabled=sandbox_config is not None, ask_worker_enabled=True,
                         evaluation_instance_id=private['environment_id'], evaluation_platform_commit=private['platform_commit'])
+    if selected['profile_version']==2:
+        settings=replace(settings,work_enabled=selected['work'],ask_worker_enabled=state['profile_case_id']=='AET-A05',
+            run_timeout=120 if not selected['work'] else 300,automation_enabled=False,evaluation_enabled=False,media_worker_enabled=False)
     import f05_deadline_contract as f05
-    required_anchor = f05.startup_anchor(directory.parent, state, private)
-    app = profile.build_app(settings, sandbox_config=sandbox_config, f05_anchor_sha256=required_anchor)
+    required_anchor = f05.startup_anchor(directory.parent, state, private) if selected['profile_version']==1 else None
+    app = (profile.build_app(settings, sandbox_config=sandbox_config, f05_anchor_sha256=required_anchor)
+        if selected['profile_version']==1 or selected['work'] else profile.build_app(settings))
     server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, access_log=False))
     async def host():
         async def watch():
@@ -332,8 +368,12 @@ def main():
     parser.add_argument('--admin-connection-file', type=Path)
     parser.add_argument('--manager-key-file', type=Path)
     parser.add_argument('--parent-run-id', type=UUID)
+    parser.add_argument('--profile-version',type=int,choices=[1,2])
+    parser.add_argument('--case-id',choices=['AET-A05','AET-W07','AET-W08','AET-F07'])
     args = parser.parse_args()
     directory = args.state.resolve()
+    if args.action!='start':
+        recorded_profile(read_state(directory),args.profile_version,args.case_id)
     allowed = ROOT / '.local/agent-evaluations'
     if not directory.is_relative_to(allowed) or directory == allowed:
         raise ValueError('Private recorded output required')
@@ -343,7 +383,8 @@ def main():
             claimed.write(str(os.getpid()))
         try:
             if args.action == 'start':
-                start(directory, args.admin_connection_file, args.manager_key_file, args.parent_run_id)
+                start(directory, args.admin_connection_file, args.manager_key_file, args.parent_run_id,
+                    args.profile_version if args.profile_version is not None else 1,args.case_id)
             else:
                 cleanup(directory, args.admin_connection_file)
         finally:

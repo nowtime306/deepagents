@@ -20,13 +20,22 @@ logger = logging.getLogger(__name__)
 
 
 class AskWorker:
-    def __init__(self, database, models, settings, model_factory=resolve_model) -> None:
+    def __init__(
+        self, database, models, settings, model_factory=resolve_model, *, mcp_client_factory=None
+    ) -> None:
         from app.execution_policy import bind
 
         bind(database, settings)
         self.database, self.models, self.settings = database, models, settings
         self.model_factory = model_factory
+        self.mcp_client_factory = mcp_client_factory
         self.queue, self.id = AskQueue(database), uuid4()
+
+    def create_mcp(self):
+        service = MCPService(self.database, self.models.vault)
+        if self.mcp_client_factory is not None:
+            service.http_client_factory = self.mcp_client_factory
+        return service
 
     async def heartbeat(self) -> None:
         await self.database.execute(
@@ -72,7 +81,7 @@ class AskWorker:
             runtime.capabilities = CapabilityService(
                 self.database,
                 AskKnowledge(self.database, run, self.settings.web_origin, self.settings.internal_api_url),
-                MCPService(self.database, self.models.vault),
+                self.create_mcp(),
                 model_registry=self.models,
             )
             try:

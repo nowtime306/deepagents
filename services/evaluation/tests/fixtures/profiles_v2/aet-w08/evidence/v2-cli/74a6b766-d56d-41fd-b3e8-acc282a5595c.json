@@ -1,0 +1,31 @@
+{
+  "kind": "v2-cli",
+  "binding": {
+    "environment_id": "a7e27341-e232-4ed1-a410-d4f785a1ceb2",
+    "owner_id": "fd7298a5-1f1c-4268-ae2b-36d9a944e0c4",
+    "target_digest": "c4b19036a2785fefb0eff9776c6986174deb1d638a1b8b9159e547621ad453b7",
+    "attempt_id": "b64dd3fa-07ca-468a-8abf-5bbab00b7891",
+    "case_id": "AET-W08",
+    "repeat_index": 0,
+    "suite_id": "W08-R3-NEW-BATCH",
+    "catalog_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+    "case_definition_digest": "af1eb17ce9ce3fb7dcef887d376c931e6f1977bb7412794f2622e4394b137378",
+    "rules_id": "controlled-a20-v2",
+    "candidate_commit": "cbdab61c4b934dd440476c84d9e1c4be944f7f68"
+  },
+  "body": {
+    "usage": {
+      "calls": 6,
+      "input_tokens": 60,
+      "output_tokens": 30
+    },
+    "business_outcomes": [
+      {
+        "status": "COMPLETED"
+      }
+    ],
+    "control_status": "PASS",
+    "usage_complete": true,
+    "case_id": "AET-W08"
+  }
+}

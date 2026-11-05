@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "initializer_sha256": "8f3a4f7c4c35f8b89ae43569e38bb9e238cd218da6a847e69b3e63c89849fbf3",
+  "initializer_sha256": "8bb5f7223edbb9ad613fb28db221663585133dd7f7738d4cf2e04b25a400016d",
   "sandbox_bounds": {
     "AET-A01": 2,
     "AET-A02": 2,

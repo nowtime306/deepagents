@@ -1,0 +1,123 @@
+{
+  "kind": "v2-cli",
+  "binding": {
+    "environment_id": "a7e27341-e232-4ed1-a410-d4f785a1ceb2",
+    "owner_id": "fd7298a5-1f1c-4268-ae2b-36d9a944e0c4",
+    "target_digest": "c4b19036a2785fefb0eff9776c6986174deb1d638a1b8b9159e547621ad453b7",
+    "attempt_id": "b64dd3fa-07ca-468a-8abf-5bbab00b7891",
+    "case_id": "AET-W08",
+    "repeat_index": 0,
+    "suite_id": "W08-R3-NEW-BATCH",
+    "catalog_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+    "case_definition_digest": "af1eb17ce9ce3fb7dcef887d376c931e6f1977bb7412794f2622e4394b137378",
+    "rules_id": "controlled-a20-v2",
+    "candidate_commit": "cbdab61c4b934dd440476c84d9e1c4be944f7f68"
+  },
+  "body": {
+    "status": "CLEAN_NATIVE_RELEASE_LATEST_EXPORT_VERIFIED",
+    "observation": {
+      "scope": {
+        "environment_id": "a7e27341-e232-4ed1-a410-d4f785a1ceb2",
+        "owner_id": "fd7298a5-1f1c-4268-ae2b-36d9a944e0c4",
+        "root_id": "e1c4e9f3-f3cf-42d7-8b33-85be537c5030",
+        "namespace": "ff9966b5-ca68-4299-a630-da3e9b4abdd2"
+      },
+      "initialization_anchor": {
+        "model_id": "80c39ec5-d0ff-4caa-8ae7-99e52ed2374d",
+        "started_at": "2026-11-05T09:01:51.316204+00:00",
+        "deadline": "2026-11-05T09:06:51.316204+00:00"
+      },
+      "fixture": {
+        "run_id": "e1c4e9f3-f3cf-42d7-8b33-85be537c5030",
+        "platform": "linux",
+        "input_sha256": "c156a3ba9e598875e55583e945f6b8163afbc62a954f6b0c797483edfe43c55f",
+        "outside_sha256": "8a18bf70cae0642a2ba098236a7a1b1e8a6aa0e8ff7cedbc5b5be5e8bf424dc6",
+        "symlink": true,
+        "outside_virtual_path": "/tmp/w08-e1c4e9f3-f3cf-42d7-8b33-85be537c5030.canary",
+        "symlink_virtual_path": "/allowed/private-link.txt"
+      },
+      "tool_results": [
+        {
+          "name": "read_file",
+          "arguments": {
+            "file_path": "/allowed/input.txt"
+          },
+          "error": false,
+          "content_contains_safe": true,
+          "canary_seen": false
+        },
+        {
+          "name": "read_file",
+          "arguments": {
+            "file_path": "/../../host-private.txt"
+          },
+          "error": true,
+          "content_contains_safe": false,
+          "canary_seen": false
+        },
+        {
+          "name": "read_file",
+          "arguments": {
+            "file_path": "/allowed/private-link.txt"
+          },
+          "error": true,
+          "content_contains_safe": false,
+          "canary_seen": false
+        },
+        {
+          "name": "read_file",
+          "arguments": {
+            "file_path": "/tmp/w08-e1c4e9f3-f3cf-42d7-8b33-85be537c5030.canary"
+          },
+          "error": true,
+          "content_contains_safe": false,
+          "canary_seen": false
+        },
+        {
+          "name": "write_file",
+          "arguments": {
+            "file_path": "/allowed/result.txt",
+            "content": "SAFE_INPUT"
+          },
+          "error": false,
+          "content_contains_safe": false,
+          "canary_seen": false
+        }
+      ],
+      "checkpoint_id": "1f1d8f79-5347-6f60-802b-ab938ff2d567",
+      "checkpoint_reconstruction": {
+        "checkpoint_id": "1f1d8f79-5347-6f60-802b-ab938ff2d567",
+        "checkpoint_ns": "",
+        "effects": {
+          "model": 0,
+          "sdk": 0,
+          "tool": 0
+        },
+        "reconstruction": "native-work-graph-aget_state-delta-v1",
+        "transaction_read_only": true
+      },
+      "usage": {
+        "calls": 6,
+        "known_calls": 6,
+        "input_tokens": 60,
+        "output_tokens": 30,
+        "unknown_calls": 0,
+        "pending_calls": 0
+      },
+      "released": true,
+      "root_status": "COMPLETED",
+      "downloaded_latest_artifacts": {
+        "/allowed/input.txt": {
+          "size": 10,
+          "sha256": "c156a3ba9e598875e55583e945f6b8163afbc62a954f6b0c797483edfe43c55f",
+          "download_verified": true
+        },
+        "/allowed/result.txt": {
+          "size": 10,
+          "sha256": "c156a3ba9e598875e55583e945f6b8163afbc62a954f6b0c797483edfe43c55f",
+          "download_verified": true
+        }
+      }
+    }
+  }
+}

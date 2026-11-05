@@ -15,6 +15,7 @@ from xml.etree import ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
 from evaluation_sources import source_fingerprint as inventory_fingerprint
+from evaluation_profiles import identity as profile_identity
 from evaluation_runner.contracts import Dataset, Target
 from evaluation_runner.fixed_audit import validate_ready
 from evaluation_runner.journal import digest
@@ -29,12 +30,14 @@ def check_candidate(candidate, manifest=None):
         raise ValueError('Child target belongs to a different candidate')
 
 
-def source_fingerprint():
-    return inventory_fingerprint(ROOT)
+def source_fingerprint(profile_version=1):
+    return inventory_fingerprint(ROOT,profile_version=profile_version)
 
 
-def describe_case(dataset, case, rules):
-    result=subprocess.run([sys.executable,'-I','-m','evaluation_runner.fixed_run','describe','--case-id',case.case_id],
+def describe_case(dataset, case, rules, profile_version=1):
+    profile_identity(profile_version,case.case_id)
+    result=subprocess.run([sys.executable,'-I','-m','evaluation_runner.fixed_run','describe','--case-id',case.case_id,
+                           '--profile-version',str(profile_version)],
                           check=True,capture_output=True,text=True,encoding='utf-8',cwd=ROOT)
     value=json.loads(result.stdout)
     if (value.get('catalog_digest')!=digest(dataset.model_dump(mode='json'))
@@ -85,12 +88,15 @@ def selection(dataset, case_ids=None, repeat_count=None):
     return [(case,ordinal) for case in chosen for ordinal in range(1,(repeat_count or case.repeats)+1)]
 
 
-def command(action, *, state, admin=None, manager=None, dataset=None, output=None, parent_run=None):
+def command(action, *, state, admin=None, manager=None, dataset=None, output=None, parent_run=None,profile_version=1,case_id=None):
     """Every executable/module/script is fixed in code, never read from a case."""
     pwsh = 'pwsh'
+    profile_identity(profile_version,case_id)
     if action in {'start', 'stop', 'target-cleanup'}:
         args = [pwsh, '-NoProfile', '-File', str(ROOT/'scripts/evaluation-target.ps1'), '-Action',
                 'cleanup' if action == 'target-cleanup' else action, '-StateDirectory', str(state)]
+        args += ['-ProfileVersion',str(profile_version)]
+        if profile_version==2: args += ['-CaseId',case_id]
         if action == 'start' and parent_run is not None:
             args += ['-ParentRunId', str(parent_run)]
         if action in {'start', 'target-cleanup'}:
@@ -104,6 +110,9 @@ def command(action, *, state, admin=None, manager=None, dataset=None, output=Non
     args = [sys.executable, '-I', '-m', 'evaluation_runner.fixed_run', action,
             '--target-manifest', str(state/'target-manifest.json'), '--output', str(output)]
     context = json.loads((dataset.parent/'suite-context.json').read_text(encoding='utf-8'))
+    if context.get('profile_version',1)!=profile_version or case_id is not None and context['case_id']!=case_id:
+        raise ValueError('Child context differs from selected profile')
+    args += ['--profile-version',str(profile_version)]
     args += ['--case-id', context['case_id'], '--suite-context', str(dataset.parent/'suite-context.json')]
     return args
 
@@ -115,6 +124,10 @@ def observe_started(attempt, report):
     roots, unknown = [], False
     for row in report.get('attempts', []):
         refs = [row.get('platform_root') or {}, *row.get('prior_run_refs', {}).values()]
+        refs += row.get('versioned_roots',[])
+        unknown |= row.get('versioned_submission_unknown') is True
+        if any(item.get('state') in {'SUBMITTING','UNKNOWN'} for item in row.get('versioned_roots',[])):
+            unknown=True
         refs += [{'id': root.get('run_id')} for root in row.get('flow_code_roots', {}).values()]
         fixture = row.get('fixture') or {}
         initial = [fixture, *fixture.get('versions', []), *fixture.get('children', [])]
@@ -167,7 +180,7 @@ def verify_frozen_source(record):
         if not record.get('source_sha256') or not record.get('candidate_commit'):
             raise ValueError('Missing candidate/source identity')
         check_candidate(record['candidate_commit'])
-        if source_fingerprint()!=record['source_sha256']:
+        if source_fingerprint(record.get('profile_version',1))!=record['source_sha256']:
             raise ValueError('Source content or file set changed')
     except Exception as error:
         record['source_verification']={'status':'CHANGED_OR_UNVERIFIED','error_type':type(error).__name__}
@@ -244,6 +257,7 @@ def verify_parent_target(state, attempt, credentials):
 
 def perform_attempt(attempt,state,result,call,candidate):
     reason=None
+    report=None
     try:
         if call('start')!=0:return 'TARGET_START_REVIEW'
         check_candidate(candidate,state/'target-manifest.json')
@@ -265,12 +279,14 @@ def perform_attempt(attempt,state,result,call,candidate):
                 if attempt['status']=='PASS' and not attempt['business_started']:
                     attempt.update(status='NEEDS_REVIEW',reason='NO_CONFIRMED_BUSINESS_ROOT')
             except Exception as error:
+                report=None
                 attempt['report_validation']={'status':'REJECTED','error_type':type(error).__name__}
                 attempt['status']='NEEDS_REVIEW'
-        if code not in (0,1) or not report_path.is_file():
+        if code not in (0,1) or not report_path.is_file() or (attempt.get('profile_version',1)==2 and report is None):
             attempt['infrastructure_error']={'exit_code':code,'reason':'NO_VALID_PROCESS_RESULT'}
             if attempt['status']!='FAIL':attempt['status']='NEEDS_REVIEW'
-        elif (code==0)!=(attempt['status']=='PASS'):
+        elif (code==0)!=((report is not None and report.get('control_gate')=='PASS')
+                        if attempt.get('profile_version',1)==2 else attempt['status']=='PASS'):
             attempt['infrastructure_error']={'exit_code':code,'reason':'EXIT_REPORT_MISMATCH'}
             if attempt['status']!='FAIL':attempt['status']='NEEDS_REVIEW'
         return reason
@@ -374,6 +390,11 @@ def aggregate(directory, record):
 
 
 def run_suite(args):
+    profile_version=getattr(args,'profile_version',1)
+    if type(profile_version) is not int or profile_version not in {1,2}:
+        raise ValueError('Unsupported suite profile version')
+    if args.rules_id!=('controlled-a20-v1' if profile_version==1 else 'controlled-a20-v2'):
+        raise ValueError('Rule/profile version mismatch')
     output = args.output.resolve()
     parent_run = getattr(args, 'platform_parent_run', None)
     if parent_run is not None:
@@ -388,9 +409,16 @@ def run_suite(args):
         raise ValueError('A new private suite output is required; no implicit replay')
     dataset = Dataset.model_validate_json(args.dataset.read_text(encoding='utf-8'))
     planned=selection(dataset,getattr(args,'case_id',None),getattr(args,'repeat_count',None))
+    if profile_version==2:
+        from evaluation_runner.profiles_v2.registry import selection as registered_selection
+        for case,ordinal in planned:
+            if case.model_dump()!=registered_selection(case.case_id,2)[0].model_dump():
+                raise ValueError('Only exact separately registered v2 definitions are supported')
     # This trusted source contract is provided by the audited fixed profile, never by a dataset.
-    contract_path = ROOT/'services/evaluation/profile_support/suite-capabilities.json'
+    contract_path = ROOT/('services/evaluation/profile_support/suite-capabilities.json' if profile_version==1 else 'services/evaluation/profile_support/suite-capabilities-v2.json')
     contract = json.loads(contract_path.read_text(encoding='utf-8'))
+    if profile_version==2 and (contract.get('profile_version')!=2 or contract.get('rules_id')!='controlled-a20-v2'):
+        raise ValueError('Versioned suite contract identity is not reviewed')
     initializer = ROOT/'services/evaluation/src/evaluation_runner/fixed_run.py'
     if not initializer.is_file() or contract.get('schema_version') != 1:
         raise ValueError('Reviewed fixed initializer/capability contract is not ready')
@@ -405,10 +433,10 @@ def run_suite(args):
     check_candidate(args.candidate_commit)
     output.mkdir(parents=True, exist_ok=True)
     record = {'schema_version': 1, 'suite_id': str(uuid4()), 'dataset_digest': digest(dataset.model_dump(mode='json')), 'candidate_commit': args.candidate_commit,
-              'rules_id': args.rules_id, 'rules_digest':digest([{'case_id':c.case_id,'validators':[v.model_dump(mode='json') for v in c.validators],
+              'profile_version':profile_version,'rules_id': args.rules_id, 'rules_digest':digest([{'case_id':c.case_id,'validators':[v.model_dump(mode='json') for v in c.validators],
                   'metrics':[v.model_dump(mode='json') for v in c.metrics],'approval_policy':c.approval_policy} for c in dataset.cases]),
               'profile_contract_sha256': hashlib.sha256(contract_path.read_bytes()).hexdigest(),
-              'source_sha256':source_fingerprint(),
+              'source_sha256':source_fingerprint(profile_version),
               'head':subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT,text=True).strip(),
               'catalog_unique_cases':len(dataset.cases),'unique_case_count':len({c.case_id for c,n in planned}), 'expected_attempts':len(planned),
               'planned':[(c.case_id,n) for c,n in planned],
@@ -423,11 +451,11 @@ def run_suite(args):
     try:
         for case,ordinal in planned:
                 check_candidate(args.candidate_commit)
-                if source_fingerprint()!=record['source_sha256']:
+                if source_fingerprint(record.get('profile_version',1))!=record['source_sha256']:
                     record['stopped_reason']='SOURCE_CHANGED';return aggregate(output,record)
                 if (output/'cancel.request').exists():
                     record['stopped_reason']='CANCELLED'; return aggregate(output,record)
-                descriptor=describe_case(dataset,case,args.rules_id)
+                descriptor=describe_case(dataset,case,args.rules_id,profile_version)
                 if descriptor.get('maximum_sandboxes')!=bounds[case.case_id]:
                     record['stopped_reason']='SANDBOX_BOUND_MISMATCH';return aggregate(output,record)
                 if not ledger.reserve(case,bounds[case.case_id],time.monotonic()-started):
@@ -438,8 +466,10 @@ def run_suite(args):
                 child_data = child/'dataset.json';save(child_data,child_dataset(dataset,case,ordinal))
                 save(child/'suite-context.json', {'schema_version':1,'suite_id':record['suite_id'],
                      'catalog_digest':record['dataset_digest'],'case_definition_digest':digest(case.model_dump(mode='json')),
-                     'repeat_index':ordinal,'case_id':case.case_id,'candidate_commit':args.candidate_commit,'rules_id':args.rules_id})
+                     'repeat_index':ordinal,'case_id':case.case_id,'candidate_commit':args.candidate_commit,'rules_id':args.rules_id,
+                     'profile_version':profile_version})
                 attempt={'case_id':case.case_id,'repeat_ordinal':ordinal,'case_digest':digest(case.model_dump(mode='json')),
+                         'profile_version':profile_version,
                          'candidate_commit':args.candidate_commit,'rules_id':args.rules_id,'status':'NEEDS_REVIEW',
                          'child':str(child.relative_to(output)), 'dispatch_attempted':False,
                          'business_started':False,'unknown_submission':False,'root_run_ids':[],'cleanup':'RETAINED'}
@@ -462,7 +492,7 @@ def run_suite(args):
                         return 130
                     if action=='run':attempt['dispatch_attempted']=True
                     return invoke(command(action,state=state,admin=args.admin_connection_file,manager=args.manager_key_file,
-                                          dataset=child_data,output=result,parent_run=parent_run),child,action,result/'cancel.request',deadline,auth)
+                                          dataset=child_data,output=result,parent_run=parent_run,profile_version=profile_version,case_id=case.case_id),child,action,result/'cancel.request',deadline,auth)
                 reason=perform_attempt(attempt,state,result,call,args.candidate_commit)
                 verified=verify_frozen_source(record)
                 attempt['source_verification']=record['source_verification'].copy()
@@ -494,6 +524,7 @@ def main():
     parser.add_argument('--manager-key-file',type=Path)
     parser.add_argument('--case-id',action='append')
     parser.add_argument('--repeat-count',type=int)
+    parser.add_argument('--profile-version',type=int,choices=[1,2],default=1)
     for flag in ('candidate-commit','rules-id'):
         parser.add_argument('--'+flag,required=True)
     for flag in ('max-seconds','max-model-calls','max-tokens','max-sandboxes'):

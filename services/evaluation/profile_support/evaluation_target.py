@@ -47,7 +47,10 @@ class ProfileState:
 
     parent_guard_contract = 'platform-effect-permit-v1'
 
-    def __init__(self, path: Path | None = None):
+    def __init__(self, path: Path | None = None, *, a05_v2=False):
+        self.a05_v2_enabled = a05_v2
+        self.limits = {**LIMITS, **({"AET-A05": (3, 45)} if a05_v2 else {})}
+        self.case_limits = {**CASE_LIMITS, **({"AET-A05": {"max_model_calls": 5, "max_tokens": 75, "max_roots": 2}} if a05_v2 else {})}
         self.lock = Lock()
         self.calls = Counter()
         self.observations = {}
@@ -91,7 +94,7 @@ class ProfileState:
     def register_model(self, model_id, case_id, role, owner_id):
         binding = {"case_id": case_id, "role": role, "owner_id": str(owner_id)}
         if (case_id not in CASES or role not in {"lead", "reviewer", "embedding"}
-                or role == "reviewer" and case_id not in {"AET-W05", "AET-W06"}
+                or role == "reviewer" and case_id not in ({"AET-W05", "AET-W06", "AET-A05"} if self.a05_v2_enabled else {"AET-W05", "AET-W06"})
                 or role == "embedding" and case_id not in {"AET-A03", "AET-A04", "AET-W06"}):
             raise ValueError("Unregistered model role")
         with self.lock:
@@ -135,8 +138,8 @@ class ProfileState:
             raise ValueError("Invalid controlled token reservation")
         with self.lock:
             root_key = key[:3]
-            if case_id in CASE_LIMITS:
-                bound = CASE_LIMITS[case_id]
+            if case_id in self.case_limits:
+                bound = self.case_limits[case_id]
                 roots = [(root_id, value) for root_id, value in self.roots.items()
                          if root_id[0] == str(scope.owner) and value["case_id"] == case_id]
                 if (any(value["unknown"] or value["pending"] for _, value in roots)
@@ -145,7 +148,7 @@ class ProfileState:
                         or root_key not in dict(roots) and len(roots) >= bound["max_roots"]):
                     raise RuntimeError("Controlled case budget blocked generation before provider effect")
             root = self.roots.setdefault(root_key, {"case_id": case_id, "calls": 0, "tokens": 0, "unknown": False, "pending": 0})
-            calls, tokens = LIMITS[case_id]
+            calls, tokens = self.limits[case_id]
             if (self.storage_failed or root["case_id"] != case_id or root["unknown"] or root["calls"] >= calls
                     or root["tokens"] + cost > tokens):
                 raise RuntimeError("Controlled root budget blocked generation before provider effect")
@@ -306,6 +309,9 @@ def call(name, arguments):
 
 
 def model_factory(config, state):
+    if config.model == "eval::AET-A05::v2" or getattr(state, "a05_v2_enabled", False) and config.model.startswith("eval::AET-A05::"):
+        from profiles_v2.a05.evaluation_a05 import model_factory as a05_factory
+        return a05_factory(config, state)
     parts = config.model.split("::")
     if len(parts) != 3 or parts[0] != "eval" or parts[1] not in CASES or parts[2] != "v1":
         raise ValueError("Only registered controlled models are allowed; no supplier fallback")
@@ -348,12 +354,17 @@ class ModelBinding(BaseModel):
         return value
 
 
-def build_app(settings, *, sandbox_config=None, f05_anchor_sha256=None):
+def build_app(settings, *, sandbox_config=None, f05_anchor_sha256=None, a05_v2=False):
     """Wrap the actual API lifespan and genuine queue consumers inside a new isolated target."""
     if not conninfo_to_dict(settings.database_url)["dbname"].endswith("_test") or not settings.data_dir.name.endswith("_test"):
         raise ValueError("The controlled target requires a dedicated test database and data directory")
     if not settings.evaluation_instance_id or not settings.evaluation_platform_commit:
         raise ValueError("The controlled target requires explicit attestation settings")
+    if a05_v2 and sandbox_config is not None:
+        raise ValueError("A05 v2 must run without a sandbox consumer")
+    if a05_v2 and (not settings.ask_worker_enabled or settings.run_timeout != 120
+            or any((settings.work_enabled, settings.automation_enabled, settings.evaluation_enabled, settings.media_worker_enabled))):
+        raise ValueError("A05 v2 requires its sole controlled Ask worker, 120 seconds and no other execution workers")
     from evaluation_automations import ControlledAskWorker
     from evaluation_parent_guard import ParentGuard
 
@@ -374,8 +385,13 @@ def build_app(settings, *, sandbox_config=None, f05_anchor_sha256=None):
     @asynccontextmanager
     async def lifespan(application):
         async with original(application):
-            state = ProfileState(settings.data_dir / "evaluation-provider-state.json")
+            state = ProfileState(settings.data_dir / "evaluation-provider-state.json", a05_v2=a05_v2)
             parent.install_runtime(application, state)
+            a05 = None
+            if a05_v2:
+                from profiles_v2.a05.evaluation_a05 import install as install_a05
+                a05 = await install_a05(application, state)
+                state.a05_v2 = a05
             if deadline_guard is not None:
                 deadline_guard.install_runtime(application, state, parent)
             factory = lambda configuration: model_factory(configuration, state)
@@ -385,17 +401,18 @@ def build_app(settings, *, sandbox_config=None, f05_anchor_sha256=None):
             restore_team_audit = install_team_audit(application, state)
             attach_team_observer(application)
             application.state.evaluation_case_limits = {"schema_version": 1, "enforcement": "controlled-case-reserve-v1",
-                "scope": "evaluation-owner-and-case", "profiles": {case: dict(bound) for case, bound in CASE_LIMITS.items()}}
+                "scope": "evaluation-owner-and-case", "profiles": {case: dict(bound) for case, bound in state.case_limits.items()}}
             application.state.evaluation_execution_limits = {
                 "schema_version": 1, "enforcement": "controlled-model-factory-v1", "scope": "resource-run-root",
                 "profiles": {case: {"mode": "ask" if "-A" in case else "work" if "-W" in case else "workflow",
-                                    "max_model_calls": LIMITS[case][0], "max_tokens": LIMITS[case][1]} for case in sorted(CASES)}}
+                                    "max_model_calls": state.limits[case][0], "max_tokens": state.limits[case][1]} for case in sorted(CASES)}}
             application.state.runtime.model_factory = factory
             from evaluation_embeddings import install_embeddings
 
             restore_embeddings = install_embeddings(application, state)
             stop = asyncio.Event()
-            ask = ControlledAskWorker(application.state.db, application.state.models, settings, model_factory=factory, profile_state=state)
+            ask = ControlledAskWorker(application.state.db, application.state.models, settings, model_factory=factory, profile_state=state,
+                                      mcp_client_factory=a05.client_factory if a05 is not None else None)
             tasks = [asyncio.create_task(ask.serve(stop))]
             sandboxes = None
             work_consumer = None
@@ -463,6 +480,8 @@ def build_app(settings, *, sandbox_config=None, f05_anchor_sha256=None):
                     await work_consumer.close()
                 if sandboxes is not None:
                     await sandboxes.close()
+                if a05 is not None:
+                    await a05.close()
                 restore_team_audit()
                 restore_embeddings()
 
@@ -499,7 +518,7 @@ def build_app(settings, *, sandbox_config=None, f05_anchor_sha256=None):
             fail(403, "EVALUATION_OWNER_MISMATCH", "固定评测模型归属不匹配")
         config = await request.app.state.models.get(body.model_id)
         kind = "embedding" if body.role == "embedding" else "chat"
-        if config.kind != kind or config.protocol != "openai" or config.model != f"eval::{body.case_id}::v1":
+        if config.kind != kind or config.protocol != "openai" or config.model != ("eval::AET-A05::v2" if a05_v2 and body.case_id == "AET-A05" else f"eval::{body.case_id}::v1"):
             fail(422, "EVALUATION_MODEL_INVALID", "只允许固定用途的受控评测模型")
         try:
             request.app.state.evaluation_profiles.register_model(body.model_id, body.case_id, body.role, user["id"])

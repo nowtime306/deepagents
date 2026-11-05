@@ -68,6 +68,8 @@ def request_definition(request):
     if type(request["repeats"]) is not int or request["repeats"] != 1:
         raise ValueError("Only the reviewed engineering subset is implemented")
     proposed = Dataset.model_validate(request["definition"])
+    if any(case.case_id in {'AET-A05','AET-W07','AET-W08','AET-F07'} and case.fixture_profile.version==2 for case in proposed.cases):
+        raise ValueError('Explicit v2 profiles remain CLI-only; platform execution is not enabled')
     registered = fixed_run.catalog()
     cases = {case.case_id: case for case in registered.cases}
     sandbox_bounds = []

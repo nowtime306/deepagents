@@ -1,0 +1,66 @@
+{
+  "kind": "v2-cli",
+  "binding": {
+    "environment_id": "795addb6-28ad-4bf3-989e-c5857d6ded82",
+    "owner_id": "6b588ba1-7a82-4c3e-8419-468239bcc216",
+    "target_digest": "482fd509c1dea32e40fd08a077107f599daa3610fe960d8e46a317735e9324c4",
+    "attempt_id": "5f93b6bc-f3f1-4ebc-9cc4-76edf0db5694",
+    "case_id": "AET-F07",
+    "repeat_index": 0,
+    "suite_id": "F07-R5-NEW-BATCH",
+    "catalog_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+    "case_definition_digest": "c7dec3469a7c64da868282d743d9b15bc03a3cf06d5e960fc641c3a0ee0ff43b",
+    "rules_id": "controlled-a20-v2",
+    "candidate_commit": "cbdab61c4b934dd440476c84d9e1c4be944f7f68"
+  },
+  "body": {
+    "status": "CLOSED_UNKNOWN_RETAINED",
+    "observation": {
+      "phase": "CLOSED",
+      "environment_id": "795addb6-28ad-4bf3-989e-c5857d6ded82",
+      "owner_id": "6b588ba1-7a82-4c3e-8419-468239bcc216",
+      "namespace": "4d285255-39a7-4767-88bf-a1276400beee",
+      "roots": {
+        "4fdc0a6e-f908-44c1-93fe-2c4c7384baac": {
+          "scene": "timer",
+          "workflow_id": "f77e7fec-ada3-405d-9c4b-e720d7c19af7",
+          "input": "seed"
+        },
+        "87f14805-7598-4c15-bdbb-e984488948da": {
+          "scene": "timer",
+          "workflow_id": "f77e7fec-ada3-405d-9c4b-e720d7c19af7",
+          "input": "seed"
+        },
+        "f3c3aaaa-e729-49d9-a253-30b189d13244": {
+          "scene": "json",
+          "workflow_id": "77734764-489c-4116-a399-fdd450c3a153",
+          "input": "not-json"
+        },
+        "5cc1275c-5888-41ca-ab2b-1d0c55f1ad0a": {
+          "scene": "model",
+          "workflow_id": "870a3dac-5b79-46c4-926f-7ec39a8e65de",
+          "input": "seed"
+        }
+      },
+      "provider": {
+        "calls": 1,
+        "reserved_tokens": 15,
+        "status": "UNKNOWN",
+        "root": "5cc1275c-5888-41ca-ab2b-1d0c55f1ad0a"
+      },
+      "pure": {
+        "4fdc0a6e-f908-44c1-93fe-2c4c7384baac": {
+          "started": true,
+          "cancelled": true
+        },
+        "87f14805-7598-4c15-bdbb-e984488948da": {
+          "started": true,
+          "cancelled": true
+        }
+      },
+      "started": 1793870056.9117262,
+      "expires": 1793870176.9117262,
+      "model_id": "202b8194-73bb-4c4c-96de-f4cdcd1b4e2e"
+    }
+  }
+}

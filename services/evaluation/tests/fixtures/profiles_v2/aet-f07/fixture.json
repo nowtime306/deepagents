@@ -1,0 +1,368 @@
+{
+  "scope": "Synthetic canonical regression fixture; not a new business acceptance record",
+  "data": {
+    "schema_version": 1,
+    "attempts": [
+      {
+        "attempt_id": "5f93b6bc-f3f1-4ebc-9cc4-76edf0db5694",
+        "case_id": "AET-F07",
+        "f07_started": 1793870056.9117262,
+        "f07_expires": 1793870176.9117262,
+        "fixture_intents": {
+          "f07-activate": {
+            "status": "CONFIRMED",
+            "digest": "4deb65c111dc95f7e26ee78581326a7f77a5e60ce11d107626e87a007ea3e04d",
+            "method": "POST",
+            "path": "/api/v1/agent-evaluations/profiles/f07-v2/activate",
+            "http_status": 200,
+            "response": {}
+          },
+          "f07-model": {
+            "status": "CONFIRMED",
+            "digest": "40d0b126027a6eda88d32fcacd13d5ff82c508a3ecf5a949df0f9b8eaa5101ff",
+            "method": "POST",
+            "path": "/api/v1/admin/models",
+            "http_status": 201,
+            "response": {
+              "id": "202b8194-73bb-4c4c-96de-f4cdcd1b4e2e"
+            }
+          },
+          "f07-seal": {
+            "status": "CONFIRMED",
+            "digest": "e7fa2c4c01c86f7e42be3ea610d2df5370ec6a2381c2ae23aa1bbbf03fef958a",
+            "method": "POST",
+            "path": "/api/v1/agent-evaluations/profiles/f07-v2/seal-model",
+            "http_status": 200,
+            "response": {
+              "sealed": true
+            }
+          },
+          "f07-workflow-json": {
+            "status": "CONFIRMED",
+            "digest": "93850fda60a8d2aa84f7a7dc68ba1cc65ac165ae788b9db61903df1ff468817c",
+            "method": "POST",
+            "path": "/api/v1/workflows",
+            "http_status": 201,
+            "response": {
+              "id": "77734764-489c-4116-a399-fdd450c3a153"
+            }
+          },
+          "f07-workflow-timer": {
+            "status": "CONFIRMED",
+            "digest": "bbd23fc2757c36132e71d357379c88a0aa3ae73856aa7e0a741c82670b0293e3",
+            "method": "POST",
+            "path": "/api/v1/workflows",
+            "http_status": 201,
+            "response": {
+              "id": "f77e7fec-ada3-405d-9c4b-e720d7c19af7"
+            }
+          },
+          "f07-workflow-model": {
+            "status": "CONFIRMED",
+            "digest": "9ad117595731d672dce1620ee443916dabd5825eee73e1d35ab83fc49240d9f1",
+            "method": "POST",
+            "path": "/api/v1/workflows",
+            "http_status": 201,
+            "response": {
+              "id": "870a3dac-5b79-46c4-926f-7ec39a8e65de"
+            }
+          },
+          "f07-run-timer-init": {
+            "status": "CONFIRMED",
+            "digest": "3d1b01e58c0dc1d6143beb911038bde79ee56125d832cf4f028f120e3d17ae16",
+            "method": "POST",
+            "path": "/api/v1/workflows/f77e7fec-ada3-405d-9c4b-e720d7c19af7/test-runs",
+            "http_status": 200,
+            "response": {
+              "id": "4fdc0a6e-f908-44c1-93fe-2c4c7384baac",
+              "status": "SUCCEEDED"
+            }
+          },
+          "f07-publish-timer": {
+            "status": "CONFIRMED",
+            "digest": "a6529d8ec4b31d2aed477a83efaad471d1880c0996ae4add8d9408a3c4d638d8",
+            "method": "POST",
+            "path": "/api/v1/workflows/f77e7fec-ada3-405d-9c4b-e720d7c19af7/publish",
+            "http_status": 201,
+            "response": {
+              "version": 1
+            }
+          },
+          "f07-run-timer-main": {
+            "status": "CONFIRMED",
+            "digest": "3fd02cb08a901055a51fe7588a4c30da1444c20e40cfc1b78790dca7a4455b29",
+            "method": "POST",
+            "path": "/api/v1/workflows/f77e7fec-ada3-405d-9c4b-e720d7c19af7/versions/1/runs",
+            "http_status": 200,
+            "response": {
+              "id": "87f14805-7598-4c15-bdbb-e984488948da",
+              "status": "SUCCEEDED"
+            }
+          },
+          "f07-run-json-companion": {
+            "status": "CONFIRMED",
+            "digest": "55a1acb9eaf6d0f0d1b0854c11e4518a3afdf8af0820885aad1b50a1b3d9656e",
+            "method": "POST",
+            "path": "/api/v1/workflows/77734764-489c-4116-a399-fdd450c3a153/test-runs",
+            "http_status": 200,
+            "response": {
+              "id": "f3c3aaaa-e729-49d9-a253-30b189d13244",
+              "status": "SUCCEEDED"
+            }
+          },
+          "f07-run-model-companion": {
+            "status": "CONFIRMED",
+            "digest": "221eac931c6832186a17410e2ac104ab8d764505a6dcb017322bc992b5d1868e",
+            "method": "POST",
+            "path": "/api/v1/workflows/870a3dac-5b79-46c4-926f-7ec39a8e65de/test-runs",
+            "http_status": 502,
+            "response": {}
+          },
+          "f07-close": {
+            "status": "CONFIRMED",
+            "digest": "f6949f2f7953dd351659b6886c182fd81848a89e2b54feb7c6b1ed65b70584bf",
+            "method": "POST",
+            "path": "/api/v1/agent-evaluations/profiles/f07-v2/close",
+            "http_status": 200,
+            "response": {}
+          }
+        },
+        "created_resources": [
+          {
+            "kind": "f07-model",
+            "id": "202b8194-73bb-4c4c-96de-f4cdcd1b4e2e",
+            "path": "/api/v1/admin/models/202b8194-73bb-4c4c-96de-f4cdcd1b4e2e"
+          },
+          {
+            "kind": "f07-workflow-json",
+            "id": "77734764-489c-4116-a399-fdd450c3a153",
+            "path": "/api/v1/workflows/77734764-489c-4116-a399-fdd450c3a153"
+          },
+          {
+            "kind": "f07-workflow-timer",
+            "id": "f77e7fec-ada3-405d-9c4b-e720d7c19af7",
+            "path": "/api/v1/workflows/f77e7fec-ada3-405d-9c4b-e720d7c19af7"
+          },
+          {
+            "kind": "f07-workflow-model",
+            "id": "870a3dac-5b79-46c4-926f-7ec39a8e65de",
+            "path": "/api/v1/workflows/870a3dac-5b79-46c4-926f-7ec39a8e65de"
+          }
+        ],
+        "model_id": "202b8194-73bb-4c4c-96de-f4cdcd1b4e2e",
+        "fixture": {
+          "json": {
+            "id": "77734764-489c-4116-a399-fdd450c3a153"
+          },
+          "timer": {
+            "id": "f77e7fec-ada3-405d-9c4b-e720d7c19af7",
+            "version": 1
+          },
+          "model": {
+            "id": "870a3dac-5b79-46c4-926f-7ec39a8e65de"
+          }
+        },
+        "f07_runs": {
+          "timer-init": {
+            "root_id": "4fdc0a6e-f908-44c1-93fe-2c4c7384baac",
+            "scene": "timer",
+            "state": "OBSERVED"
+          },
+          "timer-main": {
+            "root_id": "87f14805-7598-4c15-bdbb-e984488948da",
+            "scene": "timer",
+            "state": "OBSERVED"
+          },
+          "json-companion": {
+            "root_id": "f3c3aaaa-e729-49d9-a253-30b189d13244",
+            "scene": "json",
+            "state": "OBSERVED"
+          },
+          "model-companion": {
+            "root_id": "5cc1275c-5888-41ca-ab2b-1d0c55f1ad0a",
+            "scene": "model",
+            "state": "OBSERVED"
+          }
+        },
+        "f07_refs": {
+          "timer-init": {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/0856f92b-770d-4b7a-8367-c069db9c0a89.json",
+            "sha256": "8301b07bd12dd4b5846ded0ac125dc6c1c0297a9b5f8ac5f292e88f7a6a5c261"
+          },
+          "timer-main": {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/2a5de37e-8663-4f9c-84d6-69092fd28d59.json",
+            "sha256": "eca43cd0d0ecf681ef461636a74f8c7a9f061b3c49cbce68b449ddeaf73cf927"
+          },
+          "json-companion": {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/5a7f1d37-f85a-4b80-b898-0d6e812177b0.json",
+            "sha256": "b4e2676ab4c306a6d2a3c63401197e082a1e140038a76199c066967b51f4c8f0"
+          },
+          "model-companion": {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/ae9c237b-3259-4898-8fd4-5adf1487c301.json",
+            "sha256": "3689922165832a0c61279c13a8fb390f1966db41d71bcbb35e1a0484bb1ffeb9"
+          },
+          "final-observation": {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/7b6b20aa-e3e9-43a9-b369-24db456e45da.json",
+            "sha256": "156457b1438ba84db47f34bae09d68c1ad7fcf433d00014e88ca0910e6af9583"
+          },
+          "closed-observation": {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/9cb5fdb2-eed2-4000-b5a7-7f2acc22dab3.json",
+            "sha256": "f04919b573201531f5b5ec03fab9cbbd989503e1248fc70e1321ebe1ac3c7dec"
+          }
+        },
+        "evidence_refs": [
+          {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/0856f92b-770d-4b7a-8367-c069db9c0a89.json",
+            "sha256": "8301b07bd12dd4b5846ded0ac125dc6c1c0297a9b5f8ac5f292e88f7a6a5c261"
+          },
+          {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/2a5de37e-8663-4f9c-84d6-69092fd28d59.json",
+            "sha256": "eca43cd0d0ecf681ef461636a74f8c7a9f061b3c49cbce68b449ddeaf73cf927"
+          },
+          {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/5a7f1d37-f85a-4b80-b898-0d6e812177b0.json",
+            "sha256": "b4e2676ab4c306a6d2a3c63401197e082a1e140038a76199c066967b51f4c8f0"
+          },
+          {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/ae9c237b-3259-4898-8fd4-5adf1487c301.json",
+            "sha256": "3689922165832a0c61279c13a8fb390f1966db41d71bcbb35e1a0484bb1ffeb9"
+          },
+          {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/7b6b20aa-e3e9-43a9-b369-24db456e45da.json",
+            "sha256": "156457b1438ba84db47f34bae09d68c1ad7fcf433d00014e88ca0910e6af9583"
+          },
+          {
+            "schema_version": 1,
+            "kind": "f07-v2",
+            "path": "evidence/f07-v2/9cb5fdb2-eed2-4000-b5a7-7f2acc22dab3.json",
+            "sha256": "f04919b573201531f5b5ec03fab9cbbd989503e1248fc70e1321ebe1ac3c7dec"
+          },
+          {
+            "schema_version": 1,
+            "kind": "v2-cli",
+            "path": "evidence/v2-cli/627165ab-e87f-4487-9c02-5137c039ebf6.json",
+            "sha256": "4e3c52d1491b0a6bbb87c0cd3b089dc25928900651d1fb8c136a4e85832209ad"
+          },
+          {
+            "schema_version": 1,
+            "kind": "v2-cli",
+            "path": "evidence/v2-cli/ff48031c-b3ae-4b6d-8d26-1c0da668d8b8.json",
+            "sha256": "2d602e6f4682b81fe9b45a71fff597e3b9558c4c164ae4ab4fe7a15bbc72e944"
+          }
+        ],
+        "usage_completeness": "UNKNOWN",
+        "task_outcome": "NEEDS_REVIEW",
+        "profile_version": 2,
+        "started": true,
+        "repeat_index": 1,
+        "case_snapshot": {
+          "case_id": "AET-F07",
+          "name": "真实纯转换超时与未知模型失败传播",
+          "mode": "workflow",
+          "requirements": [
+            "AE-03",
+            "AE-11"
+          ],
+          "tags": [
+            "controlled-engineering"
+          ],
+          "input": "seed",
+          "business_version": null,
+          "fixture_profile": {
+            "id": "handled-transform-error",
+            "version": 2
+          },
+          "fixture_parameters": {
+            "definition_digest": "848de8796a35fe17f2aabcc16c3dddb3531308ca523938297dc259aff6e0f78e"
+          },
+          "validators": [
+            {
+              "registered_id": "timeout_error_branch",
+              "version": 1,
+              "parameters": {},
+              "required": true
+            }
+          ],
+          "metrics": [],
+          "budgets": {
+            "timeout_seconds": 120,
+            "max_model_calls": 1,
+            "max_tokens": 15
+          },
+          "repeats": 1,
+          "approval_policy": "none",
+          "dependencies": []
+        },
+        "v2_facts": {
+          "schema_version": 1,
+          "kind": "v2-cli",
+          "path": "evidence/v2-cli/627165ab-e87f-4487-9c02-5137c039ebf6.json",
+          "sha256": "4e3c52d1491b0a6bbb87c0cd3b089dc25928900651d1fb8c136a4e85832209ad"
+        },
+        "v2_cleanup": {
+          "schema_version": 1,
+          "kind": "v2-cli",
+          "path": "evidence/v2-cli/ff48031c-b3ae-4b6d-8d26-1c0da668d8b8.json",
+          "sha256": "2d602e6f4682b81fe9b45a71fff597e3b9558c4c164ae4ab4fe7a15bbc72e944"
+        },
+        "usage": {
+          "calls": 1,
+          "input_tokens": null,
+          "output_tokens": null
+        },
+        "fact_results": [
+          {
+            "registered_id": "timeout_error_branch",
+            "status": "PASS",
+            "required": true,
+            "reason": "Versioned independent retained control facts verified",
+            "evidence_refs": [],
+            "score": null
+          }
+        ],
+        "metric_results": [],
+        "control_status": "PASS",
+        "cleanup_status": "CLOSED_UNKNOWN_RETAINED",
+        "cost": null,
+        "cost_completeness": "UNKNOWN"
+      }
+    ],
+    "environment_id": "795addb6-28ad-4bf3-989e-c5857d6ded82",
+    "owner_id": "6b588ba1-7a82-4c3e-8419-468239bcc216",
+    "target_digest": "482fd509c1dea32e40fd08a077107f599daa3610fe960d8e46a317735e9324c4",
+    "suite_context": {
+      "repeat_index": 0,
+      "suite_id": "F07-R5-NEW-BATCH",
+      "catalog_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+      "case_definition_digest": "c7dec3469a7c64da868282d743d9b15bc03a3cf06d5e960fc641c3a0ee0ff43b",
+      "rules_id": "controlled-a20-v2",
+      "candidate_commit": "cbdab61c4b934dd440476c84d9e1c4be944f7f68",
+      "profile_version": 2,
+      "case_id": "AET-F07"
+    },
+    "dataset_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+    "expected_attempts": 1
+  }
+}

@@ -12,6 +12,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.errors import APIError
 from app.workflow_definition import Definition, Node, validate
+from app.workflow_pure_timeout import confirmed_pure_timeout
 
 
 class State(TypedDict):
@@ -102,6 +103,8 @@ def compile_workflow(
                     error, (ValueError, KeyError, IndexError, TypeError)
                 )
                 known = isinstance(error, APIError) and (
+                    (node.kind == "transform" and confirmed_pure_timeout(error, node))
+                    or
                     (
                         node.kind == "iteration"
                         and error.code in {"WORKFLOW_ITERATION_INPUT", "WORKFLOW_ITERATION_LIMIT"}

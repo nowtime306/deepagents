@@ -38,7 +38,7 @@ PARAMETERS = {
     "mcp": {"server_id", "tool", "arguments"},
     "http": {"url"},
     "condition": {"operator", "value"},
-    "transform": {"operation", "old", "new", "path", "template"},
+    "transform": {"operation", "old", "new", "path", "template", "timeout_ms"},
     "subworkflow": {"version_id"},
     "iteration": {"version_id", "max_items"},
     "parallel": {"version_ids"},
@@ -228,6 +228,8 @@ def parameters(node: Node) -> None:
         if not isinstance(values.get("value", ""), str):
             raise ValueError("条件比较值必须为文本")
     if node.kind == "transform":
+        if "timeout_ms" in values and (type(values["timeout_ms"]) is not int or not 1 <= values["timeout_ms"] <= 5000):
+            raise ValueError("纯文本转换时限必须为1–5000毫秒的整数")
         if values.get("operation") not in {"text", "upper", "lower", "trim", "replace", "json_get", "template"}:
             raise ValueError("仅支持预置文本转换，不允许代码或表达式")
         if values.get("operation") == "template":

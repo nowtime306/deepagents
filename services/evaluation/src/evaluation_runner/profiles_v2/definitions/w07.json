@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "dataset_id": "a20-w07-observation-recovery-v2",
+  "dataset_version": 2,
+  "cases": [{
+    "case_id": "AET-W07", "name": "审批写入丢回执后的同根观测恢复", "mode": "work",
+    "requirements": ["AE-03", "AE-11"], "tags": ["controlled-engineering", "unknown-preserved"],
+    "input": "经审批向受控工具写入一条record。",
+    "fixture_profile": {"id": "unknown-tool-write", "version": 2},
+    "fixture_parameters": {"protocol": "terminal-unknown-write-v2"},
+    "validators": [{"registered_id": "unknown_no_replay", "version": 1, "required": true, "parameters": {}}],
+    "metrics": [], "repeats": 1, "approval_policy": "approve", "dependencies": [],
+    "budgets": {"timeout_seconds": 300, "max_model_calls": 5, "max_tokens": 1000}
+  }]
+}

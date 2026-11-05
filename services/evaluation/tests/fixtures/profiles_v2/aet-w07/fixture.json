@@ -1,0 +1,289 @@
+{
+  "scope": "Synthetic canonical regression fixture; not a new business acceptance record",
+  "data": {
+    "schema_version": 1,
+    "attempts": [
+      {
+        "attempt_id": "d77dc797-d0fc-4200-9509-cfd65ad8d392",
+        "case_id": "AET-W07",
+        "w07_deadline": "2026-11-05T08:22:01.746042+00:00",
+        "fixture_intents": {
+          "w07-model": {
+            "status": "CONFIRMED",
+            "digest": "8d98e855c43f9e0b801a5c30b1eea15b0b5f4fcd6dc976f5df8d7f27d06fbf9e",
+            "method": "POST",
+            "path": "/api/v1/admin/models",
+            "http_status": 201,
+            "response": {
+              "id": "9c771394-24e9-48c3-a565-73bc66ba137a"
+            }
+          },
+          "w07-seal": {
+            "status": "CONFIRMED",
+            "digest": "adaf912f2cd4a384dd823fd047f35a5440be104d12eb8db6101a54e94925f212",
+            "method": "POST",
+            "path": "/api/v1/agent-evaluations/profiles/w07-v2/model-binding",
+            "http_status": 200,
+            "response": {
+              "sealed": true
+            }
+          },
+          "w07-receiver": {
+            "status": "CONFIRMED",
+            "digest": "3506904737d8a08bd18b63ac68e7ef5ac6600a5c7486270095eee0b1511e3444",
+            "method": "POST",
+            "path": "/api/v1/agent-evaluations/profiles/w07-v2/receiver",
+            "http_status": 200,
+            "response": {
+              "id": "19d77d5e-54c3-47c1-af11-3ad5afae6f56"
+            }
+          },
+          "agent-9c771394-24e9-48c3-a565-73bc66ba137a": {
+            "status": "CONFIRMED",
+            "digest": "08fe36d2c4c19a29e7d0b1bcd873769c964fd3053ee57521a3a74656aeaed378",
+            "method": "POST",
+            "path": "/api/v1/agents",
+            "http_status": 201,
+            "response": {
+              "id": "4237d53c-cbd9-4128-ae25-e7e5f531ea7f"
+            }
+          },
+          "publish-agent-4237d53c-cbd9-4128-ae25-e7e5f531ea7f": {
+            "status": "CONFIRMED",
+            "digest": "38197babf08ba07d552dc0cf26a2e9eae03ce01660ae3191c1330894ab414b81",
+            "method": "POST",
+            "path": "/api/v1/agents/4237d53c-cbd9-4128-ae25-e7e5f531ea7f/publish",
+            "http_status": 201,
+            "response": {
+              "id": "8b94621b-9370-43c8-978e-c9cfd6345049",
+              "version": 1,
+              "revision": 1
+            }
+          },
+          "work-task": {
+            "status": "CONFIRMED",
+            "digest": "dc9aefb39fd52f056213a243bbc6868674fe290adcd26570c3fe07324011a9db",
+            "method": "POST",
+            "path": "/api/v1/work-tasks",
+            "http_status": 201,
+            "response": {
+              "id": "58ac4d35-efe8-46ad-935d-e79c2173992b"
+            }
+          }
+        },
+        "created_resources": [
+          {
+            "kind": "w07-model",
+            "id": "9c771394-24e9-48c3-a565-73bc66ba137a",
+            "path": "/api/v1/admin/models/9c771394-24e9-48c3-a565-73bc66ba137a"
+          },
+          {
+            "kind": "agent-9c771394-24e9-48c3-a565-73bc66ba137a",
+            "id": "4237d53c-cbd9-4128-ae25-e7e5f531ea7f",
+            "path": "/api/v1/agents/4237d53c-cbd9-4128-ae25-e7e5f531ea7f"
+          },
+          {
+            "kind": "work-task",
+            "id": "58ac4d35-efe8-46ad-935d-e79c2173992b",
+            "path": "/api/v1/work-tasks/58ac4d35-efe8-46ad-935d-e79c2173992b"
+          }
+        ],
+        "fixture": {
+          "id": "58ac4d35-efe8-46ad-935d-e79c2173992b",
+          "revision": 1,
+          "agent_id": "4237d53c-cbd9-4128-ae25-e7e5f531ea7f",
+          "agent_version_id": "8b94621b-9370-43c8-978e-c9cfd6345049",
+          "model_id": "9c771394-24e9-48c3-a565-73bc66ba137a",
+          "server_id": "19d77d5e-54c3-47c1-af11-3ad5afae6f56",
+          "tool_name": "mcpw_19d77d5e54c347c1af113ad5afae6f56_1a9814d4a53e9318"
+        },
+        "submission_intents": {
+          "w07-submit-original": {
+            "status": "CONFIRMED",
+            "path": "/api/v1/work-tasks/58ac4d35-efe8-46ad-935d-e79c2173992b/runs",
+            "payload_digest": "4f1df0d82294a0698612c738ff7c847b927bb81d82813e32dbf7b789398aae5f",
+            "response": {
+              "run_id": "cf982567-6371-4e87-9b12-f65fa4bca80b",
+              "status": "PENDING"
+            }
+          },
+          "w07-approve-original": {
+            "status": "CONFIRMED",
+            "path": "/api/v1/work-approvals/fba2036b-1899-4716-a2c2-d3f42b431a18/decisions",
+            "payload_digest": "8072887d11bf5074a749feb956aa31a7feb58d6a1613d89a02c1b39564e0226b",
+            "response": {}
+          },
+          "w07-rebuild-observer": {
+            "status": "CONFIRMED",
+            "path": "/api/v1/agent-evaluations/profiles/w07-v2/rebuild",
+            "payload_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "response": {}
+          },
+          "w07-close-receiver": {
+            "status": "CONFIRMED",
+            "path": "/api/v1/agent-evaluations/profiles/w07-v2/close",
+            "payload_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "response": {}
+          }
+        },
+        "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b",
+        "evidence_refs": [
+          {
+            "schema_version": 1,
+            "kind": "w07-v2",
+            "path": "evidence/w07-v2/c5409b27-4f37-4b92-847d-f40f89d6a8ab.json",
+            "sha256": "fa4c6ea780054da28de7447924c4e45c471a7768e12aca123632a271fd4da9d3"
+          },
+          {
+            "schema_version": 1,
+            "kind": "w07-v2",
+            "path": "evidence/w07-v2/dfb0d3c6-015d-4a16-880a-f44d4a1de66d.json",
+            "sha256": "ed0cbe27b9e028f8e9fe61cd59b1fb0b588d3a224d592c7ccfe1c2449b97c3b7"
+          },
+          {
+            "schema_version": 1,
+            "kind": "w07-v2",
+            "path": "evidence/w07-v2/4286e56d-7534-4bb8-975a-8bd192c34ae2.json",
+            "sha256": "1ac04ca82f00fd52835f83700f3bf4785eaa751b6853e382d51ae172ffde9731"
+          },
+          {
+            "schema_version": 1,
+            "kind": "w07-v2",
+            "path": "evidence/w07-v2/90df86ee-ea76-4526-925b-14b9e4a0905d.json",
+            "sha256": "3f27b8c43391f98a85226dfda310a8692ab9d46510e08a0e8dbe0b00020d8237"
+          },
+          {
+            "schema_version": 1,
+            "kind": "v2-cli",
+            "path": "evidence/v2-cli/ac30be1f-67cb-46fa-a420-96f338337300.json",
+            "sha256": "ec106cfae1682f64da647db5ec61ea3e8361a510a68d486ce40c388277547192"
+          },
+          {
+            "schema_version": 1,
+            "kind": "v2-cli",
+            "path": "evidence/v2-cli/ac235e0b-4ddf-40b9-874e-d5947899fd06.json",
+            "sha256": "19191c50dc3c8e1b131280953c3383edcac86d2dd64d10cdbf8f4a811c9fa2ed"
+          }
+        ],
+        "w07_approval_before": {
+          "schema_version": 1,
+          "kind": "w07-v2",
+          "path": "evidence/w07-v2/c5409b27-4f37-4b92-847d-f40f89d6a8ab.json",
+          "sha256": "fa4c6ea780054da28de7447924c4e45c471a7768e12aca123632a271fd4da9d3"
+        },
+        "w07_before": {
+          "schema_version": 1,
+          "kind": "w07-v2",
+          "path": "evidence/w07-v2/dfb0d3c6-015d-4a16-880a-f44d4a1de66d.json",
+          "sha256": "ed0cbe27b9e028f8e9fe61cd59b1fb0b588d3a224d592c7ccfe1c2449b97c3b7"
+        },
+        "w07_after": {
+          "schema_version": 1,
+          "kind": "w07-v2",
+          "path": "evidence/w07-v2/4286e56d-7534-4bb8-975a-8bd192c34ae2.json",
+          "sha256": "1ac04ca82f00fd52835f83700f3bf4785eaa751b6853e382d51ae172ffde9731"
+        },
+        "task_outcome": "NEEDS_REVIEW",
+        "business_root_status": "NEEDS_REVIEW",
+        "unknown_write_preserved": true,
+        "usage": {
+          "calls": 1,
+          "input_tokens": 10,
+          "output_tokens": 5
+        },
+        "usage_completeness": "KNOWN",
+        "w07_closed": {
+          "schema_version": 1,
+          "kind": "w07-v2",
+          "path": "evidence/w07-v2/90df86ee-ea76-4526-925b-14b9e4a0905d.json",
+          "sha256": "3f27b8c43391f98a85226dfda310a8692ab9d46510e08a0e8dbe0b00020d8237"
+        },
+        "profile_version": 2,
+        "started": true,
+        "repeat_index": 1,
+        "case_snapshot": {
+          "case_id": "AET-W07",
+          "name": "审批写入丢回执后的同根观测恢复",
+          "mode": "work",
+          "requirements": [
+            "AE-03",
+            "AE-11"
+          ],
+          "tags": [
+            "controlled-engineering",
+            "unknown-preserved"
+          ],
+          "input": "经审批向受控工具写入一条record。",
+          "business_version": null,
+          "fixture_profile": {
+            "id": "unknown-tool-write",
+            "version": 2
+          },
+          "fixture_parameters": {
+            "protocol": "terminal-unknown-write-v2"
+          },
+          "validators": [
+            {
+              "registered_id": "unknown_no_replay",
+              "version": 1,
+              "parameters": {},
+              "required": true
+            }
+          ],
+          "metrics": [],
+          "budgets": {
+            "timeout_seconds": 300,
+            "max_model_calls": 5,
+            "max_tokens": 1000
+          },
+          "repeats": 1,
+          "approval_policy": "approve",
+          "dependencies": []
+        },
+        "sandbox_namespace": "01096fcd-79c8-4c3e-8c53-5077fad49c50",
+        "v2_facts": {
+          "schema_version": 1,
+          "kind": "v2-cli",
+          "path": "evidence/v2-cli/ac30be1f-67cb-46fa-a420-96f338337300.json",
+          "sha256": "ec106cfae1682f64da647db5ec61ea3e8361a510a68d486ce40c388277547192"
+        },
+        "v2_cleanup": {
+          "schema_version": 1,
+          "kind": "v2-cli",
+          "path": "evidence/v2-cli/ac235e0b-4ddf-40b9-874e-d5947899fd06.json",
+          "sha256": "19191c50dc3c8e1b131280953c3383edcac86d2dd64d10cdbf8f4a811c9fa2ed"
+        },
+        "fact_results": [
+          {
+            "registered_id": "unknown_no_replay",
+            "status": "PASS",
+            "required": true,
+            "reason": "Versioned independent retained control facts verified",
+            "evidence_refs": [],
+            "score": null
+          }
+        ],
+        "metric_results": [],
+        "control_status": "PASS",
+        "cleanup_status": "CLEAN_RECEIVER_UNKNOWN_OPERATION_RETAINED",
+        "cost": null,
+        "cost_completeness": "UNKNOWN"
+      }
+    ],
+    "environment_id": "ad290146-af4d-45a8-99cd-189a5d21949b",
+    "owner_id": "96786c6d-3438-4908-b66f-0c75a6570129",
+    "target_digest": "39463c036fa7c4acb34af2769f9fe9bb937155d374b7763287cf482f36807a16",
+    "suite_context": {
+      "repeat_index": 0,
+      "suite_id": "W07-R3-NEW-BATCH",
+      "catalog_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+      "case_definition_digest": "f9d6a73b34357d2ff4b3f0c1caeefd49919d03875eaa27693e7201b963dbc70b",
+      "rules_id": "controlled-a20-v2",
+      "candidate_commit": "cbdab61c4b934dd440476c84d9e1c4be944f7f68",
+      "profile_version": 2,
+      "case_id": "AET-W07"
+    },
+    "dataset_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+    "expected_attempts": 1
+  }
+}

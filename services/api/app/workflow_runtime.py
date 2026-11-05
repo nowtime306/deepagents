@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 from langchain_core.language_models import BaseChatModel
@@ -23,6 +23,7 @@ from app.usage import UsageRecorder
 from app.web_search import ensure_available, search_tool
 from app.workflow_compiler import compile_workflow, condition
 from app.workflow_definition import Definition, Node, render_template, validate
+from app.workflow_pure_timeout import run_pure_transform
 from app.workflow_schema import parse_json, validate_text
 
 
@@ -65,7 +66,10 @@ class WorkflowRuntime:
         models: ModelRegistry,
         capabilities: CapabilityService,
         model_factory: Callable[[ModelConfig], BaseChatModel],
+        *,
+        pure_transform_factory: Callable[[Node, str, dict], Awaitable[str]] | None = None,
     ) -> None:
+        self.pure_transform_factory = pure_transform_factory
         self.database, self.models, self.capabilities, self.model_factory = (
             database,
             models,
@@ -365,9 +369,17 @@ class WorkflowRuntime:
     ) -> str:
         parameters = node.parameters
         if node.kind == "transform":
-            if parameters["operation"] == "template":
-                return render_template(parameters.get("template", ""), values)
-            return transform(node, value)
+            def calculate():
+                if parameters["operation"] == "template":
+                    return render_template(parameters.get("template", ""), values)
+                return transform(node, value)
+
+            if "timeout_ms" not in parameters:
+                return calculate()
+            return await run_pure_transform(
+                calculate, parameters["timeout_ms"], node=node,
+                controlled=self.pure_transform_factory(node, value, values) if self.pure_transform_factory else None,
+            )
         if node.kind == "http":
             return await asyncio.to_thread(fetch_public_text, parameters["url"])
         if node.kind == "rag":

@@ -111,7 +111,7 @@ def publish(directory: Path, journal, session: network.Session) -> dict:
     staging = directory / (".export-" + session.data["session_id"])
     staging.mkdir()
     with network.phase("export"):
-        write_report(staging, journal.data)
+        write_report(staging, journal.data,evidence_directory=directory)
     seal(directory, session, "COMPLETE")
     references = validate(directory, journal.data)
     journal.data["network_audit_refs"] = references
@@ -119,7 +119,7 @@ def publish(directory: Path, journal, session: network.Session) -> dict:
         attempt["network_audit_refs"] = references
     journal.save()
     # Regenerate references locally after sealing. The audit hook now rejects all sockets.
-    report = write_report(staging, journal.data)
+    report = write_report(staging, journal.data,evidence_directory=directory)
     ready = {"schema_version": 1, "session_id": session.data["session_id"], "gate": report["gate"],
              "environment_id": journal.data["environment_id"], "dataset_digest": journal.data["dataset_digest"],
              "owner_id": journal.data["owner_id"], "target_digest": journal.data["target_digest"],
@@ -192,7 +192,12 @@ def _validate_ready(directory: Path) -> dict:
             or any(type(identity.get(key)) is not type(value) or identity.get(key) != value
                    for key, value in export_identity(data).items())):
         raise ValueError("Report receipt lacks a complete identity-bound export")
-    dataset = catalog()
+    dataset = catalog(ready["suite_context"].get("profile_version", 1))
     specimen = next(row for row in dataset.cases if row.case_id == ready["suite_context"]["case_id"])
     validate_offline_report(data, specimen, dataset, directory=directory)
+    if dataset.dataset_version == 2:
+        from .profiles_v2.lifecycle import control_report
+        expected = control_report(directory, data)
+        if any(report.get(key) != value for key, value in expected.items()):
+            raise ValueError("Sealed versioned control report differs from retained facts")
     return ready

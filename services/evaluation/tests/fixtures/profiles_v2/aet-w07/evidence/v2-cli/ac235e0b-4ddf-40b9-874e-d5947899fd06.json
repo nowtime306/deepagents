@@ -1,0 +1,135 @@
+{
+  "kind": "v2-cli",
+  "binding": {
+    "environment_id": "ad290146-af4d-45a8-99cd-189a5d21949b",
+    "owner_id": "96786c6d-3438-4908-b66f-0c75a6570129",
+    "target_digest": "39463c036fa7c4acb34af2769f9fe9bb937155d374b7763287cf482f36807a16",
+    "attempt_id": "d77dc797-d0fc-4200-9509-cfd65ad8d392",
+    "case_id": "AET-W07",
+    "repeat_index": 0,
+    "suite_id": "W07-R3-NEW-BATCH",
+    "catalog_digest": "594f54006c0627940d083e56869c56b0e97682cb988791dedb820dec738a1ac4",
+    "case_definition_digest": "f9d6a73b34357d2ff4b3f0c1caeefd49919d03875eaa27693e7201b963dbc70b",
+    "rules_id": "controlled-a20-v2",
+    "candidate_commit": "cbdab61c4b934dd440476c84d9e1c4be944f7f68"
+  },
+  "body": {
+    "status": "CLEAN_RECEIVER_UNKNOWN_OPERATION_RETAINED",
+    "observation": {
+      "facts": {
+        "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b",
+        "operation_id": "8979a536-4949-485f-b8b4-4e271e2d1987",
+        "operation_digest": "742cc9caa150fc20c2985fd1bc514bbef69c148a4845549f99bb1f3d4b4519ed",
+        "checkpoint_id": "1f1d8f15-5ee9-6bf8-8007-449fd50f68e6",
+        "receiver": {
+          "scope": {
+            "environment_id": "ad290146-af4d-45a8-99cd-189a5d21949b",
+            "owner_id": "96786c6d-3438-4908-b66f-0c75a6570129",
+            "namespace": "01096fcd-79c8-4c3e-8c53-5077fad49c50",
+            "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b"
+          },
+          "write_attempts": 1,
+          "write_count": 1,
+          "effects": [
+            [
+              1,
+              "one"
+            ]
+          ],
+          "digest": "73c19684e45f044f57789572a1210513cd3d2d169e59e6802401ef7f64e7a930"
+        },
+        "provider": {
+          "recorded": true,
+          "complete": true,
+          "case_id": "AET-W07",
+          "provider_calls": 1,
+          "tokens": 15
+        },
+        "root_status": "NEEDS_REVIEW",
+        "operation_status": "UNKNOWN"
+      },
+      "recovery": {
+        "schema_version": 1,
+        "case_id": "AET-W07",
+        "scope": {
+          "environment_id": "ad290146-af4d-45a8-99cd-189a5d21949b",
+          "owner_id": "96786c6d-3438-4908-b66f-0c75a6570129",
+          "namespace": "01096fcd-79c8-4c3e-8c53-5077fad49c50",
+          "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b"
+        },
+        "phase": "OBSERVATION_RECOVERED",
+        "before_worker_ids": [
+          "e4cb0615-c849-4ecc-ac85-6934e036e9d0"
+        ],
+        "before": {
+          "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b",
+          "operation_id": "8979a536-4949-485f-b8b4-4e271e2d1987",
+          "operation_digest": "742cc9caa150fc20c2985fd1bc514bbef69c148a4845549f99bb1f3d4b4519ed",
+          "checkpoint_id": "1f1d8f15-5ee9-6bf8-8007-449fd50f68e6",
+          "receiver": {
+            "scope": {
+              "environment_id": "ad290146-af4d-45a8-99cd-189a5d21949b",
+              "owner_id": "96786c6d-3438-4908-b66f-0c75a6570129",
+              "namespace": "01096fcd-79c8-4c3e-8c53-5077fad49c50",
+              "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b"
+            },
+            "write_attempts": 1,
+            "write_count": 1,
+            "effects": [
+              [
+                1,
+                "one"
+              ]
+            ],
+            "digest": "73c19684e45f044f57789572a1210513cd3d2d169e59e6802401ef7f64e7a930"
+          },
+          "provider": {
+            "recorded": true,
+            "complete": true,
+            "case_id": "AET-W07",
+            "provider_calls": 1,
+            "tokens": 15
+          },
+          "root_status": "NEEDS_REVIEW",
+          "operation_status": "UNKNOWN"
+        },
+        "after_worker_ids": [
+          "b6020170-7817-4cf6-b224-33e1fa57875f"
+        ],
+        "after": {
+          "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b",
+          "operation_id": "8979a536-4949-485f-b8b4-4e271e2d1987",
+          "operation_digest": "742cc9caa150fc20c2985fd1bc514bbef69c148a4845549f99bb1f3d4b4519ed",
+          "checkpoint_id": "1f1d8f15-5ee9-6bf8-8007-449fd50f68e6",
+          "receiver": {
+            "scope": {
+              "environment_id": "ad290146-af4d-45a8-99cd-189a5d21949b",
+              "owner_id": "96786c6d-3438-4908-b66f-0c75a6570129",
+              "namespace": "01096fcd-79c8-4c3e-8c53-5077fad49c50",
+              "root_id": "cf982567-6371-4e87-9b12-f65fa4bca80b"
+            },
+            "write_attempts": 1,
+            "write_count": 1,
+            "effects": [
+              [
+                1,
+                "one"
+              ]
+            ],
+            "digest": "73c19684e45f044f57789572a1210513cd3d2d169e59e6802401ef7f64e7a930"
+          },
+          "provider": {
+            "recorded": true,
+            "complete": true,
+            "case_id": "AET-W07",
+            "provider_calls": 1,
+            "tokens": 15
+          },
+          "root_status": "NEEDS_REVIEW",
+          "operation_status": "UNKNOWN"
+        }
+      },
+      "closed": true
+    }
+  }
+}

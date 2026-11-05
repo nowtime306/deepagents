@@ -65,6 +65,7 @@ def runtime(request: Request) -> WorkflowRuntime:
         request.app.state.models,
         request.app.state.capabilities,
         request.app.state.runtime.model_factory,
+        pure_transform_factory=getattr(request.app.state.runtime, 'pure_transform_factory', None),
     )
 
 

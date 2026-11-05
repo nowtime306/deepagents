@@ -6,13 +6,14 @@ param([Parameter(Mandatory)][string]$Dataset, [Parameter(Mandatory)][string]$Out
     [Parameter(Mandatory)][ValidateRange(0,100000)][int]$MaxModelCalls,
     [Parameter(Mandatory)][ValidateRange(0,100000000)][int]$MaxTokens,
     [Parameter(Mandatory)][ValidateRange(0,1000)][int]$MaxSandboxes,
-    [string[]]$CaseId, [ValidateRange(1,3)][int]$RepeatCount)
+    [string[]]$CaseId, [ValidateRange(1,3)][int]$RepeatCount,
+    [ValidateSet(1,2)][int]$ProfileVersion=1)
 $ErrorActionPreference='Stop'
 trap { [Console]::Error.WriteLine('Suite配置或进程异常，未放行。'); exit 2 }
 . (Join-Path $PSScriptRoot 'evaluation-process.ps1')
 $directory=New-EvaluationOutput $Output
 $arguments=@('-I',(Join-Path $PSScriptRoot 'evaluation-suite.py'),'--dataset',(Resolve-Path -LiteralPath $Dataset).Path,
-    '--output',$directory,'--admin-connection-file',(Resolve-Path -LiteralPath $AdminConnectionFile).Path,
+    '--profile-version',"$ProfileVersion",'--output',$directory,'--admin-connection-file',(Resolve-Path -LiteralPath $AdminConnectionFile).Path,
     '--candidate-commit',$CandidateCommit,'--rules-id',$RulesId,'--max-seconds',"$MaxSeconds",
     '--max-model-calls',"$MaxModelCalls",'--max-tokens',"$MaxTokens",'--max-sandboxes',"$MaxSandboxes")
 if($ManagerKeyFile){$arguments+=@('--manager-key-file',(Resolve-Path -LiteralPath $ManagerKeyFile).Path)}

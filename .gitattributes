@@ -2,3 +2,7 @@ services/evaluation/profile_support/java_verifier_program.py text eol=crlf
 services/evaluation/profile_support/java_verifier_launcher.py text eol=lf
 services/evaluation/src/evaluation_runner/fixed_run.py text eol=crlf
 scripts/production-c85-sources.json text eol=lf
+# Versioned fixed profiles use raw byte pins across checkout and wheel artifacts.
+/services/evaluation/src/evaluation_runner/profiles_v2/** text eol=lf
+/services/evaluation/profile_support/profiles_v2/** text eol=lf
+/services/evaluation/tests/fixtures/profiles_v2/** text eol=lf

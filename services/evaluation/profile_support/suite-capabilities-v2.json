@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "profile_version": 2,
+  "rules_id": "controlled-a20-v2",
+  "initializer_sha256": "8bb5f7223edbb9ad613fb28db221663585133dd7f7738d4cf2e04b25a400016d",
+  "sandbox_bounds": {
+    "AET-A05": 0,
+    "AET-W07": 2,
+    "AET-W08": 1,
+    "AET-F07": 0
+  },
+  "runtime_dependencies": {
+    "deepagents.graph": {
+      "path": "libs/deepagents/deepagents/graph.py",
+      "kind": "editable-source",
+      "sha256": "c09cc66b0098775d9fda8c7af574ae8b0cbbd12f486a1dd74da09e366f7b189f"
+    },
+    "deepagents._messages_reducer": {
+      "path": "libs/deepagents/deepagents/_messages_reducer.py",
+      "kind": "editable-source",
+      "sha256": "8f5aa993b432e9228dc376b70fe4e3737693e8ba055c5e823f3959897814e06e"
+    },
+    "deepagents.middleware.filesystem": {
+      "path": "libs/deepagents/deepagents/middleware/filesystem.py",
+      "kind": "editable-source",
+      "sha256": "87bba6693cc4e49c4a474b07034aef5ffc81bd8253c4b45e9e458861f9cdad7a"
+    },
+    "langgraph.pregel.main": {
+      "path": "services/api/.venv/Lib/site-packages/langgraph/pregel/main.py",
+      "kind": "api-runtime",
+      "sha256": "c96d4424e7a75388aef09afeaa8fcfe17c026e60dafca1331003775ca1bf0ffc"
+    },
+    "langgraph.channels.delta": {
+      "path": "services/api/.venv/Lib/site-packages/langgraph/channels/delta.py",
+      "kind": "api-runtime",
+      "sha256": "7cd3d2bcdd9874a34b853388432565b62913a31d81519c4f398bdedaff3b5637"
+    },
+    "langgraph.checkpoint.postgres.aio": {
+      "path": "services/api/.venv/Lib/site-packages/langgraph/checkpoint/postgres/aio.py",
+      "kind": "api-runtime",
+      "sha256": "4fb93dd257ecc7e0d604d438d265cdb369b48149d9e169fbba4e49aa89ff6462"
+    }
+  }
+}

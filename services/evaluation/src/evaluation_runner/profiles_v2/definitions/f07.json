@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "dataset_id": "a20-f07-v2",
+  "dataset_version": 2,
+  "cases": [
+    {
+      "case_id": "AET-F07",
+      "name": "真实纯转换超时与未知模型失败传播",
+      "mode": "workflow",
+      "requirements": [
+        "AE-03",
+        "AE-11"
+      ],
+      "tags": [
+        "controlled-engineering"
+      ],
+      "input": "seed",
+      "fixture_profile": {
+        "id": "handled-transform-error",
+        "version": 2
+      },
+      "fixture_parameters": {
+        "definition_digest": "848de8796a35fe17f2aabcc16c3dddb3531308ca523938297dc259aff6e0f78e"
+      },
+      "validators": [
+        {
+          "registered_id": "timeout_error_branch",
+          "version": 1,
+          "parameters": {},
+          "required": true
+        }
+      ],
+      "metrics": [],
+      "repeats": 1,
+      "approval_policy": "none",
+      "dependencies": [],
+      "budgets": {
+        "timeout_seconds": 120,
+        "max_model_calls": 1,
+        "max_tokens": 15
+      }
+    }
+  ]
+}

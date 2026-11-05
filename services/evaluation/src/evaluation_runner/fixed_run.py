@@ -24,7 +24,7 @@ from . import (
     network,
 )
 from .client import Platform
-from .contracts import Dataset, Result, Target
+from .contracts import Case, Dataset, Result, Target
 from .fixed_fixtures import FixedFixtures
 from .journal import Journal, atomic_json, digest
 from .metrics import score
@@ -39,11 +39,22 @@ NAMESPACE_CASES = WORK_CASES | fixed_workflow_observation.CASES | {"AET-A01", "A
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "datasets/a20-fixed.json"
 
 
-def catalog():
-    return Dataset.model_validate_json(CATALOG_PATH.read_text(encoding="utf-8"))
+def catalog(profile_version=1):
+    if type(profile_version) is not int or profile_version not in {1,2}:
+        raise ValueError('Only fixed profile versions 1 and 2 are accepted')
+    if profile_version == 2:
+        from .profiles_v2.registry import selection
+        return selection('AET-A05',2)[1]
+    if CATALOG_PATH.is_file():
+        return Dataset.model_validate_json(CATALOG_PATH.read_text(encoding="utf-8"))
+    from importlib.resources import files
+    return Dataset.model_validate_json(files('evaluation_runner').joinpath('datasets/a20-fixed.json').read_text(encoding='utf-8'))
 
 
 def evidence_module(specimen):
+    if specimen.case_id in {'AET-A05','AET-W07','AET-W08','AET-F07'} and specimen.fixture_profile.version==2:
+        from .profiles_v2 import lifecycle
+        return lifecycle
     if specimen.case_id == "AET-F05":
         return fixed_flow_code
     if specimen.case_id in TEAM_CASES:
@@ -73,6 +84,8 @@ def evidence_module(specimen):
 
 
 def readiness(platform, specimen, *, for_execution=False):
+    if specimen.fixture_profile.version == 2 and specimen.case_id in {'AET-A05','AET-W07','AET-W08','AET-F07'}:
+        return evidence_module(specimen).readiness(platform,specimen)
     """Identity attestation is separate from a read-only, case-specific readiness verdict."""
     proof = platform.attest()
     missing = []
@@ -137,6 +150,8 @@ def readiness(platform, specimen, *, for_execution=False):
 
 
 def initialize(platform, journal, attempt, specimen):
+    if specimen.fixture_profile.version==2 and specimen.case_id in {'AET-A05','AET-W07','AET-W08','AET-F07'}:
+        return evidence_module(specimen).initialize(platform,journal,attempt,specimen)
     if specimen.case_id == "AET-F05":
         with fixed_flow_code.deadline_scope(platform, journal, attempt, specimen, initialize=True):
             return initialize_case(platform, journal, attempt, specimen)
@@ -200,6 +215,8 @@ def initialize_case(platform, journal, attempt, specimen):
 
 
 def execute(platform, journal, attempt, specimen, output):
+    if specimen.fixture_profile.version==2 and specimen.case_id in {'AET-A05','AET-W07','AET-W08','AET-F07'}:
+        return evidence_module(specimen).execute(platform,journal,attempt,specimen,output)
     if specimen.case_id == "AET-F05":
         with fixed_flow_code.deadline_scope(platform, journal, attempt, specimen):
             if readiness(platform, specimen, for_execution=True)["status"] != "READY":
@@ -251,6 +268,9 @@ def execute_case(platform, journal, attempt, specimen, output):
 
 def cleanup(platform, journal, attempt):
     """Retain historical evidence; only a target with no active/unknown effects is clean."""
+    if attempt.get('profile_version')==2:
+        specimen=Case.model_validate(attempt['case_snapshot'])
+        return evidence_module(specimen).cleanup(platform,journal,attempt,specimen)
     intents = [*attempt.get("fixture_intents", {}).values(), *attempt.get("submission_intents", {}).values()]
     if any(row["status"] not in {"CONFIRMED", "REJECTED"} for row in intents):
         return "NEEDS_REVIEW"
@@ -293,6 +313,9 @@ def cleanup(platform, journal, attempt):
 
 
 def describe(specimen, dataset):
+    if dataset.dataset_id == 'a20-explicit-v2':
+        from .profiles_v2.registry import selection
+        return selection(specimen.case_id,2)[2]
     return {"schema_version": 1, "catalog_digest": digest(dataset.model_dump(mode="json")),
             "case_definition_digest": digest(specimen.model_dump(mode="json")), "case_id": specimen.case_id,
             "rules_id": RULES_ID, "implemented": (specimen.case_id in IMPLEMENTED
@@ -301,10 +324,19 @@ def describe(specimen, dataset):
             "maximum_sandboxes": 10 if specimen.case_id == "AET-F05" else 2, "sandbox_enforcement": "controlled-sandbox-reserve-v1"}
 
 
+def context_version(context, dataset):
+    version = context.get('profile_version', 1)
+    expected = 2 if dataset.dataset_version == 2 else 1
+    if type(version) is not int or version != expected:
+        raise ValueError('Suite context profile version differs from the selected catalog')
+    return version
+
+
 def suite_context(path, specimen, dataset, target, existing=None):
     expected = describe(specimen, dataset)
     value = (json.loads(path.read_text(encoding="utf-8")) if path else existing) or {
         **expected, "suite_id": str(uuid4()), "repeat_index": 1, "candidate_commit": target.platform_commit}
+    context_version(value, dataset)
     for key in ("catalog_digest", "case_definition_digest", "case_id", "rules_id"):
         if value.get(key) != expected[key]:
             raise ValueError("Suite context does not match the fixed reviewed catalog")
@@ -319,6 +351,7 @@ def suite_context(path, specimen, dataset, target, existing=None):
 def validate_offline_report(data, specimen, dataset, *, context_path=None, target_path=None, directory=None):
     expected = describe(specimen, dataset)
     context = data["suite_context"]
+    context_version(context, dataset)
     if (type(data.get("schema_version")) is not int or data["schema_version"] != 1
             or type(context.get("schema_version")) is not int or context["schema_version"] != 1
             or type(context.get("repeat_index")) is not int or not 1 <= context["repeat_index"] <= 3):
@@ -333,6 +366,7 @@ def validate_offline_report(data, specimen, dataset, *, context_path=None, targe
     UUID(context["suite_id"])
     if context_path:
         requested = json.loads(context_path.read_text(encoding="utf-8"))
+        context_version(requested, dataset)
         identity = ("schema_version", "suite_id", "catalog_digest", "case_definition_digest", "repeat_index", "case_id", "candidate_commit", "rules_id")
         if any(type(requested.get(key)) is not type(context.get(key)) or requested.get(key) != context.get(key) for key in identity):
             raise ValueError("Requested suite differs from the recorded suite")
@@ -381,11 +415,12 @@ def main():
     parser = argparse.ArgumentParser(description="Fixed controlled A20 engineering profiles")
     parser.add_argument("action", choices=["describe", "preflight", "init", "run", "cleanup", "report"])
     parser.add_argument("--case-id", required=True)
+    parser.add_argument("--profile-version", type=int, choices=[1,2], default=1)
     parser.add_argument("--target-manifest", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--suite-context", type=Path)
     args = parser.parse_args()
-    dataset = catalog()
+    dataset = catalog(args.profile_version)
     specimen = next((row for row in dataset.cases if row.case_id == args.case_id), None)
     if specimen is None:
         parser.error("Only fixed reviewed case IDs are accepted")
@@ -407,6 +442,11 @@ def main():
     journal, platform = None, None
     try:
         journal = Journal(output)
+        if journal.data.get('attempts'):
+            recorded_version=journal.data.get('suite_context',{}).get('profile_version',1)
+            if type(recorded_version) is not int or recorded_version not in {1,2} or args.profile_version!=recorded_version:
+                print('Recorded profile version differs; retained journal and reports were not modified')
+                return 2
         fixed_audit.begin(output, session)
         if args.action == "describe":
             with network.phase("execution"):
@@ -427,6 +467,8 @@ def main():
                 if args.target_manifest is None:
                     raise ValueError("A target manifest is required")
                 target = Target.model_validate_json(args.target_manifest.read_text(encoding="utf-8"))
+                if args.action != "preflight":
+                    context = suite_context(args.suite_context, specimen, dataset, target, journal.data.get("suite_context"))
                 session.data["identity"].update(environment_id=target.environment_id, owner_id=target.owner_id,
                                                target_digest=digest(target.model_dump()), candidate_commit=target.platform_commit)
                 session.data["policy"]["allowed_origin"] = target.api_base_url
@@ -443,7 +485,6 @@ def main():
                         atomic_json(output / "fixed-preflight.json", {"environment_status": "ATTESTED", **result,
                                                                      **describe(specimen, dataset)})
                 else:
-                    context = suite_context(args.suite_context, specimen, dataset, target, journal.data.get("suite_context"))
                     identity = {"environment_id": target.environment_id, "owner_id": target.owner_id,
                                 "target_digest": digest(target.model_dump()), "dataset_digest": context["catalog_digest"],
                                 "case_definition_digest": context["case_definition_digest"], "suite_context": context,
@@ -487,6 +528,10 @@ def main():
             return 0
         if args.action == "cleanup":
             return 0 if attempt["cleanup_status"] == "CLEAN" else 1
+        if args.profile_version==2:
+            print(json.dumps({'business_gate':report['gate'],'control_gate':report.get('control_gate','NEEDS_REVIEW'),
+                              'meaning':'受控检查完成不代表业务成功、费用结算或允许回收和继续下一批'}))
+            return 0 if report.get('control_gate')=='PASS' else 1
         return 0 if report["gate"] == "PASS" else 1
     except Exception as error:  # noqa: BLE001 -- Preserve facts, safe failure types and per-command audit on every exit.
         if journal is not None and args.action in {"init", "run", "cleanup"}:
