@@ -57,19 +57,20 @@ export function ExtraCosts({ isAdmin }: { isAdmin: boolean }) {
       await reload(); setOpen(false);
     });
   }
-  return <section aria-label="额外费用与账单核对">
-    <header><h3>额外费用与账单核对</h3>{isAdmin && <button onClick={() => setOpen(true)}>新增计费版本</button>}</header>
+  return <section className="repository-panel phase-eight-settings" aria-label="额外费用与账单核对">
+    <header className="resource-list-heading"><h3>额外费用与账单核对</h3>{isAdmin && <button className="settings-primary" onClick={() => setOpen(true)}>新增计费版本</button>}</header>
     <p>Token/缓存价格单独保留。额外费用按明确单位记录，未报告数量保持未知，不代表完整供应商账单。</p>
     {error && <p role="alert">{error}</p>}
-    {prices.length ? prices.map(p => <article key={p.id}>{models.find(m => m.id === p.model_id)?.name || p.model_id} · {p.item} · {p.unit_price} {p.currency}/{p.unit}</article>)
+    {prices.length ? prices.map(p => <article className="repository-card" key={p.id}>{models.find(m => m.id === p.model_id)?.name || p.model_id} · {p.item} · {p.unit_price} {p.currency}/{p.unit}</article>)
       : <p>尚无额外费用价格版本。</p>}
     {priceCursor && <button disabled={busy} onClick={() => void action(async () => {
       const result = await api<{ items: Price[]; next_cursor: string | null }>(`/operations/extra-costs/prices?before=${encodeURIComponent(priceCursor)}`);
       setPrices(old => [...old, ...result.items.filter(item => !old.some(row => row.id === item.id))]);
       setPriceCursor(result.next_cursor);
     })}>加载更早价格版本</button>}
-    <h4>最近500条额外费用</h4>{usage.map(u => <article key={u.id}>{u.item} · {u.quantity ?? "数量未知"} · {u.amount ?? "金额未知"} · {u.source === "manual" ? "人工记录" : "服务上报"}
+    <h4 className="operations-section-title">最近500条额外费用</h4>{usage.map(u => <article className="repository-card" key={u.id}>{u.item} · {u.quantity ?? "数量未知"} · {u.amount ?? "金额未知"} · {u.source === "manual" ? "人工记录" : "服务上报"}
       {isAdmin && u.quantity === null && <ReconcileUsage id={u.id} refresh={reload} />}</article>)}
+    <div className="repository-form" role="group" aria-label="账单导入与核对">
     <label>上传标准CSV或JSON账单<input type="file" accept=".csv,.json" disabled={busy} onChange={event => {
       const file = event.target.files?.[0]; if (!file) return; setResults(null); setRows([]); setColumns([]); setBillFile(file); setBillName(file.name);
       void action(() => parseFile(file));
@@ -103,7 +104,8 @@ export function ExtraCosts({ isAdmin }: { isAdmin: boolean }) {
     {results?.map((r, i) => <article key={`${r.call_id}-${r.item}-${i}`}>
       {r.item} · {labels[r.status] || r.status} · 供应商 {r.amount ?? "未知"} / 平台 {r.platform_amount ?? "未知"} {r.currency}
     </article>)}
-    <h4>核对记录（已加载{imports.length}份）</h4>{imports.map(b => <p key={b.id}>{b.name} · <a
+    </div>
+    <h4 className="operations-section-title">核对记录（已加载{imports.length}份）</h4>{imports.map(b => <p key={b.id}>{b.name} · <a
       href={`/api/v1/operations/extra-costs/bills/${b.id}/download`}>下载核对结果</a></p>)}
     {billCursor && <button disabled={busy} onClick={() => void action(async () => {
       const result = await api<{ items: Import[]; next_cursor: string | null }>(`/operations/extra-costs/bills?before=${encodeURIComponent(billCursor)}`);
@@ -111,7 +113,7 @@ export function ExtraCosts({ isAdmin }: { isAdmin: boolean }) {
       setBillCursor(result.next_cursor);
     })}>加载更早核对记录</button>}
     {open && <ResourceDialog title="新增额外计费版本" busy={busy} close={() => setOpen(false)}>
-      <form onSubmit={save}>
+      <form className="repository-form" onSubmit={save}>
         <label>模型<select value={model} onChange={e => setModel(e.target.value)} required>
           <option value="">请选择模型</option>{models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
         <label>计费项标识<input required pattern="[a-zA-Z0-9_.-]+" value={item} onChange={e => setItem(e.target.value)} /></label>
@@ -131,7 +133,7 @@ export function ExtraCosts({ isAdmin }: { isAdmin: boolean }) {
 function ReconcileUsage({ id, refresh }: { id: string; refresh: () => Promise<void> }) {
   const [quantity, setQuantity] = useState(""), [note, setNote] = useState("");
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
-  return <details><summary>核对未报告用量</summary><form onSubmit={event => {
+  return <details><summary>核对未报告用量</summary><form className="repository-form" onSubmit={event => {
     event.preventDefault(); setBusy(true); setError("");
     void api(`/operations/extra-costs/usage/${id}/reconcile`, { method: "POST",
       body: JSON.stringify({ quantity, note }) }).then(refresh).catch(e => setError(e.message)).finally(() => setBusy(false));

@@ -6,6 +6,7 @@ import { api } from "@/lib/api/platform";
 import { HarnessPolicies } from "./run-diagnostics";
 import { ServiceStatus } from "./service-status";
 import { Billing } from "./billing";
+import { ExtraCosts } from "./extra-costs";
 import { OperationsBackups } from "./operations-backups";
 import { ResourceDialog } from "./resource-dialog";
 import { MonitoringAlerts } from "./monitoring-dashboard";
@@ -150,7 +151,7 @@ export function Operations({ isAdmin }: { isAdmin: boolean }) {
         <article className="operations-metric"><span>输出 Token</span><strong>{tokens("output_tokens")}</strong><small>服务已报告部分，不含未知用量</small></article>
       </div>
       <p className="operations-note">
-        统计仅覆盖账本启用后的聊天、任务和工作流模型调用。服务未返回用量或尚未结束时标记未知；未设置单价的调用不计作零费用。不同币种分别汇总。
+        统计覆盖账本启用后的聊天、任务、工作流及已登记的资源处理调用（含知识库入库、检索和重排）。服务未返回用量或尚未结束时标记未知；未设置单价的调用不计作零费用。不同币种分别汇总。
       </p>
       <div className="operations-price-summary">{summary.map((item, index) => (
         <span key={index}>{item.currency || "未定价"} · 已知部分估算 {item.estimated_cost ?? "未计算"} · 未知用量 {item.unknown_calls} 次 · 未计价 {item.unpriced_calls} 次</span>
@@ -254,7 +255,7 @@ export function Operations({ isAdmin }: { isAdmin: boolean }) {
       ))}</tbody></table>
       {!usage.length && <p className="operations-empty">暂无模型调用记录。</p>}
       </div>
-      <div id="ops-billing"><Billing isAdmin={isAdmin}/></div>
+      <div id="ops-billing"><Billing isAdmin={isAdmin}/><ExtraCosts isAdmin={isAdmin}/></div>
       {isAdmin && <div className="operations-service-grid"><ServiceStatus /><section id="ops-backups"><OperationsBackups /></section></div>}
       <h2 id="ops-audit" className="operations-section-title">操作审计<span aria-hidden="true">已加载 {audit.length} 条</span></h2>
       <p className="operations-note">

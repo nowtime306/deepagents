@@ -53,7 +53,6 @@ import { RepositorySettings } from "./repository-settings";
 import { Operations } from "./operations";
 import { MonitoringDashboard } from "./monitoring-dashboard";
 import { IdentityAdmin, IdentityLogin } from "@/features/identity/identity-security";
-import { ExtraCosts } from "./extra-costs";
 import { Organizations } from "./organizations";
 import type { Message } from "./chat-message";
 import { RunSnapshotContext, type RunSnapshot } from "./run-snapshot";
@@ -744,7 +743,7 @@ export function PlatformApp() {
         ) : section === "组织管理" ? (
           <Organizations canCreate={can("organizations.manage")} />
         ) : section === "运营管理" ? (
-          <><Operations isAdmin={isAdmin} /><ExtraCosts isAdmin={isAdmin} /></>
+          <Operations isAdmin={isAdmin} />
         ) : section === "监测大盘" ? (
           <MonitoringDashboard canManage={can("monitoring.manage")} />
         ) : section === "工作流" ? (
