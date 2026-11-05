@@ -20,7 +20,7 @@ from app.account_api import throttle
 from app.errors import fail
 from app.models import CredentialVault
 from app.permissions import account
-from app.security import COOKIE, identity, token_digest, verify_password
+from app.security import cookie_name, identity, token_digest, verify_password
 
 router = APIRouter(prefix="/api/v1/auth/security", tags=["个人安全"])
 
@@ -70,7 +70,7 @@ async def password_proof(request, user, password):
             "JOIN identity_provider_sessions p ON p.token_hash=s.token_hash "
             "JOIN identity_providers i ON i.id=p.provider_id WHERE s.token_hash=%s AND s.owner_id=%s "
             "AND s.created_at>now()-interval '5 minutes' AND s.expires_at>now() AND i.enabled",
-            (token_digest(request.cookies.get(COOKIE, "")), user["id"]),
+            (token_digest(request.cookies.get(cookie_name(request), "")), user["id"]),
         )
         if recent:
             return token_digest(recent[0]["password_hash"])
@@ -138,15 +138,16 @@ async def issue_session(connection, request, user, provider_id=None):
         )
     response = JSONResponse(jsonable_encoder(user))
     response.set_cookie(
-        COOKIE, token, httponly=True, secure=request.app.state.settings.cookie_secure, samesite="strict", max_age=43200
+        cookie_name(request), token,
+        httponly=True, secure=request.app.state.settings.cookie_secure, samesite="strict", max_age=43200
     )
-    response.delete_cookie("identity_challenge")
+    response.delete_cookie(cookie_name(request, "challenge"))
     return response
 
 
 @router.get("/pending")
 async def pending(request: Request):
-    token = request.cookies.get("identity_challenge", "")
+    token = request.cookies.get(cookie_name(request, "challenge"), "")
     rows = (
         await request.app.state.db.fetch(
             "SELECT t.password_version,u.password_hash FROM identity_challenges t JOIN users u ON u.id=t.owner_id "
@@ -163,18 +164,18 @@ async def pending(request: Request):
         {"challenge": token if valid else "", "mfa_required": valid}, headers={"Cache-Control": "no-store"}
     )
     if not valid:
-        response.delete_cookie("identity_challenge")
+        response.delete_cookie(cookie_name(request, "challenge"))
     return response
 
 
 @router.post("/pending/cancel")
 async def cancel_pending(body: CancelChallenge, request: Request):
-    tokens = {body.challenge, request.cookies.get("identity_challenge", "")} - {""}
+    tokens = {body.challenge, request.cookies.get(cookie_name(request, "challenge"), "")} - {""}
     async with request.app.state.db.pool.connection() as connection:
         for token in tokens:
             await connection.execute("DELETE FROM identity_challenges WHERE token_hash=%s", (token_digest(token),))
     response = JSONResponse({"ok": True}, headers={"Cache-Control": "no-store"})
-    response.delete_cookie("identity_challenge")
+    response.delete_cookie(cookie_name(request, "challenge"))
     return response
 
 
@@ -240,7 +241,7 @@ async def confirm(body: Proof, request: Request):
         )
         await connection.execute(
             "DELETE FROM auth_sessions WHERE owner_id=%s AND token_hash<>%s",
-            (user["id"], token_digest(request.cookies.get(COOKIE, ""))),
+            (user["id"], token_digest(request.cookies.get(cookie_name(request), ""))),
         )
     return {"recovery_codes": codes, "note": "仅显示一次，请离线妥善保存"}
 
@@ -256,7 +257,7 @@ async def disable(body: Proof, request: Request):
         await connection.execute("DELETE FROM identity_challenges WHERE owner_id=%s", (user["id"],))
         await connection.execute(
             "DELETE FROM auth_sessions WHERE owner_id=%s AND token_hash<>%s",
-            (user["id"], token_digest(request.cookies.get(COOKIE, ""))),
+            (user["id"], token_digest(request.cookies.get(cookie_name(request), ""))),
         )
     return {"ok": True}
 

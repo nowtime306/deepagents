@@ -76,7 +76,7 @@ from app.operations_api import router as operations_router
 from app.organization_api import router as organization_router
 from app.permissions import account
 from app.runtime import Runtime
-from app.security import COOKIE, hash_password, identity, token_digest, verify_password
+from app.security import cookie_name, hash_password, identity, token_digest, verify_password
 from app.speech_api import router as speech_router
 from app.storage import Database
 from app.team_api import router as team_router
@@ -537,17 +537,19 @@ def register_routes(app: FastAPI) -> None:
         request.state.actor = user
         response = JSONResponse(jsonable_encoder(user))
         response.set_cookie(
-            COOKIE, token, httponly=True, secure=app.state.settings.cookie_secure, samesite="strict", max_age=43200
+            cookie_name(request), token,
+            httponly=True, secure=app.state.settings.cookie_secure, samesite="strict", max_age=43200
         )
         return response
 
     @app.post("/api/v1/auth/logout")
     async def logout(request: Request) -> JSONResponse:
         await app.state.db.execute(
-            "DELETE FROM auth_sessions WHERE token_hash=%s", (token_digest(request.cookies.get(COOKIE, "")),)
+            "DELETE FROM auth_sessions WHERE token_hash=%s",
+            (token_digest(request.cookies.get(cookie_name(request), "")),)
         )
         response = JSONResponse({"ok": True})
-        response.delete_cookie(COOKIE)
+        response.delete_cookie(cookie_name(request))
         return response
 
     @app.get("/api/v1/auth/me")

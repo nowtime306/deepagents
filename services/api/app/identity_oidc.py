@@ -20,7 +20,7 @@ from app.errors import fail
 from app.identity_api import Proof, consume_code, issue_session, login_challenge, password_proof, vault
 from app.maintenance import request_slot
 from app.permissions import account
-from app.security import COOKIE, administrator, hash_password, identity, token_digest
+from app.security import administrator, cookie_name, hash_password, identity, token_digest
 
 router = APIRouter(prefix="/api/v1", tags=["企业身份"])
 
@@ -189,7 +189,7 @@ async def begin(identifier: UUID, body: Begin, request: Request):
         if body.password is None:
             fail(422, "PASSWORD_REQUIRED", "绑定前请验证当前密码或近期企业身份")
         password_version = await password_proof(request, user, body.password)
-        session_hash = token_digest(request.cookies.get(COOKIE, ""))
+        session_hash = token_digest(request.cookies.get(cookie_name(request), ""))
         async with request.app.state.db.pool.connection() as connection:
             await connection.execute("SELECT pg_advisory_xact_lock(710018)")
             current = await (
@@ -248,7 +248,7 @@ async def begin(identifier: UUID, body: Begin, request: Request):
         }
     )
     response.set_cookie(
-        "identity_browser",
+        cookie_name(request, "browser"),
         browser,
         httponly=True,
         secure=request.app.state.settings.cookie_secure,
@@ -276,7 +276,7 @@ async def callback_admitted(request: Request, state: str, code: str):
             await connection.execute(
                 "DELETE FROM identity_oidc_states WHERE token_hash=%s AND browser_hash=%s AND "
                 "expires_at>now() RETURNING *",
-                (token_digest(state), token_digest(request.cookies.get("identity_browser", ""))),
+                (token_digest(state), token_digest(request.cookies.get(cookie_name(request, "browser"), ""))),
             )
         ).fetchone()
     if not row:
@@ -382,7 +382,7 @@ async def callback_admitted(request: Request, state: str, code: str):
         if pending:
             response = RedirectResponse(request.app.state.settings.web_origin, status_code=303)
             response.set_cookie(
-                "identity_challenge",
+                cookie_name(request, "challenge"),
                 json.loads(pending.body)["challenge"],
                 httponly=True,
                 secure=request.app.state.settings.cookie_secure,

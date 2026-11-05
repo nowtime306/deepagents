@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from app.errors import fail
 from app.permissions import PERMISSIONS
-from app.security import COOKIE, administrator, hash_password, identity, token_digest, verify_password
+from app.security import administrator, cookie_name, hash_password, identity, token_digest, verify_password
 
 router = APIRouter(prefix="/api/v1", tags=["账号与权限"])
 
@@ -163,7 +163,7 @@ async def change_password(body: PasswordInput, request: Request) -> JSONResponse
         )
         await connection.execute("DELETE FROM auth_sessions WHERE owner_id=%s", (user["id"],))
     response = JSONResponse({"ok": True, "message": "密码已修改，所有旧会话已退出，请重新登录"})
-    response.delete_cookie(COOKIE)
+    response.delete_cookie(cookie_name(request))
     return response
 
 
@@ -174,7 +174,7 @@ async def sessions(request: Request) -> dict:
         "items": await request.app.state.db.fetch(
             "SELECT id,created_at,expires_at,token_hash=%s AS current FROM auth_sessions "
             "WHERE owner_id=%s AND expires_at>now() ORDER BY expires_at DESC",
-            (token_digest(request.cookies.get(COOKIE, "")), user["id"]),
+            (token_digest(request.cookies.get(cookie_name(request), "")), user["id"]),
         )
     }
 

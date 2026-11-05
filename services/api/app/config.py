@@ -2,6 +2,7 @@
 
 import ipaddress
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -70,9 +71,14 @@ class Settings:
     evaluation_instance_id: str | None = None
     evaluation_platform_commit: str | None = None
     restricted_execution: bool = field(default=False, kw_only=True)
+    session_cookie_name: str = field(default="owner_agent_session", kw_only=True)
 
     def __post_init__(self) -> None:
         self.internal_api_url = validate_internal_api_url(self.internal_api_url)
+        if not isinstance(self.session_cookie_name, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", self.session_cookie_name
+        ):
+            raise ValueError("SESSION_COOKIE_NAME must be 1-64 safe ASCII characters, starting with a letter or digit")
         if self.restricted_execution and any((self.work_enabled, self.automation_enabled,
                                              self.evaluation_enabled, self.media_worker_enabled)):
             raise ValueError("Restricted release cannot enable background execution workers")
@@ -93,6 +99,7 @@ class Settings:
             evaluation_enabled=os.getenv("EVALUATION_ENABLED", "true").lower() == "true",
             media_worker_enabled=os.getenv("MEDIA_WORKER_ENABLED", "true").lower() == "true",
             cookie_secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+            session_cookie_name=os.getenv("SESSION_COOKIE_NAME", cls.session_cookie_name),
             evaluation_instance_id=os.getenv("EVALUATION_INSTANCE_ID"),
             evaluation_platform_commit=os.getenv("EVALUATION_PLATFORM_COMMIT"),
         )

@@ -12,6 +12,16 @@ from app.permissions import account, route_permission
 COOKIE = "owner_agent_session"
 
 
+def cookie_name(request: Request, kind: str = "session") -> str:
+    """Resolve authentication cookies from this app instance, preserving legacy defaults."""
+    name = request.app.state.settings.session_cookie_name
+    if kind == "session":
+        return name
+    if kind not in {"challenge", "browser"}:
+        raise ValueError("Unknown authentication cookie kind")
+    return f"identity_{kind}" if name == COOKIE else f"{name}_{kind}"
+
+
 def hash_password(password: str, *, salt: str | None = None) -> str:
     """Hash a password using a unique salt and scrypt."""
     salt = salt or secrets.token_hex(16)
@@ -32,7 +42,7 @@ def token_digest(token: str) -> str:
 
 async def identity(request: Request) -> dict:
     """Resolve identity and role from the server session on every request."""
-    token = request.cookies.get(COOKIE, "")
+    token = request.cookies.get(cookie_name(request), "")
     rows = await request.app.state.db.fetch(
         "SELECT u.id FROM auth_sessions s JOIN users u ON u.id=s.owner_id "
         "WHERE s.token_hash=%s AND s.expires_at>now()",
