@@ -128,3 +128,12 @@ Work详情修复提交`f2fd3c9aa7a07af9902b8e7bcd5046dcb8fbcf85`已正常推送�
 - 分支 `onwer_agent`；环境启动固定提交 `bf0ebc883dc5a8ff986e155e79a1de6d4f646bfe`，对应此前已发布的受限管理版本 `zhixing-v0.1.1-metadata.1`。本轮仅补充运维记录，不生成新应用版本、不变更运行源码或生产执行开关；后续文档提交号和远端核对单独保存在 `.local/environment-setup-20261105/version-control.json`。
 - 构建Browser镜像，完成离线中文/点击/截图和18180真实创建、执行、销毁复核；独立库85、账号、目录、端口及沙箱命名空间已准备，Ask/Work心跳正常。没有业务模型调用或任务，不累加A20。
 - 浏览器工具权限、完整平台评测驱动及剩余专项仍未闭合，真实外部模型继续跳过。具体范围、资源串行限制、失败原件、收据摘要与合作停止入口见 [本次运维记录](../metadata85-release-operations.md#2026-11-05-0823-验收环境补齐env-20261105)。
+
+## 2026-11-05：认证Cookie与评测编辑保护修复
+
+- 分支onwer_agent，基线ab3f36ff10bf76f75a643c84ba02371b5acd9718。
+- e3f6c7517：fix(web): preserve unsaved evaluation edits。两源文件，独审、TypeScript/ESLint、真实生产构建YNGS及测试3100六项关键页面交互通过；窄屏/遮罩/busy等继续待验。测试部署成功，正式3131未换。
+- 2d46cda77：fix(api): isolate instance authentication cookies。六个已审模块，独立真实PG15项及兼容41项证据支持；精确集成且Ruff通过。修复测试实例已使用，原正式API冻结源保持，不宣称正式新源码部署。
+- A05 R2限定受控工程事实见acceptance-resume-qa-2026-11-05.md，运行器仍为私有冻结候选；不以本两提交称完整DeepEval执行上线。
+- 推送将在本轮文档固定后执行并独立保存远端核验；没有新正式应用标签。
+- 产品最终已限定接收A05 v2工程案例（14/20覆盖），旧UNKNOWN与累计用量保留；UI只部署测试3100，正式保持原受限版本。
